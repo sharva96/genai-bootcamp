@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 3 — Types of Generative AI</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #06b6d4; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+  .updated   { display: inline-block; background: #10b981; color: #0f172a; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px; margin-left: 8px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Type selector tabs */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px; }
+  .tab-btn {
+    padding: 10px 20px; border-radius: 10px; border: 1.5px solid #334155;
+    background: #1e293b; color: #94a3b8; font-size: 0.9rem; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+  }
+  .tab-btn:hover { border-color: #6366f1; color: #e2e8f0; }
+  .tab-btn.active { color: #fff; border-color: transparent; }
+
+  /* Type content */
+  .type-panel { display: none; animation: fadeIn 0.3s; }
+  .type-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .type-hero {
+    border-radius: 16px; padding: 32px; margin-bottom: 32px;
+    display: flex; align-items: flex-start; gap: 24px;
+  }
+  .type-icon { font-size: 3.5rem; flex-shrink: 0; }
+  .type-hero h2 { font-size: 1.5rem; margin-bottom: 8px; }
+  .type-hero .desc { color: #94a3b8; line-height: 1.6; font-size: 0.95rem; }
+  .type-hero .how { margin-top: 12px; font-size: 0.85rem; color: #cbd5e1; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px 14px; }
+  .how-label { font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.06em; margin-bottom: 4px; }
+
+  .cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+  .info-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+  .info-card h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 12px; }
+  .tool-list { display: flex; flex-direction: column; gap: 8px; }
+  .tool-item { display: flex; align-items: center; gap: 10px; }
+  .tool-logo { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; color: #fff; font-weight: 700; }
+  .tool-name { font-size: 0.88rem; font-weight: 600; color: #f1f5f9; }
+  .tool-by   { font-size: 0.76rem; color: #64748b; }
+  .use-list  { list-style: none; }
+  .use-list li { font-size: 0.85rem; color: #cbd5e1; padding: 5px 0; border-bottom: 1px solid #334155; display: flex; gap: 8px; align-items: flex-start; }
+  .use-list li::before { content: '→'; color: #64748b; flex-shrink: 0; }
+  .use-list li:last-child { border-bottom: none; }
+
+  /* Demo simulation box */
+  .demo-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .demo-box h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 16px; }
+  .demo-io { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; }
+  .demo-in, .demo-out { background: #0f172a; border-radius: 10px; padding: 16px; }
+  .demo-in-label, .demo-out-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .demo-in-label  { color: #6366f1; }
+  .demo-out-label { color: #10b981; }
+  .demo-in p, .demo-out p { font-size: 0.88rem; color: #e2e8f0; line-height: 1.5; font-style: italic; }
+  .arrow-box { font-size: 1.5rem; color: #475569; text-align: center; }
+  .model-pill { text-align: center; font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+
+  /* Prompts gallery */
+  .prompts-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 24px; margin-bottom: 32px; }
+  .prompts-box h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 6px; }
+  .prompts-box .prompts-sub { font-size: 0.82rem; color: #64748b; margin-bottom: 18px; }
+  .prompt-card { background: #0f172a; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; border-left: 3px solid var(--accent, #6366f1); }
+  .prompt-card:last-child { margin-bottom: 0; }
+  .prompt-card .pc-tag { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; margin-bottom: 8px; }
+  .prompt-card .pc-text { font-size: 0.88rem; color: #cbd5e1; line-height: 1.55; font-family: 'Consolas', 'Monaco', monospace; }
+  .prompt-card .pc-note { font-size: 0.78rem; color: #64748b; margin-top: 6px; font-style: italic; }
+
+  /* Comparison strip at bottom */
+  .compare-strip { background: #1e293b; border-radius: 16px; padding: 28px; }
+  .compare-strip h2 { font-size: 1.1rem; margin-bottom: 20px; color: #f1f5f9; }
+  .compare-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .compare-col { text-align: center; }
+  .compare-icon { font-size: 2rem; margin-bottom: 8px; }
+  .compare-type { font-size: 0.82rem; font-weight: 700; margin-bottom: 6px; }
+  .compare-stat { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
+  .maturity-bar { height: 4px; border-radius: 2px; margin: 8px auto; }
+
+  /* Quiz */
+  .quiz-section { margin-top: 56px; }
+  .quiz-section h2 { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  .quiz-section .qs-sub { font-size: 0.88rem; color: #64748b; margin-bottom: 28px; }
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn {
+    background: #0f172a; border: 1.5px solid #334155; border-radius: 8px;
+    padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer;
+    text-align: left; transition: all 0.15s;
+  }
+  .opt-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 640px) { .cards-grid { grid-template-columns: 1fr; } .demo-io { grid-template-columns: 1fr; } .compare-row { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 1 · Lab 3</div>
+  <h1>Types of Generative AI<span class="updated">Updated June 2026</span></h1>
+  <p>Select a type to explore what it does, today's leading tools, real prompts to study, and business use cases.</p>
+</div>
+
+<div class="main">
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showType('text', event)"  style="--c:#6366f1">📝 Text</button>
+    <button class="tab-btn" onclick="showType('image', event)" style="--c:#ec4899">🎨 Image</button>
+    <button class="tab-btn" onclick="showType('audio', event)" style="--c:#f59e0b">🎵 Audio</button>
+    <button class="tab-btn" onclick="showType('video', event)" style="--c:#ef4444">🎬 Video</button>
+    <button class="tab-btn" onclick="showType('code', event)"  style="--c:#10b981">💻 Code</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ TEXT ═══ -->
+  <div class="type-panel active" id="panel-text">
+    <div class="type-hero" style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.3);">
+      <div class="type-icon">📝</div>
+      <div>
+        <h2 style="color:#818cf8">Text Generation</h2>
+        <p class="desc">The most mature and widely deployed type. Models trained on trillions of tokens can now write, summarize, translate, answer questions, plan, and reason across virtually any topic. In 2025 we saw the rise of <strong>reasoning models</strong> that "think" before responding.</p>
+        <div class="how">
+          <div class="how-label" style="color:#818cf8">How it works</div>
+          Decoder-only Transformer trained on next-token prediction. Reasoning models (o3, Claude with extended thinking) generate hidden "thinking" tokens before producing the visible response, dramatically improving accuracy on complex tasks.
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-box">
+      <h3>Input → Output Example</h3>
+      <div class="demo-io">
+        <div class="demo-in">
+          <div class="demo-in-label">Prompt (Input)</div>
+          <p>"Analyze this customer support ticket: 'My subscription auto-renewed even though I cancelled last month. I have a screenshot of the cancellation confirmation. Refund and confirm closure.' Classify urgency + sentiment, then draft a 60-word apology response."</p>
+        </div>
+        <div class="arrow-box">⟶<div class="model-pill">Claude Sonnet 4.6</div></div>
+        <div class="demo-out">
+          <div class="demo-out-label">Generated Output</div>
+          <p><strong>Urgency:</strong> High · <strong>Sentiment:</strong> Frustrated but evidence-based<br><br><strong>Response:</strong> "Hi [Name], we're sorry — that auto-renewal shouldn't have happened given your cancellation. I've issued a full refund to your original payment method (3-5 business days) and confirmed your account is closed. Could you share the screenshot? It helps us fix the underlying bug. — Sarah, Support Team"</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompts-box">
+      <h3>📋 More Prompts to Study</h3>
+      <p class="prompts-sub">Read these to build intuition for what well-crafted prompts look like. Try them in ChatGPT or Claude.ai.</p>
+      <div class="prompt-card" style="--accent:#6366f1">
+        <span class="pc-tag" style="background:rgba(99,102,241,0.2); color:#818cf8">📊 Analysis</span>
+        <div class="pc-text">"You are a financial analyst. Read the attached Q3 earnings transcript and identify: (1) the top 3 risks management acknowledged, (2) any guidance changes vs Q2, (3) red flags in tone or evasive answers from the CEO. Return as a structured brief under 200 words."</div>
+        <p class="pc-note">Use case: Investment research, equity analysis</p>
+      </div>
+      <div class="prompt-card" style="--accent:#6366f1">
+        <span class="pc-tag" style="background:rgba(99,102,241,0.2); color:#818cf8">✍️ Writing</span>
+        <div class="pc-text">"Write a 120-word LinkedIn post announcing my promotion to VP of Engineering at Acme Corp. Voice: confident but humble, credits the team. Include one specific accomplishment (led migration to Kubernetes saving $2M annually). End with hiring CTA."</div>
+        <p class="pc-note">Use case: Personal branding, professional communication</p>
+      </div>
+      <div class="prompt-card" style="--accent:#6366f1">
+        <span class="pc-tag" style="background:rgba(99,102,241,0.2); color:#818cf8">🔄 Transformation</span>
+        <div class="pc-text">"Translate this technical API documentation into a one-page quickstart guide for non-technical product managers. Replace jargon with analogies. Add a 'When to use this' section and one realistic example. [paste docs]"</div>
+        <p class="pc-note">Use case: Documentation, knowledge transfer</p>
+      </div>
+      <div class="prompt-card" style="--accent:#6366f1">
+        <span class="pc-tag" style="background:rgba(99,102,241,0.2); color:#818cf8">🧠 Reasoning (use o3 or Opus)</span>
+        <div class="pc-text">"A SaaS company has 1,200 customers paying $X/mo. Churn is 5%/mo. They acquire 80 new customers/mo at $300 CAC. LTV/CAC needs to be ≥3 for profitability. What's the minimum monthly price X for sustainable growth? Show your reasoning step by step."</div>
+        <p class="pc-note">Use case: Business modeling — try with a reasoning model for higher accuracy</p>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="info-card">
+        <h3>Leading Tools (June 2026)</h3>
+        <div class="tool-list">
+          <div class="tool-item"><div class="tool-logo" style="background:#10a37f">🤖</div><div><div class="tool-name">ChatGPT / GPT-5</div><div class="tool-by">OpenAI · default for 800M users</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#c07040">🔮</div><div><div class="tool-name">Claude Opus 4.7 / Sonnet 4.6</div><div class="tool-by">Anthropic · top coding + reasoning</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#4285f4">✦</div><div><div class="tool-name">Gemini 2.5 Pro / Flash</div><div class="tool-by">Google · 2M context window</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#0668e1">🦙</div><div><div class="tool-name">Llama 4 (open)</div><div class="tool-by">Meta · self-hostable</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#1e40af">🐋</div><div><div class="tool-name">DeepSeek-R1 (open)</div><div class="tool-by">DeepSeek · cheap reasoning</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#000">𝕏</div><div><div class="tool-name">Grok 4</div><div class="tool-by">xAI · real-time X data</div></div></div>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>Business Use Cases</h3>
+        <ul class="use-list">
+          <li>Customer support automation (chatbots, email auto-reply)</li>
+          <li>Content creation (blogs, marketing copy, product descriptions)</li>
+          <li>Document summarization (contracts, reports, research papers)</li>
+          <li>Internal knowledge base Q&amp;A (with RAG)</li>
+          <li>Meeting notes &amp; action item extraction</li>
+          <li>Legal contract review &amp; clause generation</li>
+          <li>HR — JD writing, resume screening, onboarding</li>
+          <li>Autonomous agents (Devin, Manus) for multi-step workflows</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ IMAGE ═══ -->
+  <div class="type-panel" id="panel-image">
+    <div class="type-hero" style="background: rgba(236,72,153,0.08); border: 1px solid rgba(236,72,153,0.3);">
+      <div class="type-icon">🎨</div>
+      <div>
+        <h2 style="color:#f472b6">Image Generation</h2>
+        <p class="desc">Creates photorealistic or stylized images from text descriptions, or modifies, extends, and combines existing images. By 2026, professional-grade output is standard. The big shift: <strong>image generation built directly into chat models</strong> (GPT-5, Gemini 2.5) — no separate tool needed.</p>
+        <div class="how">
+          <div class="how-label" style="color:#f472b6">How it works</div>
+          Diffusion models start from pure random noise and iteratively "denoise" toward a coherent image guided by text embeddings. FLUX.1 introduced rectified flow matching (faster, sharper). Multimodal LLMs like GPT-5 use a unified architecture that handles text and pixels in one model.
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-box">
+      <h3>Input → Output Example</h3>
+      <div class="demo-io">
+        <div class="demo-in">
+          <div class="demo-in-label">Text Prompt (Input)</div>
+          <p>"A photorealistic product hero shot of cordless headphones in matte black on a marble surface. Soft warm rim light from the right, slight reflection on marble, shallow depth of field. Shot on Hasselblad H6D, 80mm lens, commercial photography style. 16:9 aspect."</p>
+        </div>
+        <div class="arrow-box">⟶<div class="model-pill">FLUX.1.1 / Midjourney v7</div></div>
+        <div class="demo-out">
+          <div class="demo-out-label">Generated Output</div>
+          <p>📸 A photorealistic product image is generated matching every specification — lighting direction, surface material, lens characteristics, depth-of-field falloff, and aspect ratio. Generated in 3-8 seconds. No photographer, studio, model, or post-processing required.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompts-box">
+      <h3>📋 More Prompts to Study</h3>
+      <p class="prompts-sub">The art of image prompting: subject + setting + lighting + style + camera/lens + composition.</p>
+      <div class="prompt-card" style="--accent:#ec4899">
+        <span class="pc-tag" style="background:rgba(236,72,153,0.2); color:#f9a8d4">🏢 Marketing asset</span>
+        <div class="pc-text">"A modern open-plan office with floor-to-ceiling windows, soft afternoon sunlight streaming in, plants on desks, three diverse people collaborating around a glass whiteboard with sketches. Editorial photography style, slight motion blur on one person gesturing. Shot on Sony A7IV, 35mm, f/2.8."</div>
+        <p class="pc-note">Use case: Website hero image, landing page, B2B marketing</p>
+      </div>
+      <div class="prompt-card" style="--accent:#ec4899">
+        <span class="pc-tag" style="background:rgba(236,72,153,0.2); color:#f9a8d4">🎨 Brand illustration</span>
+        <div class="pc-text">"Flat geometric illustration of a person at a laptop with floating UI elements (charts, dashboards, notifications) around them in pastel colors (coral, mint, lavender). Minimal, modern, Stripe-website aesthetic. White background. SVG-ready vector style."</div>
+        <p class="pc-note">Use case: Product website illustrations, blog graphics</p>
+      </div>
+      <div class="prompt-card" style="--accent:#ec4899">
+        <span class="pc-tag" style="background:rgba(236,72,153,0.2); color:#f9a8d4">📦 E-commerce</span>
+        <div class="pc-text">"White-background product photography of a ceramic coffee mug, light cream color with thin matte black handle. Subtle drop shadow below, soft top-down lighting, no reflections. Centered composition, square aspect ratio, hyperrealistic, e-commerce ready."</div>
+        <p class="pc-note">Use case: Amazon/Shopify product listings at scale</p>
+      </div>
+      <div class="prompt-card" style="--accent:#ec4899">
+        <span class="pc-tag" style="background:rgba(236,72,153,0.2); color:#f9a8d4">🖼 Editorial</span>
+        <div class="pc-text">"Cinematic portrait of a 70-year-old craftsman in his woodworking shop at dawn. Warm window light from the left, sawdust visible in the light beams, focused expression. Shot on Leica M11, 50mm f/1.4, shallow depth of field. National Geographic editorial style."</div>
+        <p class="pc-note">Use case: Editorial features, brand storytelling, magazine covers</p>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="info-card">
+        <h3>Leading Tools (June 2026)</h3>
+        <div class="tool-list">
+          <div class="tool-item"><div class="tool-logo" style="background:#10a37f">🖼</div><div><div class="tool-name">GPT-5 Image (native)</div><div class="tool-by">OpenAI · built into ChatGPT</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#000">⚫</div><div><div class="tool-name">FLUX.1.1 Pro / Dev</div><div class="tool-by">Black Forest Labs · top quality</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#8b5cf6">🎨</div><div><div class="tool-name">Midjourney v7</div><div class="tool-by">Midjourney · artistic excellence</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#4285f4">🌄</div><div><div class="tool-name">Imagen 4</div><div class="tool-by">Google · sharp text rendering</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#f97316">🌌</div><div><div class="tool-name">Stable Diffusion 3.5 (open)</div><div class="tool-by">Stability AI · self-hostable</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#e8336d">🔥</div><div><div class="tool-name">Adobe Firefly 3</div><div class="tool-by">Adobe · commercially safe</div></div></div>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>Business Use Cases</h3>
+        <ul class="use-list">
+          <li>Marketing assets at scale (ads, banners, social media)</li>
+          <li>Product visualization before physical prototyping</li>
+          <li>E-commerce product images on white backgrounds</li>
+          <li>Brand identity exploration and mockups</li>
+          <li>Book covers, blog illustrations, presentation visuals</li>
+          <li>Real estate virtual staging</li>
+          <li>Game concept art and asset generation</li>
+          <li>Personalized creative at marketing-automation scale</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ AUDIO ═══ -->
+  <div class="type-panel" id="panel-audio">
+    <div class="type-hero" style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3);">
+      <div class="type-icon">🎵</div>
+      <div>
+        <h2 style="color:#fbbf24">Audio Generation</h2>
+        <p class="desc">Synthesizes speech, music, and sound effects from text or audio inputs. The 2024-2025 leap: <strong>real-time voice conversations</strong> (GPT-5 Voice, Gemini Live) and music generation indistinguishable from human-produced tracks (Suno v4, Udio v2).</p>
+        <div class="how">
+          <div class="how-label" style="color:#fbbf24">How it works</div>
+          Autoregressive models predict audio tokens at high frequency; diffusion models denoise audio spectrograms. Voice cloning extracts a speaker embedding from a 5-30 second sample and conditions speech synthesis on it. Modern systems run end-to-end (text → audio waveform) without intermediate text-to-spectrogram steps.
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-box">
+      <h3>Input → Output Example</h3>
+      <div class="demo-io">
+        <div class="demo-in">
+          <div class="demo-in-label">Input</div>
+          <p><strong>Text:</strong> "Welcome to TechCorp. Your call is important to us. Press 1 for sales, 2 for support, or stay on the line for an agent."<br><br><strong>Voice style:</strong> British female, warm professional tone, pacing 150 WPM, slight pause after each option</p>
+        </div>
+        <div class="arrow-box">⟶<div class="model-pill">ElevenLabs v3</div></div>
+        <div class="demo-out">
+          <div class="demo-out-label">Generated Output</div>
+          <p>🔊 A studio-quality audio file plays with the specified British accent, professional tone, natural pacing, and pauses where required. Indistinguishable from a professional voice actor. Generated in &lt;1 second. Cost: ~$0.30/1K characters.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompts-box">
+      <h3>📋 More Prompts to Study</h3>
+      <p class="prompts-sub">Audio prompts specify voice, emotion, pacing, and context — not just text.</p>
+      <div class="prompt-card" style="--accent:#f59e0b">
+        <span class="pc-tag" style="background:rgba(245,158,11,0.2); color:#fcd34d">🎙 Podcast intro</span>
+        <div class="pc-text">"Voice: warm American male, mid-30s, podcast host style. Energetic but conversational. Slight smile in voice.<br>Text: 'Hey everyone, welcome back to Founders Friday. I'm Mike, and today we're diving into the wild story of how a 23-year-old built a billion-dollar company in 18 months. Let's get into it.'"</div>
+        <p class="pc-note">Use case: Podcast production, audio content creation</p>
+      </div>
+      <div class="prompt-card" style="--accent:#f59e0b">
+        <span class="pc-tag" style="background:rgba(245,158,11,0.2); color:#fcd34d">📞 IVR system</span>
+        <div class="pc-text">"Voice: clear neutral American female, professional but friendly. Steady pacing.<br>Text: 'Thank you for calling Riverbank Insurance. To file a new claim, press 1. For an existing claim, press 2. For roadside assistance, press 3. To speak with an agent, press 0 at any time.'"</div>
+        <p class="pc-note">Use case: Customer-service IVR, automated phone systems</p>
+      </div>
+      <div class="prompt-card" style="--accent:#f59e0b">
+        <span class="pc-tag" style="background:rgba(245,158,11,0.2); color:#fcd34d">🎵 Music (Suno v4)</span>
+        <div class="pc-text">"An upbeat indie pop track, 120 BPM, sunny vibe. Acoustic guitar lead, light electronic percussion, layered vocal harmonies on the chorus. Lyrics about a road trip with friends, theme: freedom and youth. 90 seconds, radio edit structure."</div>
+        <p class="pc-note">Use case: Background music for videos, social content, ads (royalty-free)</p>
+      </div>
+      <div class="prompt-card" style="--accent:#f59e0b">
+        <span class="pc-tag" style="background:rgba(245,158,11,0.2); color:#fcd34d">📚 Audiobook narration</span>
+        <div class="pc-text">"Voice: authoritative middle-aged male, gentle British accent (like a documentary narrator). Slow contemplative pacing for atmospheric chapter opening. Add subtle emotion on key phrases.<br>Text: '[paste chapter 1 opening]'"</div>
+        <p class="pc-note">Use case: Audiobook production, e-learning narration</p>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="info-card">
+        <h3>Leading Tools (June 2026)</h3>
+        <div class="tool-list">
+          <div class="tool-item"><div class="tool-logo" style="background:#f97316">🎙</div><div><div class="tool-name">ElevenLabs v3</div><div class="tool-by">TTS + voice cloning · industry leader</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#10a37f">🗣</div><div><div class="tool-name">GPT-5 Voice (Realtime)</div><div class="tool-by">OpenAI · real-time conversations</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#4285f4">📞</div><div><div class="tool-name">Gemini Live</div><div class="tool-by">Google · real-time multimodal</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#8b5cf6">🎵</div><div><div class="tool-name">Suno v4 / Udio v2</div><div class="tool-by">Music generation · radio quality</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#0078d4">🔊</div><div><div class="tool-name">Azure Neural TTS</div><div class="tool-by">Microsoft · enterprise SLA</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#0668e1">🎸</div><div><div class="tool-name">AudioCraft (open)</div><div class="tool-by">Meta · self-hostable</div></div></div>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>Business Use Cases</h3>
+        <ul class="use-list">
+          <li>Real-time AI voice assistants (Siri/Alexa replacements)</li>
+          <li>Audiobook &amp; podcast production at scale</li>
+          <li>Voiceover for videos, ads, e-learning</li>
+          <li>IVR &amp; customer-service phone automation</li>
+          <li>Accessibility — natural screen readers</li>
+          <li>Multilingual content localization</li>
+          <li>Background music &amp; sound effects (royalty-free)</li>
+          <li>Voice cloning for brand consistency across channels</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ VIDEO ═══ -->
+  <div class="type-panel" id="panel-video">
+    <div class="type-hero" style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);">
+      <div class="type-icon">🎬</div>
+      <div>
+        <h2 style="color:#f87171">Video Generation</h2>
+        <p class="desc">The fastest-evolving type. Creates short to medium-length video clips from text, image, or video prompts. <strong>Sora 2</strong> (OpenAI, late 2025) and <strong>Veo 3</strong> (Google, 2025) crossed key quality thresholds: physically plausible motion, native audio generation, multi-shot scenes.</p>
+        <div class="how">
+          <div class="how-label" style="color:#f87171">How it works</div>
+          Diffusion Transformers applied across spatial (image) and temporal (time) dimensions. The model learns motion dynamics, physics, and scene coherence from millions of video clips. Sora uses "video as spacetime patches"; Veo 3 generates synchronized audio in the same pass. Outputs typically range from 5-60 seconds at 1080p-4K.
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-box">
+      <h3>Input → Output Example</h3>
+      <div class="demo-io">
+        <div class="demo-in">
+          <div class="demo-in-label">Text Prompt (Input)</div>
+          <p>"A cinematic 15-second drone shot descending toward a single house at dusk in a mountain valley. Smoke from chimney drifts up, soft golden-hour light, mist on the river below, gentle camera glide forward. Cinematic 24fps, anamorphic lens flare, warm color grade."</p>
+        </div>
+        <div class="arrow-box">⟶<div class="model-pill">Sora 2 / Veo 3</div></div>
+        <div class="demo-out">
+          <div class="demo-out-label">Generated Output</div>
+          <p>🎥 A 15-second photorealistic video clip is generated with coherent motion, correct lighting transitions, realistic atmospheric particles (smoke, mist), and cinematic camera movement. Veo 3 includes synthesized ambient audio (wind, distant water). Cost: ~$0.50-2.00 per clip. Rendering: 1-5 minutes.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompts-box">
+      <h3>📋 More Prompts to Study</h3>
+      <p class="prompts-sub">Video prompts specify subject, action, camera movement, lighting, style, and timing.</p>
+      <div class="prompt-card" style="--accent:#ef4444">
+        <span class="pc-tag" style="background:rgba(239,68,68,0.2); color:#fca5a5">📣 Product ad</span>
+        <div class="pc-text">"10-second commercial: A pair of running shoes on a wooden floor. Camera slowly orbits 180°, soft studio lighting. At second 5, a single drop of water falls onto the shoe and bounces off, revealing a waterproof label. Slow motion at the impact. Cinematic, premium product video style."</div>
+        <p class="pc-note">Use case: Product launch videos, social media ads</p>
+      </div>
+      <div class="prompt-card" style="--accent:#ef4444">
+        <span class="pc-tag" style="background:rgba(239,68,68,0.2); color:#fca5a5">📚 Educational</span>
+        <div class="pc-text">"30-second explainer animation: a stylized human cell with mitochondria glowing softly inside. Glucose molecules float in, get processed by the mitochondria, and ATP molecules float out. Clean infographic style, soft pastel colors, gentle camera zoom on key moments. With voiceover-friendly pacing."</div>
+        <p class="pc-note">Use case: E-learning, scientific visualization, YouTube education</p>
+      </div>
+      <div class="prompt-card" style="--accent:#ef4444">
+        <span class="pc-tag" style="background:rgba(239,68,68,0.2); color:#fca5a5">🏃 B-roll</span>
+        <div class="pc-text">"20 seconds of cinematic b-roll: morning coffee shop scene. Steam rising from a freshly poured latte, barista pouring milk into a cup with focused expression, customer scrolling phone at counter, warm morning light through windows. Multiple short cuts (2-3 seconds each), shallow depth of field, handheld feel."</div>
+        <p class="pc-note">Use case: YouTube videos, documentaries, brand films</p>
+      </div>
+      <div class="prompt-card" style="--accent:#ef4444">
+        <span class="pc-tag" style="background:rgba(239,68,68,0.2); color:#fca5a5">🎬 Pre-vis (image-to-video)</span>
+        <div class="pc-text">"[Attach concept image of a futuristic city] Generate 8 seconds of video where this scene comes to life: flying vehicles move through the air at varying speeds, holographic billboards animate, light rain falls. Camera slowly cranes upward to reveal more of the cityscape."</div>
+        <p class="pc-note">Use case: Film pre-visualization, storyboarding, game cinematics</p>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="info-card">
+        <h3>Leading Tools (June 2026)</h3>
+        <div class="tool-list">
+          <div class="tool-item"><div class="tool-logo" style="background:#10a37f">📹</div><div><div class="tool-name">Sora 2</div><div class="tool-by">OpenAI · multi-shot scenes, audio</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#4285f4">🎦</div><div><div class="tool-name">Google Veo 3</div><div class="tool-by">Google DeepMind · native audio sync</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#7c3aed">🎞</div><div><div class="tool-name">Runway Gen-4</div><div class="tool-by">Runway · creator tools</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#ec4899">🎬</div><div><div class="tool-name">Pika 2.0</div><div class="tool-by">Pika Labs · accessible UI</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#0668e1">🎥</div><div><div class="tool-name">Kling 2.0</div><div class="tool-by">Kuaishou · strong motion fidelity</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#000">📼</div><div><div class="tool-name">Hunyuan Video (open)</div><div class="tool-by">Tencent · open-weight</div></div></div>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>Business Use Cases</h3>
+        <ul class="use-list">
+          <li>Marketing &amp; advertising video at scale</li>
+          <li>Social media content (TikTok, Reels, Shorts)</li>
+          <li>Film &amp; TV pre-visualization / storyboarding</li>
+          <li>Educational explainer videos</li>
+          <li>Product demo videos &amp; configurators</li>
+          <li>News &amp; media b-roll generation</li>
+          <li>Game cinematics &amp; trailer production</li>
+          <li>Personalized video at marketing-automation scale</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ CODE ═══ -->
+  <div class="type-panel" id="panel-code">
+    <div class="type-hero" style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3);">
+      <div class="type-icon">💻</div>
+      <div>
+        <h2 style="color:#34d399">Code Generation</h2>
+        <p class="desc">The highest-ROI application of Generative AI. Writes, explains, debugs, refactors, and reviews code across all major languages. The 2024-2025 shift: from <strong>autocomplete</strong> to <strong>autonomous agents</strong> — tools like Claude Code, Cursor Agent, and Devin can complete multi-file feature work with minimal supervision.</p>
+        <div class="how">
+          <div class="how-label" style="color:#34d399">How it works</div>
+          Same Transformer architecture as text models, pre-trained heavily on code (GitHub, Stack Overflow, docs). Modern coding agents combine an LLM with: (1) file system tools, (2) shell access, (3) test runners, (4) iterative self-correction. They plan, execute, observe, and revise until tests pass.
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-box">
+      <h3>Input → Output Example</h3>
+      <div class="demo-io">
+        <div class="demo-in">
+          <div class="demo-in-label">Prompt (Input)</div>
+          <p>"Refactor this Python function to use async/await, add type hints, and wrap network calls in a retry decorator with exponential backoff (3 attempts, 1s/2s/4s delays). Handle httpx.TimeoutException specifically. [paste function]"</p>
+        </div>
+        <div class="arrow-box">⟶<div class="model-pill">Claude Opus 4.7</div></div>
+        <div class="demo-out">
+          <div class="demo-out-label">Generated Code</div>
+          <p style="font-family: 'Consolas',monospace; font-size: 0.78rem; white-space: pre-line; font-style: normal">@retry(attempts=3, backoff=lambda i: 2**i)
+async def fetch_user(user_id: int) -> User:
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"/users/{user_id}")
+            r.raise_for_status()
+            return User(**r.json())
+    except httpx.TimeoutException:
+        logger.warning(f"Timeout for {user_id}")
+        raise</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompts-box">
+      <h3>📋 More Prompts to Study</h3>
+      <p class="prompts-sub">Modern coding prompts specify language, constraints, context, and validation.</p>
+      <div class="prompt-card" style="--accent:#10b981">
+        <span class="pc-tag" style="background:rgba(16,185,129,0.2); color:#6ee7b7">🐍 Build a function</span>
+        <div class="pc-text">"Write a Python function `parse_log_lines` that takes a list of nginx access log strings and returns a list of dicts with keys: timestamp (datetime), ip, method, path, status_code (int), response_size (int). Handle malformed lines by skipping them (don't raise). Add a docstring and 3 test cases."</div>
+        <p class="pc-note">Use case: Data processing, log analysis tools</p>
+      </div>
+      <div class="prompt-card" style="--accent:#10b981">
+        <span class="pc-tag" style="background:rgba(16,185,129,0.2); color:#6ee7b7">🗄 Database query</span>
+        <div class="pc-text">"Write a PostgreSQL query for these tables:<br>orders(id, customer_id, created_at, total, status)<br>customers(id, name, email, plan, created_at)<br><br>Task: Top 20 customers by 90-day revenue, with their plan, total orders, average order value, and days since their last order. Only include customers on 'pro' or 'enterprise' plans with ≥3 orders."</div>
+        <p class="pc-note">Use case: Analytics, BI dashboards, customer insights</p>
+      </div>
+      <div class="prompt-card" style="--accent:#10b981">
+        <span class="pc-tag" style="background:rgba(16,185,129,0.2); color:#6ee7b7">🔍 Explain code</span>
+        <div class="pc-text">"Explain what this React component does for someone unfamiliar with hooks. Walk through useState, useEffect, and the conditional rendering. Include a sequence of what happens from initial mount to user interaction. [paste component]"</div>
+        <p class="pc-note">Use case: Onboarding, code review prep, learning</p>
+      </div>
+      <div class="prompt-card" style="--accent:#10b981">
+        <span class="pc-tag" style="background:rgba(16,185,129,0.2); color:#6ee7b7">🤖 Agentic task</span>
+        <div class="pc-text">"Inside this repo: (1) Add a /healthz endpoint to api/server.py that returns 200 with build info; (2) Add a Pytest test for it in tests/test_health.py; (3) Update README.md with usage; (4) Run the tests and confirm they pass. Make a single commit with a clear message."</div>
+        <p class="pc-note">Use case: Claude Code, Cursor Agent, Devin — autonomous multi-file work</p>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="info-card">
+        <h3>Leading Tools (June 2026)</h3>
+        <div class="tool-list">
+          <div class="tool-item"><div class="tool-logo" style="background:#c07040">🔮</div><div><div class="tool-name">Claude Code</div><div class="tool-by">Anthropic CLI · top SWE-bench</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#ff6700">⚡</div><div><div class="tool-name">Cursor</div><div class="tool-by">AI-native IDE · Claude/GPT-5</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#24292e">🐙</div><div><div class="tool-name">GitHub Copilot</div><div class="tool-by">Microsoft · Claude + GPT-5 backends</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#10a37f">🤖</div><div><div class="tool-name">ChatGPT (Code Interpreter)</div><div class="tool-by">OpenAI · executes code in sandbox</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#0f0f0f">🌊</div><div><div class="tool-name">Windsurf</div><div class="tool-by">Codeium (Cognition) · agentic IDE</div></div></div>
+          <div class="tool-item"><div class="tool-logo" style="background:#1e40af">🐋</div><div><div class="tool-name">DeepSeek-Coder V3</div><div class="tool-by">Open-weight · self-hostable</div></div></div>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>Business Use Cases</h3>
+        <ul class="use-list">
+          <li>Inline autocomplete (Copilot, Cursor)</li>
+          <li>Autonomous agents that complete features end-to-end</li>
+          <li>Natural language → SQL / API calls</li>
+          <li>Unit test generation from existing code</li>
+          <li>Legacy code explanation and migration</li>
+          <li>Security vulnerability scanning &amp; fix suggestion</li>
+          <li>Auto-generating API docs from code</li>
+          <li>Code review assistance &amp; PR summary generation</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE STRIP -->
+  <div class="compare-strip" style="margin-top: 32px;">
+    <h2>All 5 Types at a Glance (June 2026)</h2>
+    <div class="compare-row">
+      <div class="compare-col">
+        <div class="compare-icon">📝</div>
+        <div class="compare-type" style="color:#818cf8">Text</div>
+        <div class="maturity-bar" style="width:98%; background:#6366f1;"></div>
+        <div class="compare-stat">Most mature<br>Reasoning era<br>Default AI tool</div>
+      </div>
+      <div class="compare-col">
+        <div class="compare-icon">🎨</div>
+        <div class="compare-type" style="color:#f472b6">Image</div>
+        <div class="maturity-bar" style="width:94%; background:#ec4899;"></div>
+        <div class="compare-stat">Production-ready<br>Built into chat<br>Pro photo quality</div>
+      </div>
+      <div class="compare-col">
+        <div class="compare-icon">🎵</div>
+        <div class="compare-type" style="color:#fbbf24">Audio</div>
+        <div class="maturity-bar" style="width:88%; background:#f59e0b;"></div>
+        <div class="compare-stat">Real-time voice<br>Studio music<br>Voice cloning ready</div>
+      </div>
+      <div class="compare-col">
+        <div class="compare-icon">🎬</div>
+        <div class="compare-type" style="color:#f87171">Video</div>
+        <div class="maturity-bar" style="width:75%; background:#ef4444;"></div>
+        <div class="compare-stat">Multi-shot scenes<br>Sora 2, Veo 3<br>Audio synced</div>
+      </div>
+      <div class="compare-col">
+        <div class="compare-icon">💻</div>
+        <div class="compare-type" style="color:#34d399">Code</div>
+        <div class="maturity-bar" style="width:96%; background:#10b981;"></div>
+        <div class="compare-stat">Agentic coding<br>30%+ productivity<br>Mass adoption</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELF-CHECK QUIZ -->
+  <div class="quiz-section">
+    <h2>Self-Check: Test Your Understanding</h2>
+    <p class="qs-sub">5 questions to confirm you can distinguish the 5 types and choose the right tool.</p>
+
+    <div class="quiz-card">
+      <p class="question">1. A real-estate startup wants to generate professional photos of empty rooms with virtual furniture for online listings — at scale, 100,000+ images per month. Which type of Generative AI fits best, and which tool category?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, true,  1)">Image generation — use FLUX.1 / Imagen 4 / Stable Diffusion via API for automated batch processing</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Video generation — Sora 2 to generate walkthrough videos</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Text generation — describe the rooms in detail</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Code generation — write a 3D rendering engine</button>
+      </div>
+      <div class="feedback" id="fb-1"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">2. What is the key difference between Suno v4 (music generation) and ElevenLabs v3 (voice generation)?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 2)">Suno is open-source while ElevenLabs is proprietary</button>
+        <button class="opt-btn" onclick="answer(this, true,  2)">Both generate audio but for different purposes: Suno creates full musical compositions (instruments, vocals, lyrics, structure); ElevenLabs synthesizes spoken voice (speech, accents, emotion, voice cloning)</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">ElevenLabs is for podcasts only; Suno is for movies only</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">There is no real difference — they're competing tools that do the same thing</button>
+      </div>
+      <div class="feedback" id="fb-2"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">3. A film studio wants to pre-visualize a complex 30-second action sequence before shooting it for real (which would cost $500K). Which generation type and approach makes most sense?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 3)">Image generation only — make storyboards as still images</button>
+        <button class="opt-btn" onclick="answer(this, true,  3)">Video generation with tools like Sora 2 or Runway Gen-4. Use image-to-video to maintain visual style consistency. Even imperfect output validates camera angles and timing before expensive live production</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">Code generation — write a custom game engine</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">Text generation — write a script description and let the director imagine it</button>
+      </div>
+      <div class="feedback" id="fb-3"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">4. Which of the following is NOT typically a strength of modern code generation tools (Claude Code, Cursor, Copilot)?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 4)">Generating syntactically correct code in popular languages</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Explaining what existing code does</button>
+        <button class="opt-btn" onclick="answer(this, true,  4)">Guaranteeing the code is bug-free, secure, and production-ready without human review — AI-generated code still needs review, testing, and security scanning</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Refactoring code from one language or pattern to another</button>
+      </div>
+      <div class="feedback" id="fb-4"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">5. Among the 5 types of Generative AI, which has been the highest measurable productivity ROI for enterprises in 2025-2026, and why?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 5)">Video generation — videos save the most time</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Audio generation — voice replaces all call centers</button>
+        <button class="opt-btn" onclick="answer(this, true,  5)">Code generation — measured 30-55% developer productivity gains; engineers are expensive and code work is verifiable, making the ROI both large and easy to measure</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Image generation — replaces all designers</button>
+      </div>
+      <div class="feedback" id="fb-5"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showType(type, ev) {
+  document.querySelectorAll('.type-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + type).classList.add('active');
+  ev.target.closest('.tab-btn').classList.add('active');
+}
+
+const explanations = {
+  1: "Correct! This is a classic image generation use case — single-frame, high-volume. APIs from FLUX, Imagen, or Stable Diffusion let you batch-process 100K+ images programmatically. Adobe Firefly is also a strong choice for commercial safety (trained only on licensed content).",
+  2: "Correct! Both produce audio but serve different needs. Music generation models (Suno, Udio, MusicGen) produce full compositions with instruments, vocals, and song structure. Voice synthesis models (ElevenLabs, OpenAI TTS) produce spoken voice with controllable accents, emotions, and speaker identity. Don't confuse them in a tool selection.",
+  3: "Correct! Pre-visualization is exactly where AI video shines — fast iteration on creative direction at near-zero cost before committing to expensive live production. Sora 2 and Runway Gen-4 support image-to-video for style consistency. The output doesn't need to be the final product; it needs to be good enough to make production decisions.",
+  4: "Correct! AI-generated code is impressive but NOT guaranteed bug-free or secure. Studies show ~40% of Copilot-generated code has at least one bug or security issue. Always: code review, run tests, run security scanners (Snyk, Semgrep), and apply the same quality bar as human-written code.",
+  5: "Correct! Multiple studies (GitHub, McKinsey, Microsoft) have measured 30-55% productivity gains from code generation tools. The math is compelling: engineers cost $150K-$300K/year, and even a 30% productivity gain saves $45K-$90K per engineer annually. Code is also verifiable (it compiles or it doesn't, tests pass or they don't), making the ROI easy to measure — unlike fuzzier creative work."
+};
+const wrongs = {
+  1: "Not quite. Video would be overkill (and far more expensive per output) for static listings. The task is generating still images of rooms with furniture — that's pure image generation, ideally via API for automation.",
+  2: "Not quite. These are two distinct audio generation categories: music vs voice. Picking the wrong tool for the wrong job is a common mistake — Suno can't do voice acting, ElevenLabs can't produce musical compositions.",
+  3: "Not quite. Storyboards as still images help, but for a complex action sequence with motion, camera moves, and timing, you need video. AI video at the 2026 quality level is good enough for production pre-visualization even if not for the final shot.",
+  4: "Not quite. While AI coding tools have strengths in these areas, the question asks what is NOT typically a strength. Code generated by AI still requires human review, testing, and security validation — it is not guaranteed to be production-ready.",
+  5: "Not quite. While these are all real markets, the measurable productivity ROI from code generation tools dwarfs the others in enterprise settings — both because engineering is expensive and because code work is verifiable (you can measure if it works)."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+</script>
+</body>
+</html>

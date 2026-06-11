@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 4 — Foundation Models & AI Ecosystem</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #f59e0b; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+  .updated   { display: inline-block; background: #10b981; color: #0f172a; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px; margin-left: 8px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 28px; }
+
+  /* ── Stack diagram ── */
+  .stack { margin-bottom: 56px; }
+  .stack-layer {
+    border-radius: 12px; padding: 20px 24px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 20px; cursor: pointer;
+    border: 1.5px solid transparent; transition: border-color 0.2s, transform 0.15s;
+  }
+  .stack-layer:hover { transform: translateX(6px); }
+  .stack-layer .layer-icon { font-size: 1.8rem; width: 48px; text-align: center; flex-shrink: 0; }
+  .stack-layer .layer-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+  .stack-layer .layer-desc  { font-size: 0.85rem; opacity: 0.8; }
+  .stack-layer .layer-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .ex-tag { font-size: 0.73rem; padding: 2px 9px; border-radius: 99px; background: rgba(255,255,255,0.08); }
+  .layer-detail { margin-top: 12px; font-size: 0.85rem; line-height: 1.6; display: none; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; }
+  .layer-detail.open { display: block; }
+
+  .l5 { background: rgba(99,102,241,0.12);  border-color: #6366f1; }  .l5 .layer-title { color: #818cf8; }
+  .l4 { background: rgba(139,92,246,0.12);  border-color: #8b5cf6; }  .l4 .layer-title { color: #a78bfa; }
+  .l3 { background: rgba(6,182,212,0.12);   border-color: #06b6d4; }  .l3 .layer-title { color: #67e8f9; }
+  .l2 { background: rgba(245,158,11,0.12);  border-color: #f59e0b; }  .l2 .layer-title { color: #fcd34d; }
+  .l1 { background: rgba(16,185,129,0.12);  border-color: #10b981; }  .l1 .layer-title { color: #6ee7b7; }
+
+  .stack-arrow { text-align: center; color: #334155; font-size: 1.3rem; margin: -2px 0; }
+
+  /* ── Reasoning vs Standard split ── */
+  .reasoning-section { margin-bottom: 56px; }
+  .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .split-card { background: #1e293b; border-radius: 14px; padding: 24px; border: 1.5px solid #334155; }
+  .split-card h3 { font-size: 1rem; margin-bottom: 4px; }
+  .split-card .sub { font-size: 0.8rem; color: #64748b; margin-bottom: 14px; }
+  .split-card .feature-list { list-style: none; margin-bottom: 14px; }
+  .split-card .feature-list li { font-size: 0.85rem; color: #cbd5e1; padding: 5px 0; padding-left: 22px; position: relative; line-height: 1.5; }
+  .split-card .feature-list li::before { content: '→'; position: absolute; left: 0; color: #64748b; }
+  .examples-row { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; border-top: 1px solid #334155; }
+  .ex-pill { font-size: 0.74rem; padding: 3px 9px; border-radius: 6px; }
+  .standard-card { border-top: 3px solid #6366f1; }
+  .standard-card h3 { color: #818cf8; }
+  .standard-card .ex-pill { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  .reasoning-card { border-top: 3px solid #ec4899; }
+  .reasoning-card h3 { color: #f472b6; }
+  .reasoning-card .ex-pill { background: rgba(236,72,153,0.15); color: #f9a8d4; }
+
+  /* ── Model cards ── */
+  .models-section { margin-bottom: 56px; }
+  .model-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .model-card {
+    background: #1e293b; border: 1.5px solid #334155; border-radius: 14px; padding: 20px;
+    cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+    position: relative; overflow: hidden;
+  }
+  .model-card:hover { transform: translateY(-3px); }
+  .model-card .mc-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .mc-logo { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; color: #fff; font-weight: 700; }
+  .mc-name { font-weight: 700; font-size: 1rem; }
+  .mc-by   { font-size: 0.78rem; color: #64748b; }
+  .mc-badge { position: absolute; top: 12px; right: 12px; font-size: 0.68rem; padding: 2px 8px; border-radius: 99px; font-weight: 700; }
+  .badge-prop { background: rgba(99,102,241,0.2); color: #818cf8; }
+  .badge-open { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+  .badge-reason { background: rgba(236,72,153,0.2); color: #f9a8d4; }
+  .mc-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .mc-stat { background: #0f172a; border-radius: 8px; padding: 8px 10px; }
+  .mc-stat-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; margin-bottom: 2px; }
+  .mc-stat-value { font-size: 0.88rem; font-weight: 600; }
+  .mc-desc { font-size: 0.83rem; color: #94a3b8; line-height: 1.5; margin-bottom: 12px; }
+  .mc-strengths { display: flex; flex-wrap: wrap; gap: 5px; }
+  .strength-tag { font-size: 0.72rem; padding: 2px 8px; border-radius: 6px; background: #334155; color: #94a3b8; }
+  .card-detail { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #334155; font-size: 0.83rem; color: #94a3b8; line-height: 1.6; }
+  .card-detail.open { display: block; }
+
+  /* ── Decision guide ── */
+  .decision { margin-bottom: 56px; }
+  .decision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .decision-card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+  .decision-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; }
+  .decision-card .when { font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px; line-height: 1.5; }
+  .decision-card .recommend { font-size: 0.85rem; color: #f1f5f9; padding: 10px 12px; background: #0f172a; border-radius: 8px; line-height: 1.5; }
+  .decision-card .recommend strong { color: #fbbf24; }
+
+  /* ── Quiz ── */
+  .quiz-section { margin-bottom: 32px; }
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn {
+    background: #0f172a; border: 1.5px solid #334155; border-radius: 8px;
+    padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer;
+    text-align: left; transition: all 0.15s;
+  }
+  .opt-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 700px) { .model-grid, .decision-grid, .split-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 1 · Lab 4</div>
+  <h1>Foundation Models & AI Ecosystem<span class="updated">Updated June 2026</span></h1>
+  <p>Explore the full AI stack, compare today's frontier models, and learn how to choose the right one.</p>
+</div>
+
+<div class="main">
+
+  <!-- STACK -->
+  <div class="stack">
+    <h2 class="section-title">The AI Ecosystem Stack</h2>
+    <p class="section-sub">Click any layer to understand what lives there and why it matters.</p>
+
+    <div class="stack-layer l5" onclick="toggleLayer(this)">
+      <div class="layer-icon">🚀</div>
+      <div style="flex:1">
+        <div class="layer-title">Layer 5 — Applications</div>
+        <div class="layer-desc">What end users interact with</div>
+        <div class="layer-examples">
+          <span class="ex-tag">ChatGPT</span><span class="ex-tag">Claude.ai</span><span class="ex-tag">Cursor</span>
+          <span class="ex-tag">Claude Code</span><span class="ex-tag">Perplexity</span><span class="ex-tag">Notion AI</span>
+          <span class="ex-tag">Devin (agent)</span>
+        </div>
+        <div class="layer-detail">
+          Applications expose AI capabilities to end users through UIs, APIs, or embedded features. In 2025-2026 we've seen the emergence of <strong>autonomous agents</strong> (Devin, Manus, Operator) that complete multi-step tasks independently — not just answer questions. AI-native IDEs like Cursor and Claude Code have become standard developer tools.
+        </div>
+      </div>
+    </div>
+    <div class="stack-arrow">↕</div>
+
+    <div class="stack-layer l4" onclick="toggleLayer(this)">
+      <div class="layer-icon">🔧</div>
+      <div style="flex:1">
+        <div class="layer-title">Layer 4 — Frameworks & Platforms</div>
+        <div class="layer-desc">Tools for building AI-powered applications</div>
+        <div class="layer-examples">
+          <span class="ex-tag">LangChain</span><span class="ex-tag">LlamaIndex</span><span class="ex-tag">Hugging Face</span>
+          <span class="ex-tag">MCP (Model Context Protocol)</span><span class="ex-tag">Azure AI Foundry</span><span class="ex-tag">Vertex AI</span>
+          <span class="ex-tag">AWS Bedrock</span><span class="ex-tag">Anthropic Agent SDK</span>
+        </div>
+        <div class="layer-detail">
+          The big 2025 shift: <strong>standardization of agent tools</strong>. Anthropic's <strong>Model Context Protocol (MCP)</strong> became the de-facto standard for connecting LLMs to external tools and data — now supported by OpenAI, Google, and most major frameworks. This is the "USB-C for AI" — one protocol, any model, any tool.
+        </div>
+      </div>
+    </div>
+    <div class="stack-arrow">↕</div>
+
+    <div class="stack-layer l3" onclick="toggleLayer(this)">
+      <div class="layer-icon">🧠</div>
+      <div style="flex:1">
+        <div class="layer-title">Layer 3 — Foundation Models</div>
+        <div class="layer-desc">The pre-trained AI "brains" — adaptable to thousands of tasks</div>
+        <div class="layer-examples">
+          <span class="ex-tag">GPT-5</span><span class="ex-tag">Claude Opus 4.7</span><span class="ex-tag">Claude Sonnet 4.6</span>
+          <span class="ex-tag">Gemini 2.5 Pro</span><span class="ex-tag">Llama 4</span><span class="ex-tag">DeepSeek-R1</span>
+          <span class="ex-tag">Grok 4</span>
+        </div>
+        <div class="layer-detail">
+          Foundation models are trained once on massive datasets at enormous cost. They encode broad world knowledge and can be adapted to specific tasks via prompting, fine-tuning, or post-training. The 2025 inflection: <strong>reasoning models</strong> (o3, Claude with extended thinking, DeepSeek-R1) that "think before responding" — dramatically improving accuracy on math, code, and complex tasks at the cost of latency.
+        </div>
+      </div>
+    </div>
+    <div class="stack-arrow">↕</div>
+
+    <div class="stack-layer l2" onclick="toggleLayer(this)">
+      <div class="layer-icon">⚙️</div>
+      <div style="flex:1">
+        <div class="layer-title">Layer 2 — Infrastructure</div>
+        <div class="layer-desc">The hardware and cloud services that run AI at scale</div>
+        <div class="layer-examples">
+          <span class="ex-tag">NVIDIA H100/H200/B200</span><span class="ex-tag">Google TPU v5/v6</span><span class="ex-tag">AWS Trainium 2</span>
+          <span class="ex-tag">Groq LPU</span><span class="ex-tag">Cerebras</span><span class="ex-tag">CoreWeave</span>
+        </div>
+        <div class="layer-detail">
+          NVIDIA's Blackwell (B200) became the new training standard in 2025. <strong>Inference-specialized chips</strong> (Groq LPU, Cerebras, Trainium 2) shifted economics — Groq runs Llama 4 at hundreds of tokens/second, vs. ~30/sec on traditional GPUs. The 2024-2025 industry capex on AI infrastructure exceeded $400 billion globally.
+        </div>
+      </div>
+    </div>
+    <div class="stack-arrow">↕</div>
+
+    <div class="stack-layer l1" onclick="toggleLayer(this)">
+      <div class="layer-icon">📦</div>
+      <div style="flex:1">
+        <div class="layer-title">Layer 1 — Data</div>
+        <div class="layer-desc">The raw fuel that models learn from</div>
+        <div class="layer-examples">
+          <span class="ex-tag">Common Crawl</span><span class="ex-tag">GitHub</span><span class="ex-tag">Synthetic data</span>
+          <span class="ex-tag">Books & papers</span><span class="ex-tag">Licensed datasets</span><span class="ex-tag">RLHF/RLAIF preference data</span>
+        </div>
+        <div class="layer-detail">
+          The 2025 data story: <strong>synthetic data</strong> (data generated by AI to train AI) became dominant. As high-quality web text approaches exhaustion, models like Llama 4 and Claude 4 are increasingly trained on AI-generated reasoning traces, code, and dialogue. Major labs now sign multi-hundred-million-dollar licensing deals with publishers (Reddit, NYT, Reuters, academic publishers) for fresh, attributable data.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REASONING VS STANDARD -->
+  <div class="reasoning-section">
+    <h2 class="section-title">Standard Models vs Reasoning Models <span style="font-size:0.7rem;color:#fbbf24;background:rgba(251,191,36,0.15);padding:3px 8px;border-radius:99px;vertical-align:middle">New in 2025</span></h2>
+    <p class="section-sub">A major shift in 2024-2025: models that explicitly "think" before responding. Pick the right type for your task.</p>
+    <div class="split-grid">
+      <div class="split-card standard-card">
+        <h3>⚡ Standard Generative Models</h3>
+        <div class="sub">Respond immediately, optimized for speed and throughput</div>
+        <ul class="feature-list">
+          <li>Fast (sub-second to a few seconds)</li>
+          <li>Lower cost per query</li>
+          <li>Best for chat, writing, summarization, extraction</li>
+          <li>Most production traffic goes here</li>
+          <li>Generally sufficient for 80% of real-world tasks</li>
+        </ul>
+        <div class="examples-row">
+          <span class="ex-pill">GPT-5</span><span class="ex-pill">Claude Sonnet 4.6</span><span class="ex-pill">Gemini 2.5 Flash</span><span class="ex-pill">Llama 4 Scout</span><span class="ex-pill">GPT-5 mini</span>
+        </div>
+      </div>
+      <div class="split-card reasoning-card">
+        <h3>🧠 Reasoning Models</h3>
+        <div class="sub">Deliberate before responding — "think then answer"</div>
+        <ul class="feature-list">
+          <li>Slower (seconds to minutes of "thinking" before output)</li>
+          <li>10-100× more expensive per query</li>
+          <li>Best for math, complex coding, research, planning</li>
+          <li>Dramatically higher accuracy on hard tasks</li>
+          <li>Use only when speed/cost is justified by accuracy need</li>
+        </ul>
+        <div class="examples-row">
+          <span class="ex-pill">OpenAI o3</span><span class="ex-pill">Claude Opus 4.7 (thinking)</span><span class="ex-pill">Gemini 2.5 Pro (thinking)</span><span class="ex-pill">DeepSeek-R1</span><span class="ex-pill">Grok 4 Heavy</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODELS -->
+  <div class="models-section">
+    <h2 class="section-title">Today's Frontier Models</h2>
+    <p class="section-sub">Click any card to expand deeper details. Prices shown are approximate per 1 million input tokens.</p>
+    <div class="model-grid" id="model-grid"></div>
+  </div>
+
+  <!-- DECISION GUIDE -->
+  <div class="decision">
+    <h2 class="section-title">How to Choose a Model in 2026</h2>
+    <p class="section-sub">Six common scenarios and the recommended approach.</p>
+    <div class="decision-grid">
+      <div class="decision-card">
+        <h3 style="color:#818cf8">🚀 General chat / writing / summarization</h3>
+        <p class="when">High-volume general-purpose AI assistant work.</p>
+        <div class="recommend"><strong>Pick:</strong> Claude Sonnet 4.6 or GPT-5 via API. Both deliver excellent quality at ~$3/M input. Use the cheaper <strong>GPT-5 mini</strong> or <strong>Gemini 2.5 Flash</strong> if cost matters more than top quality.</div>
+      </div>
+      <div class="decision-card">
+        <h3 style="color:#f472b6">🧠 Hard reasoning / math / research</h3>
+        <p class="when">Tasks where one wrong answer is worse than 10× the latency.</p>
+        <div class="recommend"><strong>Pick:</strong> OpenAI o3, Claude Opus 4.7 with extended thinking, or DeepSeek-R1 (open). Expect minutes per response and 10-50× the cost — but accuracy gains can be dramatic.</div>
+      </div>
+      <div class="decision-card">
+        <h3 style="color:#67e8f9">📚 Long-context analysis</h3>
+        <p class="when">Processing entire codebases, books, video, or thousands of pages.</p>
+        <div class="recommend"><strong>Pick:</strong> Gemini 2.5 Pro (2M token context — industry-leading) or Claude Sonnet 4.6 (500K tokens with strong long-context coherence).</div>
+      </div>
+      <div class="decision-card">
+        <h3 style="color:#fcd34d">💻 Coding / agentic dev work</h3>
+        <p class="when">Building features, fixing bugs, multi-file refactors.</p>
+        <div class="recommend"><strong>Pick:</strong> Claude Opus 4.7 or Sonnet 4.6 — currently dominant on SWE-bench Verified. Used inside Claude Code, Cursor, and most AI coding tools.</div>
+      </div>
+      <div class="decision-card">
+        <h3 style="color:#6ee7b7">🔒 Privacy / on-premises / sovereignty</h3>
+        <p class="when">Data cannot leave your infrastructure (healthcare, defense, regulated industries).</p>
+        <div class="recommend"><strong>Pick:</strong> Llama 4 Maverick / Scout (open weights, commercial use allowed) or Mistral Large 2 (European, GDPR-aligned). Self-host on your own VPC.</div>
+      </div>
+      <div class="decision-card">
+        <h3 style="color:#f87171">💸 Cost-sensitive at scale</h3>
+        <p class="when">Millions of calls per day, cost is the primary constraint.</p>
+        <div class="recommend"><strong>Pick:</strong> GPT-5 mini ($0.25/M), Gemini 2.5 Flash ($0.30/M), or DeepSeek-V3 ($0.27/M). All 30-50× cheaper than frontier models with surprisingly strong quality.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELF-CHECK QUIZ -->
+  <div class="quiz-section">
+    <h2 class="section-title">Self-Check: Test Your Understanding</h2>
+    <p class="section-sub">5 questions to confirm you can navigate the model landscape.</p>
+
+    <div class="quiz-card">
+      <p class="question">1. A startup is building a real-time customer-support chat for an e-commerce site. They expect ~5 million messages per day. Each message needs a friendly, accurate response in under 2 seconds. Which model tier fits best?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 1)">Claude Opus 4.7 with extended thinking — top quality is essential for customer service</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">OpenAI o3 — reasoning models give the best responses</button>
+        <button class="opt-btn" onclick="answer(this, true,  1)">GPT-5 mini or Gemini 2.5 Flash — both deliver fast responses (~1 sec) at low cost for high-volume use</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Llama 4 Maverick self-hosted — open-source is always cheapest</button>
+      </div>
+      <div class="feedback" id="fb-1"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">2. What is the key trade-off when using a reasoning model (o3, Claude Opus 4.7 thinking mode, DeepSeek-R1) instead of a standard generative model?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 2)">Reasoning models are always more accurate, so always use them for important tasks</button>
+        <button class="opt-btn" onclick="answer(this, true,  2)">Reasoning models trade significantly higher latency and cost (10-100×) for much higher accuracy on hard problems. Use them when one wrong answer is worse than slow/expensive ones</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">Reasoning models are open-source while standard models are proprietary</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">Reasoning models can only handle text while standard models are multimodal</button>
+      </div>
+      <div class="feedback" id="fb-2"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">3. A defense contractor needs to deploy an LLM for analyzing classified documents. Data <em>cannot</em> leave their secure on-premises environment. Which is the only viable path?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 3)">Use the OpenAI API with end-to-end encryption</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">Use Claude via AWS Bedrock with a private VPC endpoint</button>
+        <button class="opt-btn" onclick="answer(this, true,  3)">Self-host an open-weight model like Llama 4 or Mistral Large 2 on internal GPU infrastructure — the weights run inside the secure environment, no API calls leave</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">Use Gemini 2.5 Pro since it has the longest context window</button>
+      </div>
+      <div class="feedback" id="fb-3"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">4. DeepSeek-R1 made headlines in early 2025 for matching OpenAI's o1 quality at a fraction of the cost. What was the deeper market lesson?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 4)">Chinese models are now always better than American models</button>
+        <button class="opt-btn" onclick="answer(this, true,  4)">Frontier reasoning capabilities don't require billion-dollar training runs. The "moat" around frontier AI is narrower than previously believed — open-weight competition is now real at the frontier</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Reasoning models are a fad and standard models are still better</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Reinforcement learning is the only training method that matters now</button>
+      </div>
+      <div class="feedback" id="fb-4"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">5. Your engineering team needs to analyze an entire enterprise codebase (~800,000 lines of Python and TypeScript) in a single AI call — to find architectural issues. Which model would you pick first?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 5)">GPT-5 mini — it's the cheapest option</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Llama 4 Scout — it's open-source so you can self-host</button>
+        <button class="opt-btn" onclick="answer(this, true,  5)">Gemini 2.5 Pro — its 2 million token context window can ingest the entire codebase in one call. Claude Sonnet 4.6 (500K) is the runner-up</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">DeepSeek-R1 — reasoning models are always best for complex analysis</button>
+      </div>
+      <div class="feedback" id="fb-5"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const models = [
+  {
+    name: "GPT-5", by: "OpenAI · 2025", logo: "🤖", logoBg: "#10a37f", type: "proprietary",
+    context: "~400K tokens", params: "Multi-trillion (est.)", cost: "$1.25 / 1M",
+    desc: "OpenAI's unified flagship released 2025. Adaptive reasoning — model dynamically allocates thinking time. Default in ChatGPT and the backbone of Microsoft Copilot.",
+    strengths: ["Adaptive reasoning","Native multimodal","Agentic tools","Function calling"],
+    detail: "GPT-5 unifies what were previously separate model lines (GPT-4o + o1/o3 reasoning) into a single model with adaptive compute — it decides how long to think based on problem difficulty. Native text/image/audio/video processing. Powers ChatGPT, Microsoft Copilot, GitHub Copilot, and most OpenAI API workloads. The 'mini' and 'nano' variants offer the same capabilities at 5-25× lower cost for high-volume use."
+  },
+  {
+    name: "Claude Opus 4.7", by: "Anthropic · 2026", logo: "🔮", logoBg: "#c07040", type: "proprietary",
+    context: "500K tokens", params: "Unknown", cost: "$15 / 1M",
+    desc: "Anthropic's most capable model. Leads industry benchmarks for coding (SWE-bench Verified) and agentic workflows. Extended thinking mode for deep reasoning.",
+    strengths: ["Top-tier coding","Extended thinking","Long-horizon agents","Tool use"],
+    detail: "Claude Opus 4.7 leads SWE-bench Verified — the gold-standard benchmark for real-world software engineering. Features extended thinking mode where the model deliberates step-by-step before responding (similar to o3). Powers Claude Code (Anthropic's terminal coding assistant), Cursor, Devin, and most agentic platforms. Trained with Constitutional AI for safety; available via Anthropic API, AWS Bedrock, Google Vertex AI."
+  },
+  {
+    name: "Claude Sonnet 4.6", by: "Anthropic · 2026", logo: "🔮", logoBg: "#c07040", type: "proprietary",
+    context: "500K tokens", params: "Unknown", cost: "$3 / 1M",
+    desc: "The performance-per-dollar champion of the Claude family. Powers most enterprise AI applications, agentic platforms, and developer tools.",
+    strengths: ["Best price/quality","Agentic capable","Long context","Coding excellence"],
+    detail: "Sonnet 4.6 is the workhorse of the AI industry as of 2026 — 5× cheaper than Opus 4.7 with ~90% of the capability for most tasks. Default model in Claude.ai for Pro users. Powers Cursor's default tier, many GitHub Copilot workflows, and most agentic AI platforms. Supports extended thinking and 500K context. Released as the latest Sonnet generation in early 2026."
+  },
+  {
+    name: "Gemini 2.5 Pro", by: "Google DeepMind · 2025", logo: "✦", logoBg: "#4285f4", type: "proprietary",
+    context: "2M tokens", params: "Unknown", cost: "$1.25 / 1M",
+    desc: "Industry-leading 2 million token context window. Natively multimodal across text, image, audio, and video — built that way from inception.",
+    strengths: ["2M token context","Native video","Built-in thinking","Google ecosystem"],
+    detail: "Gemini 2.5 Pro can ingest ~1.5 million words or several hours of video in a single call — unmatched in the industry. Features built-in 'thinking' mode toggled per request. Available via Google AI Studio (generous free tier) and Vertex AI (enterprise). Powers Google Search AI Overviews, Workspace AI features, and Android Gemini. The 2.5 Flash variant offers similar capability at ~10× lower cost for high-volume use."
+  },
+  {
+    name: "Llama 4 Maverick", by: "Meta AI · 2025", logo: "🦙", logoBg: "#0668e1", type: "open",
+    context: "1M tokens", params: "400B total / 17B active", cost: "Compute only",
+    desc: "Meta's open-weight flagship. Mixture-of-Experts architecture — frontier quality at a fraction of inference cost. Free for commercial use.",
+    strengths: ["Open weights","MoE efficiency","Native multimodal","1M context"],
+    detail: "Llama 4 brought MoE architecture to the open-weight world. Maverick has 400B total parameters but activates only 17B per token, dramatically reducing inference cost. Natively multimodal (text + image). Run it via Groq (extremely fast), Together AI, Fireworks, or self-host. The smaller Scout variant (109B total / 17B active) runs comfortably on a single H100 GPU. The Behemoth variant (~2T parameters) is still in preview as of mid-2026."
+  },
+  {
+    name: "DeepSeek-R1", by: "DeepSeek · 2025", logo: "🐋", logoBg: "#1e40af", type: "reasoning",
+    context: "128K tokens", params: "671B total / 37B active", cost: "$0.55 / 1M",
+    desc: "Open-weight reasoning model that shocked the industry in early 2025 — matching OpenAI o1 quality at ~3% of the cost. Triggered massive AI cost re-pricing.",
+    strengths: ["Open reasoning model","Extremely cheap","Strong math/code","Self-hostable"],
+    detail: "DeepSeek-R1 demonstrated that frontier reasoning doesn't require billion-dollar training budgets. Trained primarily via reinforcement learning, it matches OpenAI o1 on math, code, and reasoning benchmarks at a tiny fraction of the cost. Available via DeepSeek API, Together AI, and downloadable weights. Its January 2025 release wiped hundreds of billions off AI infrastructure stocks — a wake-up call on AI economics. Successor DeepSeek-V3.1 and R2 followed later in 2025."
+  },
+  {
+    name: "GPT-5 mini", by: "OpenAI · 2025", logo: "⚡", logoBg: "#10a37f", type: "proprietary",
+    context: "~400K tokens", params: "Small (est. ~10B)", cost: "$0.25 / 1M",
+    desc: "Fast, cheap GPT-5 variant. Default in ChatGPT free tier. Replaces GPT-4o-mini for cost-sensitive high-volume use cases.",
+    strengths: ["Ultra-low cost","Sub-second responses","High throughput","Decent reasoning"],
+    detail: "GPT-5 mini is OpenAI's high-volume workhorse — used for classification, routing, simple Q&A, and any task where extreme throughput matters more than peak quality. At $0.25/M input tokens, running 10 million calls/day costs ~$2,500 — affordable for many production apps. Inherits GPT-5's multimodal capabilities and basic reasoning. A 'nano' variant exists at even lower cost for the simplest tasks."
+  },
+  {
+    name: "Mistral Large 2", by: "Mistral AI · 2024", logo: "🌬", logoBg: "#ff6b2b", type: "open",
+    context: "128K tokens", params: "123B", cost: "$2 / 1M",
+    desc: "Mistral's flagship dense model. Strong multilingual capabilities. The default choice for European enterprises with data sovereignty requirements.",
+    strengths: ["Strong multilingual","On-prem deployment","EU/GDPR-aligned","Open weights"],
+    detail: "Mistral Large 2 (123B dense parameters) is the workhorse of European enterprise AI. Excellent multilingual performance (especially French, German, Spanish, Italian). Available via Mistral La Plateforme, Azure AI Foundry, AWS Bedrock, or fully on-prem with a commercial license. Mistral also offers Codestral (coding specialist), Pixtral (vision), and the small Ministral series for edge deployment. Successor Mistral Large 3 expected late 2026."
+  },
+  {
+    name: "Grok 4", by: "xAI · 2025", logo: "𝕏", logoBg: "#000000", type: "proprietary",
+    context: "256K tokens", params: "Unknown", cost: "$3 / 1M",
+    desc: "xAI's reasoning-focused frontier model. Unique real-time access to X platform data. Less restricted than competitors — pros and cons.",
+    strengths: ["Live X data","Strong reasoning","Fewer restrictions","Long context"],
+    detail: "Grok 4 launched in 2025 with strong performance on reasoning benchmarks. Unique feature: native real-time access to X (Twitter) data, useful for current events, market sentiment, and social analysis. The 'Heavy' variant uses multi-agent deliberation for top benchmark scores. Available via xAI API and inside X Premium+. Has notably fewer content restrictions than OpenAI/Anthropic — a feature for some use cases (research, less guardrailed creative work), a risk for others (consumer apps, regulated industries)."
+  }
+];
+
+function renderModels() {
+  const grid = document.getElementById('model-grid');
+  models.forEach((m, i) => {
+    const card = document.createElement('div');
+    card.className = 'model-card';
+    let borderColor, badgeClass, badgeText;
+    if (m.type === 'open')      { borderColor = 'rgba(16,185,129,0.4)';  badgeClass = 'badge-open';   badgeText = '🔓 Open'; }
+    else if (m.type === 'reasoning') { borderColor = 'rgba(236,72,153,0.4)';  badgeClass = 'badge-reason'; badgeText = '🧠 Reasoning'; }
+    else                             { borderColor = 'rgba(99,102,241,0.4)';  badgeClass = 'badge-prop';   badgeText = '🔒 Proprietary'; }
+    card.style.borderColor = borderColor;
+    card.innerHTML = `
+      <span class="mc-badge ${badgeClass}">${badgeText}</span>
+      <div class="mc-top">
+        <div class="mc-logo" style="background:${m.logoBg}">${m.logo}</div>
+        <div><div class="mc-name">${m.name}</div><div class="mc-by">${m.by}</div></div>
+      </div>
+      <div class="mc-stats">
+        <div class="mc-stat"><div class="mc-stat-label">Context</div><div class="mc-stat-value">${m.context}</div></div>
+        <div class="mc-stat"><div class="mc-stat-label">Cost (input)</div><div class="mc-stat-value" style="font-size:0.82rem">${m.cost}</div></div>
+      </div>
+      <p class="mc-desc">${m.desc}</p>
+      <div class="mc-strengths">${m.strengths.map(s => `<span class="strength-tag">${s}</span>`).join('')}</div>
+      <div class="card-detail" id="cd-${i}">${m.detail}</div>
+    `;
+    card.onclick = () => document.getElementById('cd-' + i).classList.toggle('open');
+    grid.appendChild(card);
+  });
+}
+
+function toggleLayer(el) {
+  el.querySelector('.layer-detail').classList.toggle('open');
+}
+
+const explanations = {
+  1: "Correct! At 5 million queries/day, latency and cost dominate. GPT-5 mini at $0.25/M input tokens makes this economically viable (~$50-150/day at typical message sizes). Sub-second response time matches customer service expectations. Use the more expensive Opus/o3 only when accuracy gains justify 50-100× higher cost.",
+  2: "Correct! Reasoning models can take 30 seconds to several minutes to respond and cost 10-100× more than standard models. For most chat, writing, and classification tasks, a standard model is the right choice. Reserve reasoning models for math, complex multi-step logic, hard coding problems, and high-stakes decisions where accuracy beats speed.",
+  3: "Correct! Even with private endpoints, an API call still routes through external infrastructure. For classified data, the model weights must run inside the secure environment. Open-weight models like Llama 4 (commercial use allowed) or Mistral Large 2 (with commercial license) can be downloaded and deployed entirely on-prem — no API calls leave the secure boundary.",
+  4: "Correct! DeepSeek-R1 was a watershed moment. The implicit narrative that only billion-dollar labs could build frontier models broke. Open-weight competition is now real at the frontier — which is why every major lab (Meta, Mistral) is investing heavily in open releases, and proprietary labs are competing harder on price.",
+  5: "Correct! Context window is the dominant constraint here. 800K lines × ~10 tokens/line ≈ 8 million tokens — but with smart chunking you could fit a meaningful subset in Gemini 2.5 Pro's 2M context. Sonnet 4.6 at 500K is the runner-up. Standard 128K-256K context models would require complex chunking and lose architectural coherence."
+};
+const wrongs = {
+  1: "Not quite. At 5 million queries/day, top-tier reasoning models become economically prohibitive (potentially $50K+/day) and customers won't wait 30+ seconds for responses. Match the model tier to the volume + latency requirement.",
+  2: "Not quite. Reasoning models are NOT always more accurate — they often produce identical answers to standard models on simple tasks, but at 10-100× the cost. The real trade-off is latency + cost vs. accuracy on hard tasks.",
+  3: "Not quite. Even with private endpoints or strong encryption, API-based services route requests through external infrastructure. For classified data with strict no-leave rules, the model itself must run inside the secure boundary — which requires open weights.",
+  4: "Not quite. The deeper lesson wasn't about geography or specific techniques — it was about AI economics. The supposed moat around frontier AI (massive capex, talent, compute) turned out to be smaller than the market believed. This caused major repricing of AI infrastructure investments.",
+  5: "Not quite. The 800K-line codebase translates to several million tokens. Standard 128K-256K context models would force you to chunk and lose architectural coherence. Context window is the dominant constraint for this task."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+
+renderModels();
+</script>
+</body>
+</html>

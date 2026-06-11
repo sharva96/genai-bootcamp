@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 3 — Embeddings Visualizer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #06b6d4; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+  section { margin-bottom: 56px; }
+
+  /* Semantic space SVG */
+  .space-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 20px; }
+  .space-svg { width: 100%; height: 480px; border-radius: 10px; background: radial-gradient(ellipse at center, #0f172a 0%, #020617 100%); display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #94a3b8; }
+  .legend-dot { width: 11px; height: 11px; border-radius: 50%; }
+
+  .word-point { cursor: pointer; transition: r 0.15s, opacity 0.15s; }
+  .word-point:hover { stroke-width: 3; }
+  .word-label { font-family: 'Segoe UI', sans-serif; font-size: 11px; fill: #cbd5e1; pointer-events: none; }
+  .word-label.bold { font-weight: 700; font-size: 13px; fill: #f8fafc; }
+
+  /* Similarity playground */
+  .sim-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .sim-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .sim-preset { background: #334155; border: 1px solid #475569; color: #cbd5e1; padding: 6px 12px; border-radius: 8px; font-size: 0.78rem; cursor: pointer; transition: all 0.15s; }
+  .sim-preset:hover { background: #06b6d4; border-color: #06b6d4; color: #fff; }
+  .sim-inputs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: stretch; margin-bottom: 18px; }
+  .sim-input { background: #0f172a; border-radius: 10px; padding: 14px 16px; border: 1.5px solid #334155; }
+  .sim-input-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 6px; }
+  .sim-input textarea { width: 100%; background: transparent; border: none; color: #e2e8f0; font-size: 0.92rem; font-family: 'Segoe UI', sans-serif; resize: vertical; min-height: 60px; outline: none; }
+  .sim-divider { display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #475569; }
+  .sim-result { background: #0f172a; border-radius: 12px; padding: 22px; text-align: center; }
+  .sim-score { font-size: 3rem; font-weight: 700; font-family: 'Consolas', monospace; }
+  .sim-score.high { color: #34d399; }
+  .sim-score.med  { color: #fbbf24; }
+  .sim-score.low  { color: #f87171; }
+  .sim-bar { background: #334155; border-radius: 99px; height: 12px; overflow: hidden; margin: 14px auto; max-width: 500px; }
+  .sim-bar-fill { height: 100%; transition: width 0.4s; border-radius: 99px; }
+  .sim-interpretation { font-size: 0.92rem; color: #cbd5e1; margin-top: 8px; }
+  .sim-explainer { font-size: 0.78rem; color: #64748b; margin-top: 14px; line-height: 1.5; font-style: italic; }
+
+  /* Word arithmetic */
+  .arith-card { background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(236,72,153,0.06)); border: 1px solid #6366f1; border-radius: 14px; padding: 24px; }
+  .arith-equation { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  .arith-word { background: #1e293b; border-radius: 10px; padding: 12px 22px; text-align: center; }
+  .arith-word .word-text { font-size: 1.05rem; font-weight: 700; color: #f8fafc; }
+  .arith-word.result { background: rgba(16,185,129,0.15); border: 2px solid #10b981; }
+  .arith-word.result .word-text { color: #6ee7b7; }
+  .arith-op { font-size: 1.6rem; color: #94a3b8; font-weight: 700; }
+  .arith-examples { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .arith-ex { background: rgba(0,0,0,0.3); border-radius: 10px; padding: 14px 16px; font-size: 0.88rem; color: #cbd5e1; cursor: pointer; transition: background 0.15s; }
+  .arith-ex:hover { background: rgba(99,102,241,0.15); }
+  .arith-ex strong { color: #f1f5f9; }
+  .arith-ex .arrow { color: #6ee7b7; font-weight: 700; }
+
+  /* Similarity matrix */
+  .matrix-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 20px; overflow-x: auto; }
+  .matrix-table { border-collapse: collapse; font-size: 0.78rem; margin: 0 auto; }
+  .matrix-table th { font-weight: 600; padding: 6px 8px; color: #94a3b8; }
+  .matrix-table th:first-child { text-align: right; }
+  .matrix-table td { width: 50px; height: 50px; text-align: center; font-family: 'Consolas', monospace; font-weight: 600; color: rgba(0,0,0,0.8); }
+  .matrix-table td.row-label { background: transparent; color: #94a3b8; font-weight: 600; padding-right: 10px; text-align: right; font-family: 'Segoe UI', sans-serif; }
+
+  /* RAG demo */
+  .rag-card { background: #1e293b; border-radius: 14px; padding: 24px; border: 1px solid #334155; }
+  .rag-query { background: rgba(6,182,212,0.1); border: 1px solid #06b6d4; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; }
+  .rag-query-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #67e8f9; margin-bottom: 5px; }
+  .rag-query-text { font-size: 1rem; color: #f1f5f9; font-style: italic; }
+  .rag-results-title { font-size: 0.82rem; color: #64748b; margin-bottom: 10px; }
+  .rag-result { background: #0f172a; border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; display: grid; grid-template-columns: 60px 1fr 80px; gap: 14px; align-items: center; }
+  .rag-rank { font-size: 1.3rem; font-weight: 700; color: #94a3b8; text-align: center; }
+  .rag-text { font-size: 0.88rem; color: #cbd5e1; line-height: 1.4; }
+  .rag-score-mini { text-align: right; }
+  .rag-score-num { font-family: 'Consolas', monospace; font-weight: 700; font-size: 0.92rem; }
+  .rag-score-bar { background: #334155; border-radius: 99px; height: 4px; overflow: hidden; margin-top: 4px; }
+  .rag-score-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #06b6d4, #10b981); }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #06b6d4; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 700px) {
+    .sim-inputs { grid-template-columns: 1fr; }
+    .arith-examples { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 2 · Lab 3</div>
+  <h1>Embeddings Visualizer</h1>
+  <p>See how words become vectors that encode meaning — the foundation of semantic search, RAG, and modern NLP.</p>
+</div>
+
+<div class="main">
+
+  <!-- SEMANTIC SPACE -->
+  <section>
+    <h2 class="section-title">🌌 The Semantic Space</h2>
+    <p class="section-sub">Each word becomes a point in high-dimensional space (typically 768-1536 dimensions). Words with similar meaning cluster together. Below: a 2D projection of common words. <strong>Hover</strong> over any point.</p>
+
+    <div class="space-card">
+      <svg class="space-svg" id="space-svg" viewBox="0 0 800 480"></svg>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>Animals</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>Tech/Computing</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>Food</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#ec4899"></span>Emotions</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#a855f7"></span>Royalty/Roles</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#06b6d4"></span>Transport</div>
+      </div>
+      <p style="font-size:0.78rem; color:#64748b; text-align:center; margin-top:12px; line-height:1.5">
+        💡 In real embedding spaces (768-3072 dimensions), this clustering is even cleaner. We're showing a 2D projection — like flattening Earth into a flat map.
+      </p>
+    </div>
+  </section>
+
+  <!-- COSINE SIMILARITY -->
+  <section>
+    <h2 class="section-title">📏 Cosine Similarity Calculator</h2>
+    <p class="section-sub">The standard way to measure semantic closeness. Score of 1.0 = identical meaning. 0 = unrelated. Try the presets to build intuition.</p>
+
+    <div class="sim-card">
+      <div class="sim-presets">
+        <span style="color:#64748b; font-size:0.8rem; align-self:center; margin-right:4px">Try:</span>
+        <button class="sim-preset" onclick="loadSim(0)">🟢 Near-identical</button>
+        <button class="sim-preset" onclick="loadSim(1)">🟢 Synonyms</button>
+        <button class="sim-preset" onclick="loadSim(2)">🟡 Same topic</button>
+        <button class="sim-preset" onclick="loadSim(3)">🟡 Different framing</button>
+        <button class="sim-preset" onclick="loadSim(4)">🔴 Unrelated</button>
+        <button class="sim-preset" onclick="loadSim(5)">🔴 Opposite topics</button>
+      </div>
+
+      <div class="sim-inputs">
+        <div class="sim-input">
+          <div class="sim-input-label">Sentence A</div>
+          <textarea id="sim-a" oninput="computeSim()">The cat sat on the mat.</textarea>
+        </div>
+        <div class="sim-divider">↔</div>
+        <div class="sim-input">
+          <div class="sim-input-label">Sentence B</div>
+          <textarea id="sim-b" oninput="computeSim()">A feline rested on a rug.</textarea>
+        </div>
+      </div>
+
+      <div class="sim-result">
+        <div class="sim-score" id="sim-score">—</div>
+        <div class="sim-bar"><div class="sim-bar-fill" id="sim-bar-fill" style="width:0%;background:#06b6d4"></div></div>
+        <div class="sim-interpretation" id="sim-interp">Type or load a preset to see similarity</div>
+        <p class="sim-explainer" id="sim-explainer"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORD ARITHMETIC -->
+  <section>
+    <h2 class="section-title">➕ Word Arithmetic — The Famous Analogy</h2>
+    <p class="section-sub">Word2Vec's most striking discovery: <strong>directions in embedding space encode meaning</strong>. The vector from "man" to "woman" is the same as the vector from "king" to "queen" — capturing the concept of gender.</p>
+
+    <div class="arith-card">
+      <div class="arith-equation" id="arith-eq">
+        <div class="arith-word"><div class="word-text">king</div></div>
+        <div class="arith-op">−</div>
+        <div class="arith-word"><div class="word-text">man</div></div>
+        <div class="arith-op">+</div>
+        <div class="arith-word"><div class="word-text">woman</div></div>
+        <div class="arith-op">≈</div>
+        <div class="arith-word result"><div class="word-text">queen</div></div>
+      </div>
+
+      <p style="text-align:center; color:#94a3b8; font-size:0.88rem; margin-bottom:18px;">More analogies that work the same way:</p>
+
+      <div class="arith-examples">
+        <div class="arith-ex" onclick="showArith(['Paris','France','Italy','Rome'])"><strong>Paris</strong> − <strong>France</strong> + <strong>Italy</strong> <span class="arrow">≈ Rome</span><br><small style="color:#64748b">capital-of-country relationship</small></div>
+        <div class="arith-ex" onclick="showArith(['walking','walked','swimming','swam'])"><strong>walking</strong> − <strong>walked</strong> + <strong>swimming</strong> <span class="arrow">≈ swam</span><br><small style="color:#64748b">verb tense relationship</small></div>
+        <div class="arith-ex" onclick="showArith(['Einstein','scientist','Picasso','painter'])"><strong>Einstein</strong> − <strong>scientist</strong> + <strong>Picasso</strong> <span class="arrow">≈ painter</span><br><small style="color:#64748b">person-to-profession relationship</small></div>
+        <div class="arith-ex" onclick="showArith(['hotter','hot','colder','cold'])"><strong>hotter</strong> − <strong>hot</strong> + <strong>colder</strong> <span class="arrow">≈ cold</span><br><small style="color:#64748b">comparative form relationship</small></div>
+      </div>
+
+      <p style="margin-top:20px; font-size:0.85rem; color:#94a3b8; line-height:1.6; background:rgba(0,0,0,0.25); border-radius:8px; padding:14px 18px;">
+        <strong style="color:#fbbf24">Why this matters:</strong> The model didn't memorize these analogies — they emerged from the geometry of meaning learned during training. This is why embeddings power semantic search, recommendation systems, and ground every modern RAG application.
+      </p>
+    </div>
+  </section>
+
+  <!-- SIMILARITY MATRIX -->
+  <section>
+    <h2 class="section-title">🗺 Word Similarity Heatmap</h2>
+    <p class="section-sub">Pairwise cosine similarity between 8 words. Darker green = more semantically similar. Notice how synonyms and related concepts cluster.</p>
+
+    <div class="matrix-card">
+      <table class="matrix-table" id="matrix-table"></table>
+    </div>
+  </section>
+
+  <!-- RAG / SEMANTIC SEARCH DEMO -->
+  <section>
+    <h2 class="section-title">🔍 Semantic Search in Action</h2>
+    <p class="section-sub">A user query is embedded and matched against a corpus of help articles. Notice how matches succeed even with zero shared keywords.</p>
+
+    <div class="rag-card">
+      <div class="rag-query">
+        <div class="rag-query-label">User Query</div>
+        <div class="rag-query-text">"How do I quit my subscription?"</div>
+      </div>
+      <div class="rag-results-title">Top semantic matches (from 10,000-article help center):</div>
+
+      <div class="rag-result">
+        <div class="rag-rank">#1</div>
+        <div class="rag-text">"Cancelling your monthly plan — step by step guide"</div>
+        <div class="rag-score-mini"><div class="rag-score-num" style="color:#34d399">0.91</div><div class="rag-score-bar"><div class="rag-score-fill" style="width:91%"></div></div></div>
+      </div>
+
+      <div class="rag-result">
+        <div class="rag-rank">#2</div>
+        <div class="rag-text">"Ending your membership: what happens to your data"</div>
+        <div class="rag-score-mini"><div class="rag-score-num" style="color:#34d399">0.86</div><div class="rag-score-bar"><div class="rag-score-fill" style="width:86%"></div></div></div>
+      </div>
+
+      <div class="rag-result">
+        <div class="rag-rank">#3</div>
+        <div class="rag-text">"Account closure process and refund policy"</div>
+        <div class="rag-score-mini"><div class="rag-score-num" style="color:#fbbf24">0.79</div><div class="rag-score-bar"><div class="rag-score-fill" style="width:79%"></div></div></div>
+      </div>
+
+      <div class="rag-result">
+        <div class="rag-rank">#4</div>
+        <div class="rag-text">"Pausing your subscription temporarily"</div>
+        <div class="rag-score-mini"><div class="rag-score-num" style="color:#fbbf24">0.72</div><div class="rag-score-bar"><div class="rag-score-fill" style="width:72%"></div></div></div>
+      </div>
+
+      <div class="rag-result" style="opacity:0.5">
+        <div class="rag-rank">#250</div>
+        <div class="rag-text">"How to subscribe to our premium tier" (traditional keyword search would match this!)</div>
+        <div class="rag-score-mini"><div class="rag-score-num" style="color:#f87171">0.31</div><div class="rag-score-bar"><div class="rag-score-fill" style="width:31%"></div></div></div>
+      </div>
+
+      <p style="margin-top:16px; font-size:0.85rem; color:#94a3b8; line-height:1.6; background:rgba(0,0,0,0.25); border-radius:8px; padding:14px 18px;">
+        <strong style="color:#34d399">✓ Notice:</strong> The query "quit my subscription" has zero shared keywords with "Cancelling your monthly plan" or "Ending your membership" — but they correctly rank highest. Embedding-based search captures meaning, not words. Meanwhile a keyword search would rank "How to subscribe..." high because it shares "subscription" — but that article is the opposite of what the user wants.
+      </p>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section>
+    <h2 class="section-title">Self-Check: Test Your Understanding</h2>
+    <p class="section-sub">5 questions to confirm you grasp embeddings.</p>
+
+    <div class="quiz-card">
+      <p class="question">1. What does it mean if two sentences have a cosine similarity of 0.92?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 1)">They share 92% of the same words</button>
+        <button class="opt-btn" onclick="answer(this, true, 1)">Their meanings are very close in semantic space — they likely express the same idea, possibly with different wording. Above ~0.8 typically means strong semantic similarity</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">They were written by the same author</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">One is a translation of the other</button>
+      </div>
+      <div class="feedback" id="fb-1"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">2. Why does the equation "king − man + woman ≈ queen" work in embedding space?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 2)">The model was explicitly trained to memorize this analogy</button>
+        <button class="opt-btn" onclick="answer(this, true, 2)">Embedding training causes semantically related concepts to align along consistent directions. The vector from "man" to "woman" encodes "gender shift" — and that same direction works for king→queen, brother→sister, actor→actress</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">It's just a mathematical coincidence with no real meaning</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">It only works with the specific word2vec model, not modern LLMs</button>
+      </div>
+      <div class="feedback" id="fb-2"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">3. A user searches "noise-cancelling earbuds for flights" on an e-commerce site. Embedding-based search returns "wireless headphones for travel" as the top match — even though they share no exact words. Why does this happen?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 3)">Random luck</button>
+        <button class="opt-btn" onclick="answer(this, true, 3)">Both phrases map to nearby points in embedding space because they describe the same concept (portable audio devices used while traveling). Embeddings capture meaning, not surface words</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">A spelling error was corrected behind the scenes</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">The user clicked on the product before</button>
+      </div>
+      <div class="feedback" id="fb-3"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">4. Why are embeddings stored in vector databases (Pinecone, Weaviate, pgvector) rather than regular relational databases?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 4)">Vector databases are cheaper</button>
+        <button class="opt-btn" onclick="answer(this, true, 4)">Vector databases use specialized indexes (HNSW, IVF) to find nearest neighbors in high-dimensional space at scale. A regular DB would have to compute similarity against every row — impossibly slow for millions of vectors</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Regular databases can't store decimals</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">It's a marketing requirement, not a technical one</button>
+      </div>
+      <div class="feedback" id="fb-4"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">5. A company builds a help-center search using embeddings. After 6 months, search quality has dropped. What is most likely happening?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 5)">Embeddings physically degrade over time</button>
+        <button class="opt-btn" onclick="answer(this, true, 5)">Drift: new content was added without being re-embedded. New queries reference recent features/products not present in the original embedding pass. Solution: re-embed regularly as content changes, version the embedding model</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">The vector database is full</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Embeddings are seasonal — they need refresh quarterly</button>
+      </div>
+      <div class="feedback" id="fb-5"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ============== SEMANTIC SPACE ==============
+const words = [
+  // Animals (blue cluster, top-left area)
+  { word: 'dog',     x: 130, y:  90, cat: 'animal', color: '#3b82f6' },
+  { word: 'cat',     x: 170, y: 110, cat: 'animal', color: '#3b82f6' },
+  { word: 'puppy',   x: 110, y: 120, cat: 'animal', color: '#3b82f6' },
+  { word: 'kitten',  x: 150, y: 140, cat: 'animal', color: '#3b82f6' },
+  { word: 'wolf',    x: 100, y:  60, cat: 'animal', color: '#3b82f6' },
+  { word: 'lion',    x:  85, y:  85, cat: 'animal', color: '#3b82f6' },
+  { word: 'horse',   x: 195, y:  75, cat: 'animal', color: '#3b82f6' },
+  { word: 'bird',    x: 175, y:  45, cat: 'animal', color: '#3b82f6' },
+
+  // Tech (green cluster, top-right area)
+  { word: 'computer',   x: 600, y:  80, cat: 'tech', color: '#10b981' },
+  { word: 'laptop',     x: 640, y: 110, cat: 'tech', color: '#10b981' },
+  { word: 'software',   x: 670, y:  70, cat: 'tech', color: '#10b981' },
+  { word: 'algorithm',  x: 720, y: 100, cat: 'tech', color: '#10b981' },
+  { word: 'AI',         x: 620, y: 140, cat: 'tech', color: '#10b981' },
+  { word: 'neural',     x: 680, y: 145, cat: 'tech', color: '#10b981' },
+  { word: 'model',      x: 580, y: 130, cat: 'tech', color: '#10b981' },
+  { word: 'code',       x: 720, y: 150, cat: 'tech', color: '#10b981' },
+
+  // Food (orange cluster, middle-left)
+  { word: 'pizza',    x: 130, y: 250, cat: 'food', color: '#f59e0b' },
+  { word: 'burger',   x: 175, y: 270, cat: 'food', color: '#f59e0b' },
+  { word: 'pasta',    x: 105, y: 285, cat: 'food', color: '#f59e0b' },
+  { word: 'sushi',    x: 150, y: 305, cat: 'food', color: '#f59e0b' },
+  { word: 'bread',    x:  80, y: 260, cat: 'food', color: '#f59e0b' },
+  { word: 'cheese',   x: 195, y: 245, cat: 'food', color: '#f59e0b' },
+  { word: 'coffee',   x:  90, y: 315, cat: 'food', color: '#f59e0b' },
+  { word: 'wine',     x: 200, y: 320, cat: 'food', color: '#f59e0b' },
+
+  // Emotions (pink cluster, middle-right)
+  { word: 'happy',    x: 600, y: 250, cat: 'emotion', color: '#ec4899' },
+  { word: 'joyful',   x: 640, y: 280, cat: 'emotion', color: '#ec4899' },
+  { word: 'sad',      x: 580, y: 300, cat: 'emotion', color: '#ec4899' },
+  { word: 'angry',    x: 690, y: 250, cat: 'emotion', color: '#ec4899' },
+  { word: 'excited',  x: 660, y: 220, cat: 'emotion', color: '#ec4899' },
+  { word: 'fear',     x: 730, y: 290, cat: 'emotion', color: '#ec4899' },
+  { word: 'love',     x: 615, y: 320, cat: 'emotion', color: '#ec4899' },
+  { word: 'calm',     x: 720, y: 320, cat: 'emotion', color: '#ec4899' },
+
+  // Royalty/People (purple cluster, bottom-left)
+  { word: 'king',     x: 240, y: 380, cat: 'royal', color: '#a855f7' },
+  { word: 'queen',    x: 280, y: 400, cat: 'royal', color: '#a855f7' },
+  { word: 'prince',   x: 200, y: 410, cat: 'royal', color: '#a855f7' },
+  { word: 'princess', x: 240, y: 430, cat: 'royal', color: '#a855f7' },
+  { word: 'man',      x: 320, y: 380, cat: 'royal', color: '#a855f7' },
+  { word: 'woman',    x: 360, y: 400, cat: 'royal', color: '#a855f7' },
+
+  // Transport (cyan cluster, bottom-right)
+  { word: 'car',       x: 480, y: 380, cat: 'transport', color: '#06b6d4' },
+  { word: 'truck',     x: 530, y: 410, cat: 'transport', color: '#06b6d4' },
+  { word: 'bicycle',   x: 460, y: 420, cat: 'transport', color: '#06b6d4' },
+  { word: 'airplane',  x: 580, y: 390, cat: 'transport', color: '#06b6d4' },
+  { word: 'boat',      x: 620, y: 430, cat: 'transport', color: '#06b6d4' },
+  { word: 'train',     x: 550, y: 440, cat: 'transport', color: '#06b6d4' },
+];
+
+function renderSpace() {
+  const svg = document.getElementById('space-svg');
+  svg.innerHTML = '';
+
+  // Light cluster halos
+  const clusterCenters = {};
+  words.forEach(w => {
+    if (!clusterCenters[w.cat]) clusterCenters[w.cat] = { x:0, y:0, n:0, color: w.color };
+    clusterCenters[w.cat].x += w.x;
+    clusterCenters[w.cat].y += w.y;
+    clusterCenters[w.cat].n += 1;
+  });
+  Object.values(clusterCenters).forEach(c => {
+    const cx = c.x / c.n, cy = c.y / c.n;
+    const halo = `<circle cx="${cx}" cy="${cy}" r="95" fill="${c.color}" opacity="0.05" />`;
+    svg.insertAdjacentHTML('beforeend', halo);
+  });
+
+  // Special highlight for king/queen/man/woman to anchor the analogy
+  const highlights = ['king','queen','man','woman'];
+
+  words.forEach(w => {
+    const isHi = highlights.includes(w.word);
+    svg.insertAdjacentHTML('beforeend',
+      `<circle class="word-point" cx="${w.x}" cy="${w.y}" r="${isHi ? 7 : 5}"
+        fill="${w.color}" stroke="${isHi ? '#f8fafc' : 'rgba(255,255,255,0.2)'}" stroke-width="${isHi ? 2 : 1}"
+        opacity="${isHi ? 1 : 0.85}">
+        <title>${w.word} (${w.cat})</title>
+      </circle>
+      <text class="word-label${isHi ? ' bold' : ''}" x="${w.x + 9}" y="${w.y + 4}">${w.word}</text>`);
+  });
+
+  // Draw the king->queen and man->woman arrows to demonstrate analogy
+  const king = words.find(w => w.word === 'king');
+  const queen = words.find(w => w.word === 'queen');
+  const man = words.find(w => w.word === 'man');
+  const woman = words.find(w => w.word === 'woman');
+
+  svg.insertAdjacentHTML('beforeend',
+    `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24"/>
+    </marker></defs>
+    <line x1="${king.x + 5}" y1="${king.y + 5}" x2="${queen.x - 5}" y2="${queen.y - 5}" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow)" opacity="0.7"/>
+    <line x1="${man.x + 5}" y1="${man.y + 5}" x2="${woman.x - 5}" y2="${woman.y - 5}" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow)" opacity="0.7"/>
+    <text x="${(king.x+queen.x)/2}" y="${(king.y+queen.y)/2 - 8}" font-size="9" fill="#fbbf24" font-style="italic">+ gender</text>
+    <text x="${(man.x+woman.x)/2}" y="${(man.y+woman.y)/2 - 8}" font-size="9" fill="#fbbf24" font-style="italic">+ gender</text>`
+  );
+}
+
+// ============== COSINE SIMILARITY ==============
+const simPresets = [
+  { a: "The weather is beautiful today.",  b: "It's a gorgeous day weather-wise.",        s: 0.93 },
+  { a: "The cat sat on the mat.",          b: "A feline rested on a rug.",                s: 0.86 },
+  { a: "I love machine learning.",         b: "Artificial intelligence is fascinating.",  s: 0.79 },
+  { a: "I quit my subscription.",          b: "Cancelling my monthly plan.",              s: 0.84 },
+  { a: "The recipe needs more salt.",      b: "Tokenization is a sub-word algorithm.",    s: 0.08 },
+  { a: "I love hiking in the mountains.",  b: "The stock market crashed yesterday.",      s: 0.12 },
+];
+
+function loadSim(idx) {
+  document.getElementById('sim-a').value = simPresets[idx].a;
+  document.getElementById('sim-b').value = simPresets[idx].b;
+  showSim(simPresets[idx].s);
+}
+
+function computeSim() {
+  // Simple heuristic for live input — not real embeddings
+  const a = document.getElementById('sim-a').value.toLowerCase();
+  const b = document.getElementById('sim-b').value.toLowerCase();
+  if (!a.trim() || !b.trim()) { showSim(null); return; }
+
+  // Check if exact preset match
+  for (const p of simPresets) {
+    if (p.a.toLowerCase() === a && p.b.toLowerCase() === b) {
+      showSim(p.s); return;
+    }
+  }
+  // Crude word-overlap heuristic
+  const ta = new Set(a.replace(/[^a-z\s]/g,'').split(/\s+/).filter(w => w.length > 2));
+  const tb = new Set(b.replace(/[^a-z\s]/g,'').split(/\s+/).filter(w => w.length > 2));
+  const inter = [...ta].filter(w => tb.has(w)).length;
+  const union = new Set([...ta, ...tb]).size;
+  const jaccard = union > 0 ? inter / union : 0;
+  // Adjust to feel more like cosine similarity scores
+  let approxSim = 0.3 + (jaccard * 0.65);
+  if (Math.abs(a.length - b.length) > 50) approxSim *= 0.85;
+  approxSim = Math.min(0.97, approxSim);
+  showSim(approxSim);
+}
+
+function showSim(score) {
+  const scoreEl = document.getElementById('sim-score');
+  const barEl   = document.getElementById('sim-bar-fill');
+  const interp  = document.getElementById('sim-interp');
+  const expl    = document.getElementById('sim-explainer');
+
+  if (score === null) {
+    scoreEl.textContent = '—';
+    barEl.style.width = '0%';
+    interp.textContent = 'Type or load a preset';
+    expl.textContent = '';
+    return;
+  }
+  scoreEl.textContent = score.toFixed(2);
+  barEl.style.width = (score * 100) + '%';
+  let cls, msg, color;
+  if (score >= 0.75)      { cls = 'high'; color = '#34d399'; msg = '🟢 Strong semantic similarity — these likely mean nearly the same thing.'; }
+  else if (score >= 0.50) { cls = 'med';  color = '#fbbf24'; msg = '🟡 Moderate similarity — related concepts or same topic with different framing.'; }
+  else                    { cls = 'low';  color = '#f87171'; msg = '🔴 Low similarity — these are about different things.'; }
+  scoreEl.className = 'sim-score ' + cls;
+  barEl.style.background = color;
+  interp.textContent = msg;
+  expl.textContent = score >= 0.8
+    ? "In real RAG systems, a score above ~0.8 typically means the document is a strong retrieval match."
+    : score >= 0.5
+    ? "Common threshold for 'related but not identical'. Useful for diversity in recommendations."
+    : "Below ~0.4 typically indicates the documents are about different things — not useful as retrieval matches.";
+}
+
+function showArith(words) {
+  const eq = document.getElementById('arith-eq');
+  eq.innerHTML = `
+    <div class="arith-word"><div class="word-text">${words[0]}</div></div>
+    <div class="arith-op">−</div>
+    <div class="arith-word"><div class="word-text">${words[1]}</div></div>
+    <div class="arith-op">+</div>
+    <div class="arith-word"><div class="word-text">${words[2]}</div></div>
+    <div class="arith-op">≈</div>
+    <div class="arith-word result"><div class="word-text">${words[3]}</div></div>`;
+}
+
+// ============== SIMILARITY MATRIX ==============
+const matrixWords = ['dog', 'cat', 'puppy', 'car', 'truck', 'happy', 'sad', 'computer'];
+const matrixSims = [
+  // dog, cat, puppy, car, truck, happy, sad, computer
+  [1.00, 0.78, 0.82, 0.12, 0.10, 0.18, 0.14, 0.09],  // dog
+  [0.78, 1.00, 0.75, 0.10, 0.08, 0.22, 0.16, 0.11],  // cat
+  [0.82, 0.75, 1.00, 0.09, 0.07, 0.24, 0.13, 0.08],  // puppy
+  [0.12, 0.10, 0.09, 1.00, 0.85, 0.14, 0.10, 0.32],  // car
+  [0.10, 0.08, 0.07, 0.85, 1.00, 0.10, 0.08, 0.18],  // truck
+  [0.18, 0.22, 0.24, 0.14, 0.10, 1.00, 0.42, 0.16],  // happy
+  [0.14, 0.16, 0.13, 0.10, 0.08, 0.42, 1.00, 0.12],  // sad
+  [0.09, 0.11, 0.08, 0.32, 0.18, 0.16, 0.12, 1.00],  // computer
+];
+
+function renderMatrix() {
+  const table = document.getElementById('matrix-table');
+  let html = '<tr><th></th>';
+  matrixWords.forEach(w => html += `<th>${w}</th>`);
+  html += '</tr>';
+  matrixWords.forEach((w, i) => {
+    html += `<tr><td class="row-label">${w}</td>`;
+    matrixWords.forEach((_, j) => {
+      const v = matrixSims[i][j];
+      // Color: green for high similarity, dark for low
+      const intensity = Math.pow(v, 1.5);
+      const r = Math.round(15 + (52 - 15) * intensity);
+      const g = Math.round(23 + (211 - 23) * intensity);
+      const b = Math.round(42 + (153 - 42) * intensity);
+      const bgColor = `rgb(${r},${g},${b})`;
+      html += `<td style="background:${bgColor}; color:${intensity > 0.5 ? '#fff' : '#94a3b8'}">${v.toFixed(2)}</td>`;
+    });
+    html += '</tr>';
+  });
+  table.innerHTML = html;
+}
+
+// ============== QUIZ ==============
+const explanations = {
+  1: "Correct! Cosine similarity measures the angle between two vectors. Values close to 1 mean the vectors point in the same direction — i.e., the texts share semantic meaning. The actual surface words don't need to match.",
+  2: "Correct! Word embeddings learned from large corpora develop geometric structure where conceptual differences (gender, tense, scale, country-to-capital) become consistent vector directions. This emergent property is what makes embeddings so powerful.",
+  3: "Correct! Both phrases describe portable audio devices used while traveling. Embeddings encode these conceptual relationships rather than relying on exact words — which is why semantic search dramatically beats keyword search for vague or natural-language queries.",
+  4: "Correct! Vector databases use approximate nearest-neighbor algorithms (HNSW being the most common). They build specialized indexes over vector space, enabling sub-millisecond similarity search over billions of vectors. Regular RDBMS can't do this efficiently.",
+  5: "Correct! Embedding drift is a real production issue. As your content evolves (new products, features, terminology) and as embedding models improve, older embeddings become stale. Best practice: monitor query/result quality, re-embed when content changes substantially, and pin to a specific embedding model version."
+};
+const wrongs = {
+  1: "Not quite. Cosine similarity has nothing to do with shared words or authorship. It measures semantic closeness — vectors pointing in similar directions in embedding space.",
+  2: "Not quite. It's neither memorized nor a coincidence. The directionality emerges naturally during training because related concepts tend to differ in consistent ways across many examples.",
+  3: "Not quite. Embedding-based search works because both phrases map to similar regions of semantic space — it's the meaning, not exact words, that drives the match.",
+  4: "Not quite. The reason isn't cost or storage limitations — it's algorithm efficiency. Vector databases use specialized index structures (HNSW, IVF) designed for nearest-neighbor search in high dimensions.",
+  5: "Not quite. Embeddings themselves don't degrade — they're deterministic given the same input and model. The issue is content evolves but old embeddings don't reflect new content/terminology, and the embedding model itself may have been replaced."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+
+// Initialize
+renderSpace();
+renderMatrix();
+computeSim();
+</script>
+</body>
+</html>

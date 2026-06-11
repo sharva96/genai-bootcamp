@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 1 — AI vs ML vs Deep Learning vs Generative AI</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #6366f1; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+  /* ── Nesting diagram ── */
+  .nesting-section { text-align: center; margin-bottom: 56px; }
+  .nesting-section h2 { font-size: 1.3rem; color: #cbd5e1; margin-bottom: 8px; }
+  .nesting-section .sub { color: #64748b; font-size: 0.9rem; margin-bottom: 32px; }
+
+  .nest-wrap { position: relative; display: inline-block; }
+  .ring {
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .ring:hover { transform: scale(1.03); }
+
+  .ring-ai     { width: 500px; height: 500px; background: rgba(99,102,241,0.12); border: 2.5px solid #6366f1; }
+  .ring-ml     { width: 380px; height: 380px; background: rgba(139,92,246,0.15); border: 2.5px solid #8b5cf6; }
+  .ring-dl     { width: 265px; height: 265px; background: rgba(6,182,212,0.15);  border: 2.5px solid #06b6d4; }
+  .ring-gen    { width: 160px; height: 160px; background: rgba(16,185,129,0.2);  border: 2.5px solid #10b981; }
+
+  .ring-label {
+    position: absolute;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+  }
+  .ring-ai  .ring-label { top: 14px; left: 50%; transform: translateX(-50%); color: #818cf8; }
+  .ring-ml  .ring-label { top: 12px; left: 50%; transform: translateX(-50%); color: #a78bfa; }
+  .ring-dl  .ring-label { top: 10px; left: 50%; transform: translateX(-50%); color: #67e8f9; }
+  .ring-gen .ring-label { color: #6ee7b7; text-align: center; line-height: 1.3; font-size: 0.78rem; }
+
+  /* ── Detail panel ── */
+  .detail-panel {
+    background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+    padding: 28px 32px; margin-top: 40px; text-align: left;
+    min-height: 200px; transition: all 0.3s;
+  }
+  .detail-panel.hidden { display: none; }
+  .detail-panel h3 { font-size: 1.25rem; margin-bottom: 6px; }
+  .detail-panel .tagline { color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .detail-card { background: #0f172a; border-radius: 10px; padding: 16px; }
+  .detail-card h4 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 8px; }
+  .detail-card p  { font-size: 0.88rem; color: #cbd5e1; line-height: 1.5; }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .tag { background: #334155; border-radius: 6px; padding: 3px 9px; font-size: 0.78rem; color: #94a3b8; }
+
+  .hint { color: #64748b; font-size: 0.85rem; text-align: center; margin-top: 16px; }
+
+  /* ── Comparison table ── */
+  .compare-section h2 { font-size: 1.3rem; color: #cbd5e1; margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+  thead tr { background: #1e293b; }
+  thead th { padding: 14px 16px; text-align: left; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
+  tbody tr { border-bottom: 1px solid #1e293b; transition: background 0.15s; }
+  tbody tr:hover { background: #1e293b; }
+  tbody td { padding: 14px 16px; font-size: 0.9rem; color: #cbd5e1; vertical-align: top; }
+  tbody td:first-child { font-weight: 600; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
+  .pill-ai  { background: rgba(99,102,241,0.2);  color: #818cf8; }
+  .pill-ml  { background: rgba(139,92,246,0.2);  color: #a78bfa; }
+  .pill-dl  { background: rgba(6,182,212,0.2);   color: #67e8f9; }
+  .pill-gen { background: rgba(16,185,129,0.2);  color: #6ee7b7; }
+
+  /* ── Quiz ── */
+  .quiz-section { margin-top: 56px; }
+  .quiz-section h2 { font-size: 1.3rem; color: #cbd5e1; margin-bottom: 24px; }
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn {
+    background: #0f172a; border: 1.5px solid #334155; border-radius: 8px;
+    padding: 10px 16px; color: #94a3b8; font-size: 0.9rem; cursor: pointer;
+    text-align: left; transition: all 0.15s;
+  }
+  .opt-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.88rem; padding: 10px 14px; border-radius: 8px; display: none; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 1 · Lab 1</div>
+  <h1>AI vs ML vs Deep Learning vs Generative AI</h1>
+  <p>Click each ring to explore what each layer means, how it differs, and real-world examples.</p>
+</div>
+
+<div class="main">
+
+  <!-- NESTED RINGS -->
+  <div class="nesting-section">
+    <h2>The Nesting Hierarchy</h2>
+    <p class="sub">Each inner layer is a <em>subset</em> of the outer one. Click any ring to learn more.</p>
+
+    <div class="nest-wrap">
+      <div class="ring ring-ai" onclick="showDetail('ai')">
+        <span class="ring-label">ARTIFICIAL INTELLIGENCE</span>
+        <div class="ring ring-ml" onclick="event.stopPropagation(); showDetail('ml')">
+          <span class="ring-label">MACHINE LEARNING</span>
+          <div class="ring ring-dl" onclick="event.stopPropagation(); showDetail('dl')">
+            <span class="ring-label">DEEP LEARNING</span>
+            <div class="ring ring-gen" onclick="event.stopPropagation(); showDetail('gen')">
+              <span class="ring-label">GENERATIVE<br>AI</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="hint">👆 Click a ring to explore it</p>
+
+    <div class="detail-panel hidden" id="detail-panel">
+      <h3 id="dp-title"></h3>
+      <p class="tagline" id="dp-tagline"></p>
+      <div class="detail-grid" id="dp-grid"></div>
+    </div>
+  </div>
+
+  <!-- COMPARISON TABLE -->
+  <div class="compare-section">
+    <h2>Side-by-Side Comparison</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Core idea</th>
+          <th>How it learns</th>
+          <th>Output type</th>
+          <th>Real examples</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill pill-ai">AI</span></td>
+          <td>Machines that simulate human intelligence</td>
+          <td>Rules written by humans (early) or data-driven (modern)</td>
+          <td>Decisions, actions, answers</td>
+          <td>Chess engine, voice assistants, GPS navigation</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-ml">ML</span></td>
+          <td>Systems that learn patterns from data without explicit rules</td>
+          <td>Supervised, unsupervised, or reinforcement signals</td>
+          <td>Predictions, classifications</td>
+          <td>Spam filter, fraud detection, Netflix recommendations</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-dl">Deep Learning</span></td>
+          <td>Multi-layered neural networks learning hierarchical features</td>
+          <td>Backpropagation through many layers; needs large data + GPU</td>
+          <td>Labels, embeddings, features</td>
+          <td>Face recognition, speech-to-text, medical imaging</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-gen">Generative AI</span></td>
+          <td>Models that <em>create</em> new content resembling training data</td>
+          <td>Pre-trained on massive corpora; aligned with RLHF</td>
+          <td>Text, images, audio, video, code</td>
+          <td>ChatGPT, DALL-E, Claude, Sora, GitHub Copilot</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="quiz-section">
+    <h2>Check Your Understanding</h2>
+
+    <div class="quiz-card">
+      <p class="question">1. A company builds a model that predicts whether a customer will churn based on historical data. Which category does this fall under?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 1)">Generative AI — it creates predictions</button>
+        <button class="opt-btn" onclick="answer(this, true,  1)">Machine Learning — it learns patterns to predict an outcome</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Deep Learning — all modern models are deep learning</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Rule-based AI — it uses business rules to decide</button>
+      </div>
+      <div class="feedback" id="fb-1"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">2. What is the key distinction between Discriminative AI and Generative AI?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 2)">Generative AI is more accurate than discriminative AI</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">Discriminative AI requires more data to train</button>
+        <button class="opt-btn" onclick="answer(this, true,  2)">Discriminative AI classifies existing data; Generative AI creates new data</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">Generative AI can only work with text, not images</button>
+      </div>
+      <div class="feedback" id="fb-2"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">3. Which three factors most enabled the Generative AI explosion starting in 2022?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 3)">Faster internet, cheaper laptops, better programming languages</button>
+        <button class="opt-btn" onclick="answer(this, true,  3)">Massive datasets, large-scale GPU compute, and Transformer architecture breakthroughs</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">Government investment, open-source licenses, and cloud storage</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">Social media growth, mobile apps, and big data pipelines</button>
+      </div>
+      <div class="feedback" id="fb-3"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const details = {
+  ai: {
+    title: "Artificial Intelligence (AI)",
+    tagline: "The broadest category — any technique that makes machines behave intelligently.",
+    cards: [
+      { head: "Definition", body: "AI is a simulation of human-like reasoning in machines: problem-solving, language, perception, and decision-making." },
+      { head: "Approaches", body: "Early AI used hand-crafted rules (expert systems). Modern AI is data-driven and statistical." },
+      { head: "Everyday examples", body: "GPS turn-by-turn navigation, spam filters, recommendation engines, voice assistants like Siri." },
+      { head: "Key year", body: "1950 — Alan Turing proposes the Turing Test: can a machine fool a human into thinking it is one?" },
+      { head: "Does NOT require", body: "Data learning — rule-based AI is still AI. A chess engine with hard-coded rules is AI." },
+      { head: "Think of it as", body: "The whole universe of \"smart machines\" — ML, DL, and GenAI all live inside this universe." }
+    ]
+  },
+  ml: {
+    title: "Machine Learning (ML)",
+    tagline: "AI that learns from data instead of following hand-coded rules.",
+    cards: [
+      { head: "Definition", body: "Algorithms that improve automatically through experience. The system finds patterns in data without explicit programming for each scenario." },
+      { head: "3 learning styles", body: "Supervised (labeled data), Unsupervised (find hidden structure), Reinforcement (learn via reward/penalty)." },
+      { head: "Everyday examples", body: "Credit scoring, email spam detection, product recommendations, predictive maintenance." },
+      { head: "Key ingredient", body: "Labeled training data. The more data, the better the model — up to a point." },
+      { head: "What it cannot do", body: "Understand context the way humans do. It finds correlations, not true causation." },
+      { head: "Think of it as", body: "Teaching a child by showing examples (supervised) vs. letting them explore and categorize things themselves (unsupervised)." }
+    ]
+  },
+  dl: {
+    title: "Deep Learning (DL)",
+    tagline: "ML using multi-layered neural networks to learn complex, hierarchical features.",
+    cards: [
+      { head: "Definition", body: "Neural networks with many layers (\"deep\") that automatically learn feature hierarchies from raw data — no manual feature engineering." },
+      { head: "Why \"deep\"?", body: "Dozens to hundreds of layers, each learning increasingly abstract representations. Layer 1: edges → Layer 5: faces → Layer 10: identities." },
+      { head: "Everyday examples", body: "Face ID unlock, real-time speech recognition, medical image diagnosis, self-driving car perception." },
+      { head: "What it needs", body: "Lots of data (millions of examples) and significant GPU compute. Training GPT-3 cost ~$5 million." },
+      { head: "Key breakthrough", body: "2012: AlexNet wins ImageNet competition by a huge margin using deep CNNs — sparked the modern DL era." },
+      { head: "Think of it as", body: "A brain-inspired system where information flows through many processing stages, each refining the understanding." }
+    ]
+  },
+  gen: {
+    title: "Generative AI",
+    tagline: "Deep learning models that create new content — they don't just classify, they generate.",
+    cards: [
+      { head: "Definition", body: "AI that produces new, original content (text, images, audio, video, code) that resembles patterns in training data." },
+      { head: "How it works", body: "Pre-trained on trillions of tokens. Given a prompt, the model predicts the most likely continuation by sampling from a learned distribution." },
+      { head: "Everyday examples", body: "ChatGPT drafting emails, DALL-E creating images, GitHub Copilot writing code, Suno generating music." },
+      { head: "Key difference", body: "Discriminative models classify existing data. Generative models create NEW data. One answers 'what is this?', the other answers 'what comes next?'" },
+      { head: "Emergent powers", body: "At scale, models develop abilities nobody explicitly trained: multi-step reasoning, translation, coding — without task-specific training." },
+      { head: "Think of it as", body: "A student who read the entire internet and can now write, draw, and code — not by copying, but by understanding patterns deeply." }
+    ]
+  }
+};
+
+function showDetail(key) {
+  const d = details[key];
+  document.getElementById('dp-title').textContent = d.title;
+  document.getElementById('dp-tagline').textContent = d.tagline;
+  const grid = document.getElementById('dp-grid');
+  grid.innerHTML = d.cards.map(c =>
+    `<div class="detail-card"><h4>${c.head}</h4><p>${c.body}</p></div>`
+  ).join('');
+  const panel = document.getElementById('detail-panel');
+  panel.classList.remove('hidden');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+const explanations = {
+  1: "Correct! Churn prediction is a classic supervised ML problem — the model learns from historical labelled data (churned vs. retained) to predict future outcomes. It classifies, it does not generate.",
+  2: "Correct! Discriminative models draw a boundary between categories (spam/not spam). Generative models learn the underlying distribution and can sample new examples from it (write an email, generate an image).",
+  3: "Correct! These three forces converged: (1) Massive web-scale datasets to train on, (2) GPU clusters making trillion-parameter training feasible, (3) The Transformer architecture enabling efficient learning of long-range patterns."
+};
+const wrongs = {
+  1: "Not quite. Predictions are not 'generated content'. This is a classification task — the model discriminates between two outcomes based on learned patterns. That's Machine Learning.",
+  2: "Not quite. The core difference is what the model produces: a label/decision (discriminative) vs. new content (generative). Think: classifier vs. creator.",
+  3: "Not quite. While those factors matter, the three enablers of the 2022 breakthrough were: unprecedented data scale, massive GPU compute (billions of dollars in training runs), and the Transformer architecture invented in 2017."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => { b.disabled = true; });
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+</script>
+</body>
+</html>

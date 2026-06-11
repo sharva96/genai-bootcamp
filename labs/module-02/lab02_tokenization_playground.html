@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 2 — Tokenization Playground</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #8b5cf6; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+  section { margin-bottom: 56px; }
+
+  /* Live tokenizer */
+  .live-tokenizer {
+    background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px;
+  }
+  .lt-input {
+    width: 100%; background: #0f172a; color: #e2e8f0;
+    border: 1.5px solid #334155; border-radius: 10px;
+    padding: 14px 16px; font-family: 'Consolas', monospace; font-size: 0.92rem;
+    resize: vertical; min-height: 80px; transition: border-color 0.15s;
+  }
+  .lt-input:focus { outline: none; border-color: #8b5cf6; }
+  .lt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+  .lt-stat { background: #0f172a; border-radius: 10px; padding: 12px 14px; text-align: center; }
+  .lt-stat-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 4px; }
+  .lt-stat-value { font-size: 1.5rem; font-weight: 700; color: #a78bfa; }
+  .lt-tokens {
+    background: #0f172a; border-radius: 10px; padding: 16px;
+    display: flex; flex-wrap: wrap; gap: 4px; min-height: 60px;
+    font-family: 'Consolas', monospace; font-size: 0.88rem;
+  }
+  .token {
+    padding: 2px 6px; border-radius: 4px; white-space: pre;
+    transition: transform 0.1s;
+  }
+  .token:hover { transform: translateY(-1px) scale(1.05); }
+  .lt-help { font-size: 0.78rem; color: #64748b; margin-top: 8px; }
+
+  /* Pre-loaded examples */
+  .examples-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .ex-load-btn {
+    background: #334155; border: 1px solid #475569; color: #cbd5e1;
+    padding: 6px 12px; border-radius: 8px; font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
+  }
+  .ex-load-btn:hover { background: #8b5cf6; border-color: #8b5cf6; color: #fff; }
+
+  /* Multi-language comparison */
+  .compare-table { background: #1e293b; border-radius: 14px; padding: 20px; border: 1px solid #334155; }
+  .compare-row-data { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; font-size: 0.86rem; }
+  .compare-row-data:last-child { border-bottom: none; }
+  .compare-row-data.header { font-weight: 700; color: #64748b; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; padding: 6px 0 12px; border-bottom: 2px solid #334155; }
+  .compare-text { color: #cbd5e1; }
+  .compare-text small { color: #64748b; display: block; margin-top: 3px; font-size: 0.72rem; }
+  .compare-num { color: #a78bfa; font-weight: 600; font-family: 'Consolas', monospace; text-align: center; }
+  .efficiency-bar { height: 6px; border-radius: 3px; background: #334155; position: relative; overflow: hidden; }
+  .efficiency-fill { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 3px; transition: width 0.4s; }
+
+  /* BPE walkthrough */
+  .bpe-card { background: #1e293b; border-radius: 14px; padding: 24px; border: 1px solid #334155; }
+  .bpe-step {
+    background: #0f172a; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px;
+    border-left: 3px solid #8b5cf6;
+  }
+  .bpe-step-num { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #a78bfa; font-weight: 700; margin-bottom: 6px; }
+  .bpe-step-desc { font-size: 0.88rem; color: #cbd5e1; line-height: 1.55; margin-bottom: 10px; }
+  .bpe-state { font-family: 'Consolas', monospace; font-size: 0.85rem; background: #1e293b; border-radius: 6px; padding: 10px 12px; color: #e2e8f0; }
+  .bpe-state .new-merge { background: #fbbf24; color: #0f172a; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+  .bpe-controls { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+  .step-btn { background: #8b5cf6; border: none; color: #fff; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 0.86rem; font-weight: 600; transition: opacity 0.2s; }
+  .step-btn:hover:not(:disabled) { opacity: 0.9; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .step-counter { font-size: 0.8rem; color: #64748b; margin-left: auto; }
+
+  /* Cost calculator */
+  .cost-card { background: #1e293b; border-radius: 14px; padding: 24px; border: 1px solid #334155; }
+  .cost-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+  .cost-input { background: #0f172a; border-radius: 10px; padding: 16px; }
+  .cost-input label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; display: block; margin-bottom: 8px; }
+  .cost-input input { background: transparent; border: none; color: #f1f5f9; font-size: 1.4rem; font-weight: 600; width: 100%; outline: none; font-family: 'Consolas', monospace; }
+  .cost-input .unit { font-size: 0.78rem; color: #64748b; margin-top: 4px; }
+  .cost-output { background: #0f172a; border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: center; }
+  .cost-output .model-name { font-weight: 600; color: #f1f5f9; font-size: 0.88rem; }
+  .cost-output .model-by { font-size: 0.72rem; color: #64748b; }
+  .cost-output .cost-value { font-family: 'Consolas', monospace; color: #34d399; font-weight: 700; text-align: right; }
+  .cost-output .cost-monthly { font-size: 0.74rem; color: #64748b; text-align: right; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 700px) { .lt-stats { grid-template-columns: 1fr 1fr; } .cost-row { grid-template-columns: 1fr; } .compare-row-data { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 2 · Lab 2</div>
+  <h1>Tokenization Playground</h1>
+  <p>See how text becomes tokens — the unit every LLM actually processes. Type, observe, compare, calculate.</p>
+</div>
+
+<div class="main">
+
+  <!-- LIVE TOKENIZER -->
+  <section>
+    <h2 class="section-title">🎮 Live Tokenizer</h2>
+    <p class="section-sub">Type any text below to see how it's split into tokens. This is a simplified approximation of GPT-style BPE tokenization.</p>
+
+    <div class="examples-row">
+      <span style="color:#64748b; font-size:0.8rem; margin-right:6px; align-self:center">Try:</span>
+      <button class="ex-load-btn" onclick="loadExample(0)">English sentence</button>
+      <button class="ex-load-btn" onclick="loadExample(1)">Technical jargon</button>
+      <button class="ex-load-btn" onclick="loadExample(2)">Code snippet</button>
+      <button class="ex-load-btn" onclick="loadExample(3)">Chinese text</button>
+      <button class="ex-load-btn" onclick="loadExample(4)">Emojis</button>
+      <button class="ex-load-btn" onclick="loadExample(5)">Numbers/URLs</button>
+    </div>
+
+    <div class="live-tokenizer">
+      <textarea class="lt-input" id="lt-input" placeholder="Type or paste text here..." oninput="tokenizeLive()">The quick brown fox jumps over the lazy dog.</textarea>
+
+      <div class="lt-stats">
+        <div class="lt-stat"><div class="lt-stat-label">Characters</div><div class="lt-stat-value" id="stat-chars">0</div></div>
+        <div class="lt-stat"><div class="lt-stat-label">Words</div><div class="lt-stat-value" id="stat-words">0</div></div>
+        <div class="lt-stat"><div class="lt-stat-label">Tokens</div><div class="lt-stat-value" id="stat-tokens">0</div></div>
+        <div class="lt-stat"><div class="lt-stat-label">Chars / Token</div><div class="lt-stat-value" id="stat-ratio">—</div></div>
+      </div>
+
+      <div class="lt-tokens" id="lt-tokens"></div>
+      <p class="lt-help">💡 Each colored chunk is one token. Hover to highlight. Notice: spaces, punctuation, sub-word splits.</p>
+    </div>
+  </section>
+
+  <!-- MULTI-LANG COMPARISON -->
+  <section>
+    <h2 class="section-title">🌍 How Different Text Tokenizes</h2>
+    <p class="section-sub">Different languages and content types use tokens very differently — this drives API costs.</p>
+
+    <div class="compare-table">
+      <div class="compare-row-data header">
+        <div>Text Type</div>
+        <div>Chars</div>
+        <div>Tokens</div>
+        <div>Chars/Token</div>
+        <div>Efficiency</div>
+      </div>
+
+      <div class="compare-row-data">
+        <div class="compare-text">"The quick brown fox jumps over the lazy dog."<small>Plain English</small></div>
+        <div class="compare-num">44</div>
+        <div class="compare-num">10</div>
+        <div class="compare-num">4.4</div>
+        <div class="efficiency-bar"><div class="efficiency-fill" style="width: 100%"></div></div>
+      </div>
+
+      <div class="compare-row-data">
+        <div class="compare-text">"Transformers use multi-head self-attention with QKV projections."<small>Technical/jargon</small></div>
+        <div class="compare-num">64</div>
+        <div class="compare-num">17</div>
+        <div class="compare-num">3.8</div>
+        <div class="efficiency-bar"><div class="efficiency-fill" style="width: 86%"></div></div>
+      </div>
+
+      <div class="compare-row-data">
+        <div class="compare-text">"def factorial(n): return 1 if n &lt;= 1 else n * factorial(n-1)"<small>Python code</small></div>
+        <div class="compare-num">57</div>
+        <div class="compare-num">21</div>
+        <div class="compare-num">2.7</div>
+        <div class="efficiency-bar"><div class="efficiency-fill" style="width: 61%"></div></div>
+      </div>
+
+      <div class="compare-row-data">
+        <div class="compare-text">'{"name":"Alice","role":"engineer","skills":["python","ml"]}'<small>JSON</small></div>
+        <div class="compare-num">58</div>
+        <div class="compare-num">26</div>
+        <div class="compare-num">2.2</div>
+        <div class="efficiency-bar"><div class="efficiency-fill" style="width: 50%"></div></div>
+      </div>
+
+      <div class="compare-row-data">
+        <div class="compare-text">"人工智能正在改变世界"<small>Chinese (Simplified)</small></div>
+        <div class="compare-num">10</div>
+        <div class="compare-num">14</div>
+        <div class="compare-num">0.7</div>
+        <div class="efficiency-bar"><div class="efficiency-fill" style="width: 16%; background:linear-gradient(90deg,#ef4444,#f59e0b)"></div></div>
+      </div>
+
+      <div class="compare-row-data">
+        <div class="compare-text">"مرحبا بالعالم. الذكاء الاصطناعي مذهل!"<small>Arabic</small></div>
+        <div class="compare-num">37</div>
+        <div class="compare-num">28</div>
+        <div class="compare-num">1.3</div>
+        <div class="efficiency-bar"><div class="efficiency-fill" style="width: 30%; background:linear-gradient(90deg,#ef4444,#f59e0b)"></div></div>
+      </div>
+
+      <div class="compare-row-data">
+        <div class="compare-text">"I love AI! 🤖🧠💡🚀"<small>Emoji-heavy</small></div>
+        <div class="compare-num">17</div>
+        <div class="compare-num">12</div>
+        <div class="compare-num">1.4</div>
+        <div class="efficiency-bar"><div class="efficiency-fill" style="width: 32%; background:linear-gradient(90deg,#ef4444,#f59e0b)"></div></div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px; background:#1e293b; border-radius:10px; padding:14px 18px; font-size:0.86rem; color:#94a3b8; line-height:1.6;">
+      <strong style="color:#fbbf24">💡 Practical implication:</strong> If you're building a Chinese or Arabic application using English-trained tokenizers, expect <strong style="color:#f87171">2-4× higher API costs</strong> than English. Consider models with better multilingual tokenizers (Mistral, Gemini), or use multilingual-specific tokenizers like SentencePiece.
+    </div>
+  </section>
+
+  <!-- BPE WALKTHROUGH -->
+  <section>
+    <h2 class="section-title">⚙️ Byte-Pair Encoding (BPE) — Step by Step</h2>
+    <p class="section-sub">How GPT, Llama, and Mistral build their vocabulary. The algorithm that powers modern tokenization.</p>
+
+    <div class="bpe-card">
+      <div id="bpe-display"></div>
+      <div class="bpe-controls">
+        <button class="step-btn" id="prev-step" onclick="bpeStep(-1)" disabled>← Previous</button>
+        <button class="step-btn" id="next-step" onclick="bpeStep(1)">Next →</button>
+        <button class="step-btn" onclick="bpeReset()" style="background:#475569">Reset</button>
+        <span class="step-counter" id="step-counter">Step 0 of 6</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- COST CALCULATOR -->
+  <section>
+    <h2 class="section-title">💰 API Cost Calculator</h2>
+    <p class="section-sub">See how token counts translate to dollars across today's models. Adjust the inputs to model your use case.</p>
+
+    <div class="cost-card">
+      <div class="cost-row">
+        <div class="cost-input">
+          <label>Daily Requests</label>
+          <input type="number" id="req-per-day" value="100000" oninput="updateCost()">
+          <div class="unit">queries per day</div>
+        </div>
+        <div class="cost-input">
+          <label>Avg Tokens per Request</label>
+          <input type="number" id="tokens-per-req" value="2000" oninput="updateCost()">
+          <div class="unit">input + output combined</div>
+        </div>
+      </div>
+
+      <div id="cost-results"></div>
+
+      <p style="font-size:0.78rem; color:#64748b; margin-top:14px; line-height:1.5">
+        💡 Costs are approximate input-token rates as of June 2026. Output tokens are typically 4-5× more expensive than input. Real costs depend on your input/output ratio.
+      </p>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section>
+    <h2 class="section-title">Self-Check: Test Your Understanding</h2>
+    <p class="section-sub">5 questions to confirm your grasp of tokenization fundamentals.</p>
+
+    <div class="quiz-card">
+      <p class="question">1. Why don't LLMs split text on whitespace (one word = one token)?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 1)">Whitespace splitting is too computationally expensive</button>
+        <button class="opt-btn" onclick="answer(this, true, 1)">Sub-word tokenization (BPE) handles unknown words gracefully, keeps vocabulary fixed (50-100K tokens), and works across languages. A whitespace tokenizer would need millions of unique tokens and fail on any unseen word</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Whitespace doesn't exist in all languages</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">It would make the model too biased toward English</button>
+      </div>
+      <div class="feedback" id="fb-1"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">2. A startup translates an English customer support app to Chinese. Their token consumption (and cost) jumps significantly. Why?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 2)">Chinese conversations are always longer than English ones</button>
+        <button class="opt-btn" onclick="answer(this, true, 2)">English-trained BPE tokenizers represent Chinese characters with multiple tokens each (often 1-3 tokens per character) while English is ~0.75 tokens per word. Same meaning, 2-4× more tokens, 2-4× the API cost</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">The model takes longer to think in Chinese</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">Chinese servers cost more to operate</button>
+      </div>
+      <div class="feedback" id="fb-2"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">3. A model has a 128K token context window. About how many pages of English text does that translate to?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 3)">About 5-10 pages</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">About 50 pages</button>
+        <button class="opt-btn" onclick="answer(this, true, 3)">About 200-250 pages (~96,000 words at ~3 chars per token in English) — roughly a typical novel</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">About 10,000 pages</button>
+      </div>
+      <div class="feedback" id="fb-3"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">4. You're calling the OpenAI API with 1000 tokens of system prompt + 500 tokens of user message + getting 200 tokens back. What gets billed?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 4)">Only the 200 output tokens — input doesn't count</button>
+        <button class="opt-btn" onclick="answer(this, true, 4)">All 1700 tokens — 1500 at input rate (system + user) and 200 at output rate (typically 4-5× more expensive per token)</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Only the 500 user message tokens — system prompts are free</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">A flat fee per API call regardless of tokens</button>
+      </div>
+      <div class="feedback" id="fb-4"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">5. When does the word "unbelievable" become a single token vs multiple tokens?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 5)">When the model is in a good mood</button>
+        <button class="opt-btn" onclick="answer(this, true, 5)">It depends on the tokenizer's vocabulary. Frequent enough during training to earn its own token? One token. Otherwise it splits into known sub-pieces like "un" + "believ" + "able". Different tokenizers (GPT, Llama, Mistral) will split it differently</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Long words always become multiple tokens</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Short words always become single tokens</button>
+      </div>
+      <div class="feedback" id="fb-5"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ============== SIMPLIFIED TOKENIZER ==============
+// Approximates GPT-style BPE behavior for visualization purposes.
+// Real tokenization requires the actual learned vocabulary.
+
+const subwordVocab = [
+  // Common prefixes/suffixes
+  "tion", "ing", "ed", "ly", "ment", "ness", "able", "ible", "less",
+  "pre", "un", "re", "dis", "over", "under", "non", "mis", "anti",
+  // Common short words
+  " the", " and", " of", " to", " a", " in", " is", " it", " that",
+  " for", " on", " with", " as", " be", " was", " by", " an",
+  " The", " I", " you", " we", " they", " he", " she",
+  // Code tokens
+  "def ", "function ", "return ", "import ", "from ", "class ",
+  "if ", "else", "elif", " == ", " != ", " >= ", " <= ",
+];
+
+const palette = ['#6366f1','#8b5cf6','#ec4899','#06b6d4','#10b981','#f59e0b','#ef4444','#a855f7','#14b8a6','#f97316','#0ea5e9','#84cc16'];
+
+function fakeTokenize(text) {
+  // Simplified — split on word boundaries and split rare/long words into subpieces.
+  // Treats CJK characters as ~1.5 tokens each.
+  const tokens = [];
+  let buf = '';
+
+  // Quick check for CJK
+  function isCJK(ch) {
+    const cp = ch.codePointAt(0);
+    return (cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3040 && cp <= 0x30FF) || (cp >= 0xAC00 && cp <= 0xD7AF);
+  }
+  function isEmoji(ch) {
+    const cp = ch.codePointAt(0);
+    return cp > 0x1F000;
+  }
+  function isArabic(ch) {
+    const cp = ch.codePointAt(0);
+    return (cp >= 0x0600 && cp <= 0x06FF);
+  }
+
+  function flush() {
+    if (!buf) return;
+    // Try sub-word splits for long words
+    let remaining = buf;
+    while (remaining.length > 6) {
+      let matched = false;
+      for (const sw of subwordVocab) {
+        if (remaining.startsWith(sw.trim())) {
+          tokens.push(sw.trim());
+          remaining = remaining.slice(sw.trim().length);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        // Split off ~3-4 chars as a sub-piece
+        const splitAt = Math.min(remaining.length, 4);
+        tokens.push(remaining.slice(0, splitAt));
+        remaining = remaining.slice(splitAt);
+      }
+    }
+    if (remaining) tokens.push(remaining);
+    buf = '';
+  }
+
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+
+    if (isCJK(ch)) {
+      flush();
+      // Chinese: typically 1-2 tokens per char in English tokenizers
+      tokens.push(ch);
+      tokens.push('·'); // ghost token to approximate 1.5/char rate
+      i++;
+      continue;
+    }
+
+    if (isEmoji(ch)) {
+      flush();
+      // Emojis often split into 2-3 bytes/tokens
+      tokens.push(ch);
+      tokens.push('▪');
+      i++;
+      continue;
+    }
+
+    if (isArabic(ch)) {
+      flush();
+      tokens.push(ch);
+      i++;
+      continue;
+    }
+
+    // Punctuation / whitespace boundaries
+    if (/[\s.,!?;:()\[\]{}"'`<>\\\/=+\-*&|^%$#@~]/.test(ch)) {
+      flush();
+      // Whitespace gets prefixed onto the next token in real BPE — approximate
+      if (ch === ' ') {
+        buf = ' ';
+      } else {
+        tokens.push(ch);
+      }
+      i++;
+      continue;
+    }
+
+    // Try matching a known multi-char subword starting at buf+ch
+    const tentative = buf + ch;
+    let matched = false;
+    for (const sw of subwordVocab) {
+      if (sw === tentative + text.slice(i+1, i + sw.length - buf.length).slice(0, sw.length - tentative.length)) {
+        // Roughly matches — just append
+        buf += ch;
+        matched = true;
+        break;
+      }
+    }
+    buf += ch;
+    i++;
+  }
+  flush();
+
+  return tokens.filter(t => t !== '');
+}
+
+// Examples
+const examples = [
+  "The quick brown fox jumps over the lazy dog.",
+  "The Transformer's multi-head self-attention mechanism uses QKV projections.",
+  'def fibonacci(n):\n    return n if n <= 1 else fibonacci(n-1) + fibonacci(n-2)',
+  '人工智能正在改变世界。语言模型令人惊叹。',
+  'I love AI! 🤖🧠💡🚀 So amazing! 🌟',
+  'My phone is +1-555-123-4567 and my email is alice@example.com. Visit https://example.com/page?id=42'
+];
+
+function loadExample(idx) {
+  document.getElementById('lt-input').value = examples[idx];
+  tokenizeLive();
+}
+
+function tokenizeLive() {
+  const text = document.getElementById('lt-input').value;
+  const tokens = fakeTokenize(text);
+  const chars = text.length;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+  document.getElementById('stat-chars').textContent  = chars;
+  document.getElementById('stat-words').textContent  = words;
+  document.getElementById('stat-tokens').textContent = tokens.length;
+  document.getElementById('stat-ratio').textContent  = tokens.length ? (chars / tokens.length).toFixed(2) : '—';
+
+  const container = document.getElementById('lt-tokens');
+  container.innerHTML = '';
+  tokens.forEach((t, i) => {
+    const span = document.createElement('span');
+    span.className = 'token';
+    const color = palette[i % palette.length];
+    span.style.background = color + '35';
+    span.style.color = color;
+    span.style.borderBottom = '2px solid ' + color;
+    span.textContent = t.replace(/^ /, '⎵').replace(/\n/g, '⏎');
+    container.appendChild(span);
+  });
+}
+
+// ============== BPE WALKTHROUGH ==============
+const bpeSteps = [
+  {
+    desc: "Start with a small training corpus and split every word into individual characters. The starting vocabulary is just the unique characters.",
+    state: 'Words: ["low", "lower", "newest", "widest"]\n\nInitial tokens (chars):\n["l","o","w"]  ["l","o","w","e","r"]\n["n","e","w","e","s","t"]  ["w","i","d","e","s","t"]\n\nVocab: {l, o, w, e, r, n, s, t, i, d}',
+    highlight: null
+  },
+  {
+    desc: 'Step 1: Find the most frequent adjacent pair across the entire corpus. Here, "e" + "s" appears 2 times (in "newest" and "widest"). Merge it into a single token "es".',
+    state: 'Words after merging "es":\n["l","o","w"]  ["l","o","w","e","r"]\n["n","e","w","<span class="new-merge">es</span>","t"]  ["w","i","d","<span class="new-merge">es</span>","t"]\n\nVocab: {l, o, w, e, r, n, s, t, i, d, <span class="new-merge">es</span>}',
+    highlight: 'es'
+  },
+  {
+    desc: 'Step 2: Find next most frequent pair. "es" + "t" appears 2 times. Merge into "est".',
+    state: 'Words after merging "est":\n["l","o","w"]  ["l","o","w","e","r"]\n["n","e","w","<span class="new-merge">est</span>"]  ["w","i","d","<span class="new-merge">est</span>"]\n\nVocab: {... + <span class="new-merge">est</span>}',
+    highlight: 'est'
+  },
+  {
+    desc: 'Step 3: "l" + "o" appears 2 times (in "low" and "lower"). Merge into "lo".',
+    state: 'Words after merging "lo":\n["<span class="new-merge">lo</span>","w"]  ["<span class="new-merge">lo</span>","w","e","r"]\n["n","e","w","est"]  ["w","i","d","est"]\n\nVocab: {... + <span class="new-merge">lo</span>}',
+    highlight: 'lo'
+  },
+  {
+    desc: 'Step 4: "lo" + "w" now appears 2 times. Merge into "low".',
+    state: 'Words after merging "low":\n["<span class="new-merge">low</span>"]  ["<span class="new-merge">low</span>","e","r"]\n["n","e","w","est"]  ["w","i","d","est"]\n\nVocab: {... + <span class="new-merge">low</span>}',
+    highlight: 'low'
+  },
+  {
+    desc: 'Continue merging until reaching the target vocabulary size (usually 50,000–100,000 for production models).',
+    state: 'Final vocab after many merges:\n{low, est, newest (eventually merged), widest, ...}\n\nNow "newest" tokenizes as ["new", "est"] — 2 tokens.\nA rare word like "snazziest" might split into ["sn", "azz", "iest"] — 3 tokens.\n\n✓ Unknown words handled gracefully\n✓ Fixed vocabulary size\n✓ Common words become single tokens, rare words split',
+    highlight: null
+  },
+  {
+    desc: 'Production reality: GPT-4 uses a vocabulary of ~100K tokens learned from trillions of tokens of training text. The same algorithm — just at massive scale.',
+    state: 'Real tokenizers (cl100k_base for GPT-4, o200k for GPT-4o/5):\n\n"OpenAI"      → ["Open", "AI"]            (2 tokens)\n"ChatGPT"     → ["Chat", "G", "PT"]       (3 tokens)\n"unbelievable" → ["unbelievable"]        (1 token — common)\n"Antidisestablishmentarianism" → multiple tokens\n\n💡 The vocabulary directly reflects training data frequencies.',
+    highlight: null
+  }
+];
+
+let currentStep = 0;
+function renderBpe() {
+  const s = bpeSteps[currentStep];
+  document.getElementById('bpe-display').innerHTML = `
+    <div class="bpe-step">
+      <div class="bpe-step-num">Step ${currentStep === 0 ? 'Initial' : currentStep + ' of ' + (bpeSteps.length - 1)}</div>
+      <div class="bpe-step-desc">${s.desc}</div>
+      <pre class="bpe-state">${s.state}</pre>
+    </div>`;
+  document.getElementById('prev-step').disabled = currentStep === 0;
+  document.getElementById('next-step').disabled = currentStep === bpeSteps.length - 1;
+  document.getElementById('step-counter').textContent = `Step ${currentStep} of ${bpeSteps.length - 1}`;
+}
+
+function bpeStep(delta) {
+  currentStep = Math.max(0, Math.min(bpeSteps.length - 1, currentStep + delta));
+  renderBpe();
+}
+
+function bpeReset() {
+  currentStep = 0;
+  renderBpe();
+}
+
+// ============== COST CALCULATOR ==============
+const pricingTable = [
+  { model: 'Claude Haiku 4.5',     by: 'Anthropic',   cost: 1.00 },
+  { model: 'GPT-5 mini',           by: 'OpenAI',      cost: 0.25 },
+  { model: 'Gemini 2.5 Flash',     by: 'Google',      cost: 0.30 },
+  { model: 'DeepSeek-V3',          by: 'DeepSeek',    cost: 0.27 },
+  { model: 'GPT-5',                by: 'OpenAI',      cost: 1.25 },
+  { model: 'Gemini 2.5 Pro',       by: 'Google',      cost: 1.25 },
+  { model: 'Mistral Large 2',      by: 'Mistral',     cost: 2.00 },
+  { model: 'Claude Sonnet 4.6',    by: 'Anthropic',   cost: 3.00 },
+  { model: 'Grok 4',               by: 'xAI',         cost: 3.00 },
+  { model: 'DeepSeek-R1 (reason)', by: 'DeepSeek',    cost: 0.55 },
+  { model: 'Claude Opus 4.7',      by: 'Anthropic',   cost: 15.00 },
+];
+
+function updateCost() {
+  const reqPerDay   = +document.getElementById('req-per-day').value || 0;
+  const tokenPerReq = +document.getElementById('tokens-per-req').value || 0;
+  const tokensPerDay   = reqPerDay * tokenPerReq;
+  const tokensPerMonth = tokensPerDay * 30;
+  const millionsPerDay = tokensPerDay / 1e6;
+
+  const sorted = [...pricingTable].sort((a,b) => a.cost - b.cost);
+  let html = '';
+  sorted.forEach(p => {
+    const dailyCost = millionsPerDay * p.cost;
+    const monthlyCost = dailyCost * 30;
+    html += `
+      <div class="cost-output">
+        <div>
+          <div class="model-name">${p.model}</div>
+          <div class="model-by">${p.by} · $${p.cost.toFixed(2)} / 1M tokens</div>
+        </div>
+        <div>
+          <div class="cost-value">$${dailyCost.toFixed(2)}</div>
+          <div class="cost-monthly">per day</div>
+        </div>
+        <div>
+          <div class="cost-value">$${monthlyCost.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
+          <div class="cost-monthly">per month</div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('cost-results').innerHTML = html;
+}
+
+// ============== QUIZ ==============
+const explanations = {
+  1: "Correct! Sub-word tokenization with BPE elegantly handles every challenge: any word (even novel ones) can be encoded, the vocabulary stays fixed and manageable (~100K tokens), and the same approach works across languages. A whitespace tokenizer would explode the vocabulary to millions and choke on any unseen word.",
+  2: "Correct! This is one of the most common cost surprises in international AI deployments. The fundamental cause: tokenizers are learned from training data dominated by English. Languages with non-Latin scripts get inefficient encoding. Solutions: use models with better multilingual tokenizers (Gemini, Mistral), or fine-tune your own tokenizer for high-volume use.",
+  3: "Correct! Token-to-page math for English: ~4 chars per token, ~5 chars per word with spaces. So 128K tokens × 4 chars/token = 512K characters ≈ 100K words ≈ 250 pages. A 200K-token context (Claude) fits ~400 pages — a typical novel. A 2M-token context (Gemini 2.5) fits a multi-volume work.",
+  4: "Correct! API pricing meters every token: input (system + user messages + chat history) and output. Output tokens typically cost 4-5× more than input — so a 500-token answer might cost more than your 1500-token prompt. This is why prompt engineering for brevity matters at scale.",
+  5: "Correct! BPE is a learned vocabulary — frequency in training data determines whether 'unbelievable' is one token or several. Different tokenizers produce different results: GPT-4 might encode it as 1 token, while a model trained on a different corpus might encode it as 3-4 sub-pieces."
+};
+const wrongs = {
+  1: "Not quite. The reason sub-word tokenization dominates is more fundamental: it solves the unknown-word problem and keeps the vocabulary manageable. Whitespace tokenization fails on any word the model hasn't seen.",
+  2: "Not quite. Conversations aren't inherently longer in Chinese, and the model doesn't 'think' differently. The cause is purely how characters get encoded by an English-optimized BPE tokenizer.",
+  3: "Not quite. 128K tokens is much more than 5-50 pages and far less than 10,000. The right math: ~4 chars/token × 128K = ~500K chars ≈ 100K words ≈ 200-250 pages.",
+  4: "Not quite. Every token going in OR coming out is billed. Both system and user messages count as input. Output is typically the most expensive component at the per-token rate.",
+  5: "Not quite. Length isn't the determinant — frequency in training data is. Some long words ('unbelievable') become 1 token because they're common; some short ones split because they're not in the vocabulary verbatim."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+
+// Initial render
+tokenizeLive();
+renderBpe();
+updateCost();
+</script>
+</body>
+</html>

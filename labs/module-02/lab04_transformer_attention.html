@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 4 — Transformer & Attention Mechanism</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #ec4899; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+  section { margin-bottom: 56px; }
+
+  /* Architecture diagram */
+  .arch-container { background: #1e293b; border-radius: 14px; padding: 24px; border: 1px solid #334155; }
+  .arch-stack { display: flex; flex-direction: column; gap: 10px; }
+  .arch-block {
+    background: rgba(99,102,241,0.1); border: 2px solid #6366f1; border-radius: 10px;
+    padding: 16px 20px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .arch-block:hover { transform: translateX(4px); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  .arch-block.active { border-color: #f472b6; background: rgba(236,72,153,0.12); }
+  .arch-block-num { font-size: 1.2rem; font-weight: 700; color: #818cf8; min-width: 24px; }
+  .arch-block.active .arch-block-num { color: #f472b6; }
+  .arch-block-title { font-size: 1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 3px; }
+  .arch-block-sub { font-size: 0.82rem; color: #94a3b8; }
+  .arch-arrow { text-align: center; color: #475569; font-size: 1.2rem; }
+
+  .arch-detail {
+    background: #0f172a; border-radius: 12px; padding: 22px 24px; margin-top: 16px;
+    border-left: 3px solid #f472b6;
+  }
+  .arch-detail h3 { color: #f472b6; font-size: 1.05rem; margin-bottom: 10px; }
+  .arch-detail p  { font-size: 0.9rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 10px; }
+  .arch-detail .formula { font-family: 'Consolas', monospace; background: #1e293b; padding: 10px 14px; border-radius: 6px; font-size: 0.85rem; color: #fbbf24; margin: 8px 0; }
+
+  /* Attention heatmap */
+  .attn-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .sentence-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .sentence-tab {
+    background: #334155; border: 1px solid #475569; color: #cbd5e1;
+    padding: 8px 14px; border-radius: 8px; font-size: 0.82rem; cursor: pointer; transition: all 0.15s;
+  }
+  .sentence-tab:hover { background: #475569; }
+  .sentence-tab.active { background: #ec4899; border-color: #ec4899; color: #fff; }
+
+  .heatmap-wrap { overflow-x: auto; margin-bottom: 16px; }
+  .heatmap { border-collapse: collapse; font-size: 0.78rem; margin: 0 auto; }
+  .heatmap th { padding: 6px; color: #94a3b8; font-weight: 600; }
+  .heatmap th.col-header { writing-mode: vertical-rl; transform: rotate(180deg); padding: 8px 4px; height: 80px; vertical-align: bottom; }
+  .heatmap td.row-label { text-align: right; padding-right: 10px; color: #94a3b8; font-weight: 600; }
+  .heatmap td.cell {
+    width: 36px; height: 36px; text-align: center; font-family: 'Consolas', monospace;
+    font-size: 0.7rem; border: 1px solid rgba(0,0,0,0.3);
+    transition: transform 0.1s;
+  }
+  .heatmap td.cell:hover { transform: scale(1.2); z-index: 2; position: relative; outline: 2px solid #fff; }
+
+  .attn-explainer { background: #0f172a; border-left: 3px solid #ec4899; border-radius: 6px; padding: 14px 18px; }
+  .attn-explainer .target { color: #f472b6; font-weight: 700; }
+  .attn-explainer .attended { color: #fbbf24; font-weight: 700; }
+
+  /* QKV mechanism */
+  .qkv-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .qkv-step { background: #0f172a; border-radius: 10px; padding: 18px; margin-bottom: 12px; border-left: 3px solid var(--c, #6366f1); }
+  .qkv-step .qkv-num { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c, #818cf8); font-weight: 700; margin-bottom: 6px; }
+  .qkv-step .qkv-title { font-size: 0.95rem; font-weight: 600; color: #f1f5f9; margin-bottom: 8px; }
+  .qkv-step .qkv-text { font-size: 0.86rem; color: #94a3b8; line-height: 1.55; margin-bottom: 8px; }
+  .qkv-step .qkv-formula { background: #1e293b; border-radius: 6px; padding: 10px 14px; font-family: 'Consolas', monospace; font-size: 0.85rem; color: #fbbf24; }
+  .qkv-mini-table { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .qkv-mini-card { background: #1e293b; border-radius: 8px; padding: 10px 12px; text-align: center; }
+  .qkv-mini-card .mini-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 4px; }
+  .qkv-mini-card .mini-q     { color: #6366f1; }
+  .qkv-mini-card .mini-k     { color: #ec4899; }
+  .qkv-mini-card .mini-v     { color: #10b981; }
+  .qkv-mini-card .mini-val   { font-family: 'Consolas', monospace; font-size: 0.78rem; color: #cbd5e1; }
+
+  /* Multi-head */
+  .heads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .head-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 14px; text-align: center; }
+  .head-card h4 { font-size: 0.78rem; color: var(--c, #818cf8); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; font-weight: 700; }
+  .head-card .head-focus { font-size: 0.82rem; color: #cbd5e1; line-height: 1.45; min-height: 60px; }
+  .head-card .head-example { background: #0f172a; border-radius: 6px; padding: 8px 10px; margin-top: 10px; font-size: 0.75rem; color: #94a3b8; font-style: italic; line-height: 1.4; }
+
+  /* Encoder/Decoder comparison */
+  .ed-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .ed-card { background: #1e293b; border: 1.5px solid; border-radius: 12px; padding: 20px; }
+  .ed-card h3 { font-size: 1rem; margin-bottom: 4px; }
+  .ed-card .ed-sub { font-size: 0.78rem; color: #64748b; margin-bottom: 14px; }
+  .ed-card ul { list-style: none; }
+  .ed-card li { font-size: 0.82rem; color: #cbd5e1; padding: 5px 0 5px 18px; position: relative; line-height: 1.5; }
+  .ed-card li::before { content: '→'; position: absolute; left: 0; color: #64748b; }
+  .ed-card .ed-examples { margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155; font-size: 0.78rem; color: #94a3b8; }
+  .ed-card .ed-examples strong { color: #cbd5e1; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #ec4899; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 700px) {
+    .heads-grid { grid-template-columns: 1fr 1fr; }
+    .ed-grid    { grid-template-columns: 1fr; }
+    .qkv-mini-table { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 2 · Lab 4</div>
+  <h1>Transformer & Attention Mechanism</h1>
+  <p>The architecture behind every LLM — visualized. See how attention lets tokens "look at" each other.</p>
+</div>
+
+<div class="main">
+
+  <!-- ARCHITECTURE -->
+  <section>
+    <h2 class="section-title">🏛 Transformer Architecture</h2>
+    <p class="section-sub">Click each block to learn what it does. Data flows from bottom to top.</p>
+
+    <div class="arch-container">
+      <div class="arch-stack">
+
+        <div class="arch-block" data-id="output" onclick="showArchDetail(this, 'output')">
+          <div class="arch-block-num">7</div>
+          <div>
+            <div class="arch-block-title">📤 Output Layer</div>
+            <div class="arch-block-sub">Linear + Softmax → next-token probabilities</div>
+          </div>
+        </div>
+        <div class="arch-arrow">⬆</div>
+
+        <div class="arch-block" data-id="ffn" onclick="showArchDetail(this, 'ffn')">
+          <div class="arch-block-num">6</div>
+          <div>
+            <div class="arch-block-title">⚙️ Feed-Forward Network (FFN)</div>
+            <div class="arch-block-sub">2-layer MLP — where "knowledge" is stored</div>
+          </div>
+        </div>
+        <div class="arch-arrow">⬆</div>
+
+        <div class="arch-block active" data-id="attention" onclick="showArchDetail(this, 'attention')">
+          <div class="arch-block-num">5</div>
+          <div>
+            <div class="arch-block-title">👀 Multi-Head Self-Attention</div>
+            <div class="arch-block-sub">The heart of the Transformer — tokens look at each other</div>
+          </div>
+        </div>
+        <div class="arch-arrow">⬆</div>
+
+        <div class="arch-block" data-id="layernorm" onclick="showArchDetail(this, 'layernorm')">
+          <div class="arch-block-num">4</div>
+          <div>
+            <div class="arch-block-title">📐 Layer Normalization</div>
+            <div class="arch-block-sub">Stabilizes training across deep networks</div>
+          </div>
+        </div>
+        <div class="arch-arrow">⬆</div>
+
+        <div class="arch-block" data-id="repeat" onclick="showArchDetail(this, 'repeat')">
+          <div class="arch-block-num">3</div>
+          <div>
+            <div class="arch-block-title">🔁 N× Transformer Layers</div>
+            <div class="arch-block-sub">GPT-5: ~96 layers. Each adds reasoning depth.</div>
+          </div>
+        </div>
+        <div class="arch-arrow">⬆</div>
+
+        <div class="arch-block" data-id="positional" onclick="showArchDetail(this, 'positional')">
+          <div class="arch-block-num">2</div>
+          <div>
+            <div class="arch-block-title">📍 Positional Encoding</div>
+            <div class="arch-block-sub">Adds order info — transformers see tokens in parallel</div>
+          </div>
+        </div>
+        <div class="arch-arrow">⬆</div>
+
+        <div class="arch-block" data-id="embedding" onclick="showArchDetail(this, 'embedding')">
+          <div class="arch-block-num">1</div>
+          <div>
+            <div class="arch-block-title">🔤 Token Embeddings</div>
+            <div class="arch-block-sub">Token IDs → dense vectors (e.g., 12,288 dim for GPT-3)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arch-detail" id="arch-detail"></div>
+    </div>
+  </section>
+
+  <!-- ATTENTION HEATMAP -->
+  <section>
+    <h2 class="section-title">🔥 Attention Heatmap — See It In Action</h2>
+    <p class="section-sub">When the model processes a target word (rows), which other words does it "look at" (columns)? Each cell shows the attention weight.</p>
+
+    <div class="attn-card">
+      <div class="sentence-tabs">
+        <button class="sentence-tab active" onclick="loadSentence(0, this)">Coreference (animal/it)</button>
+        <button class="sentence-tab" onclick="loadSentence(1, this)">Subject-verb agreement</button>
+        <button class="sentence-tab" onclick="loadSentence(2, this)">Long-range dependency</button>
+      </div>
+
+      <div class="heatmap-wrap">
+        <table class="heatmap" id="heatmap"></table>
+      </div>
+
+      <div class="attn-explainer" id="attn-explainer"></div>
+    </div>
+  </section>
+
+  <!-- QKV MECHANISM -->
+  <section>
+    <h2 class="section-title">🔑 The Q/K/V Mechanism</h2>
+    <p class="section-sub">Self-attention works by transforming each token into three roles: Query (what am I looking for?), Key (what do I offer?), Value (what info do I provide?).</p>
+
+    <div class="qkv-card">
+      <p style="background:rgba(99,102,241,0.08); border-left:3px solid #6366f1; border-radius:6px; padding:12px 16px; font-size:0.88rem; color:#cbd5e1; line-height:1.6; margin-bottom:18px">
+        💡 <strong>Analogy:</strong> Imagine searching for a job. Your <span style="color:#818cf8;font-weight:700">Query</span> is "what kind of role do I want?". Each job's <span style="color:#f472b6;font-weight:700">Key</span> describes what it offers. The match between your query and the job's key determines whether you'll click on it. The <span style="color:#34d399;font-weight:700">Value</span> is the actual job description you take away if matched.
+      </p>
+
+      <div class="qkv-step" style="--c:#6366f1">
+        <div class="qkv-num">Step 1 — Project each token into Q, K, V</div>
+        <div class="qkv-title">Linear projections create three views of each token</div>
+        <p class="qkv-text">Each token embedding (e.g., 768-dim vector) is multiplied by three different learned weight matrices W_Q, W_K, W_V to produce three different vectors.</p>
+        <div class="qkv-formula">Q = X · W_Q     K = X · W_K     V = X · W_V</div>
+        <div class="qkv-mini-table">
+          <div class="qkv-mini-card"><div class="mini-label mini-q">Query (Q)</div><div class="mini-val">What am I looking for?</div></div>
+          <div class="qkv-mini-card"><div class="mini-label mini-k">Key (K)</div><div class="mini-val">What do I offer?</div></div>
+          <div class="qkv-mini-card"><div class="mini-label mini-v">Value (V)</div><div class="mini-val">What info do I provide?</div></div>
+        </div>
+      </div>
+
+      <div class="qkv-step" style="--c:#ec4899">
+        <div class="qkv-num">Step 2 — Compute attention scores</div>
+        <div class="qkv-title">Dot product Q · Kᵀ tells how well each query matches each key</div>
+        <p class="qkv-text">Higher dot product = better match = more relevant. Then divide by √d_k to prevent gradients from vanishing with large vectors.</p>
+        <div class="qkv-formula">scores = (Q · K<sup>T</sup>) / √d_k</div>
+      </div>
+
+      <div class="qkv-step" style="--c:#fbbf24">
+        <div class="qkv-num">Step 3 — Normalize with softmax</div>
+        <div class="qkv-title">Convert raw scores into a probability distribution</div>
+        <p class="qkv-text">Softmax makes each row sum to 1.0 — these are interpretable attention weights (what fraction of "attention" goes to each token).</p>
+        <div class="qkv-formula">weights = softmax(scores)</div>
+      </div>
+
+      <div class="qkv-step" style="--c:#10b981">
+        <div class="qkv-num">Step 4 — Weighted sum of Values</div>
+        <div class="qkv-title">Combine the Values, weighted by attention</div>
+        <p class="qkv-text">The output for each token is a context-enriched representation — a blend of all Values, mostly weighted by what the token most attended to.</p>
+        <div class="qkv-formula">Attention(Q,K,V) = softmax(QK<sup>T</sup>/√d_k) · V</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MULTI-HEAD -->
+  <section>
+    <h2 class="section-title">🧠 Multi-Head Attention — Why Multiple Heads?</h2>
+    <p class="section-sub">Instead of one attention operation, models run 8-128 parallel heads. Each head specializes in detecting different relationships — like having different "lenses" on the same sentence.</p>
+
+    <div class="heads-grid">
+      <div class="head-card" style="--c:#818cf8">
+        <h4>Head 1 — Syntax</h4>
+        <div class="head-focus">Tracks subject-verb agreement and grammatical structure</div>
+        <div class="head-example">"The cats <strong>are</strong> sleeping" → 'are' attends to 'cats' (plural agreement)</div>
+      </div>
+      <div class="head-card" style="--c:#f472b6">
+        <h4>Head 2 — Coreference</h4>
+        <div class="head-focus">Resolves pronouns and references like "it", "he", "they"</div>
+        <div class="head-example">"The dog ate <strong>its</strong> food" → 'its' attends to 'dog'</div>
+      </div>
+      <div class="head-card" style="--c:#fbbf24">
+        <h4>Head 3 — Semantics</h4>
+        <div class="head-focus">Identifies topic-relevant words and concepts</div>
+        <div class="head-example">"Python is fast" → 'fast' attends to 'Python' (programming context)</div>
+      </div>
+      <div class="head-card" style="--c:#34d399">
+        <h4>Head 4 — Positional</h4>
+        <div class="head-focus">Attends to nearby tokens (local context)</div>
+        <div class="head-example">'word_t' attends strongly to 'word_t-1' and 'word_t+1'</div>
+      </div>
+      <div class="head-card" style="--c:#a855f7">
+        <h4>Head 5 — Punctuation</h4>
+        <div class="head-focus">Tracks clause boundaries and sentence structure</div>
+        <div class="head-example">Words after a comma attend back to clause subject</div>
+      </div>
+      <div class="head-card" style="--c:#06b6d4">
+        <h4>Head 6 — Entity Type</h4>
+        <div class="head-focus">Detects nouns vs verbs vs adjectives</div>
+        <div class="head-example">"runs fast" → 'fast' attends to 'runs' (adverb pattern)</div>
+      </div>
+      <div class="head-card" style="--c:#ef4444">
+        <h4>Head 7 — Discourse</h4>
+        <div class="head-focus">Tracks topic flow and conversation context</div>
+        <div class="head-example">In a chat, 'that' may attend to topics 2-3 sentences back</div>
+      </div>
+      <div class="head-card" style="--c:#f97316">
+        <h4>Head 8+ — Specialized</h4>
+        <div class="head-focus">Many heads learn surprising or hard-to-name patterns</div>
+        <div class="head-example">Some attend only to special tokens like [CLS] or [SEP]</div>
+      </div>
+    </div>
+    <p style="margin-top: 20px; padding: 14px 18px; background: rgba(0,0,0,0.25); border-radius: 8px; font-size: 0.85rem; color: #94a3b8; line-height: 1.6;">
+      <strong style="color:#fbbf24">Researchers don't program these specializations</strong> — they emerge naturally during training. You can <em>discover</em> what each head does by analyzing its attention patterns, but you cannot dictate it in advance. This is one of the most fascinating aspects of how Transformers learn.
+    </p>
+  </section>
+
+  <!-- ENCODER VS DECODER -->
+  <section>
+    <h2 class="section-title">🔀 Encoder vs Decoder vs Encoder-Decoder</h2>
+    <p class="section-sub">Three architectures share the same Transformer building blocks but use them differently for different goals.</p>
+
+    <div class="ed-grid">
+
+      <div class="ed-card" style="border-color: #06b6d4">
+        <h3 style="color:#67e8f9">📖 Encoder-Only</h3>
+        <p class="ed-sub">Bidirectional self-attention — reads in both directions</p>
+        <ul>
+          <li>Every token attends to EVERY other token (no masking)</li>
+          <li>Optimized for <strong>understanding</strong>, not generation</li>
+          <li>Output: rich context-aware embeddings</li>
+          <li>Best for: classification, NER, semantic search</li>
+        </ul>
+        <div class="ed-examples">
+          <strong>Examples:</strong> BERT, RoBERTa, DistilBERT, sentence-transformers
+        </div>
+      </div>
+
+      <div class="ed-card" style="border-color: #6366f1">
+        <h3 style="color:#a5b4fc">✍️ Decoder-Only</h3>
+        <p class="ed-sub">Causal self-attention — can only see past tokens</p>
+        <ul>
+          <li>Each token only attends to tokens BEFORE it (masked)</li>
+          <li>Optimized for <strong>generation</strong> — predict next token</li>
+          <li>Output: probability distribution over next token</li>
+          <li>Best for: chat, writing, code, reasoning</li>
+        </ul>
+        <div class="ed-examples">
+          <strong>Examples:</strong> GPT-5, Claude 4.x, Llama 4, Mistral, Gemini (most modern LLMs)
+        </div>
+      </div>
+
+      <div class="ed-card" style="border-color: #10b981">
+        <h3 style="color:#6ee7b7">🔄 Encoder-Decoder</h3>
+        <p class="ed-sub">Both — encoder reads, decoder generates with cross-attention</p>
+        <ul>
+          <li>Encoder reads source input bidirectionally</li>
+          <li>Decoder generates output, attending to encoder + own past</li>
+          <li>Optimized for <strong>sequence-to-sequence</strong> transformation</li>
+          <li>Best for: translation, summarization, structured outputs</li>
+        </ul>
+        <div class="ed-examples">
+          <strong>Examples:</strong> T5, BART, mT5, Whisper (audio-to-text)
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top: 20px; padding: 14px 18px; background: rgba(99,102,241,0.1); border-radius: 8px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.6; border-left: 3px solid #6366f1;">
+      <strong style="color:#a5b4fc">Why decoder-only won the 2020s:</strong> Decoder-only models are simpler to scale, and the autoregressive "predict the next token" objective produces a model that naturally handles instruction-following, in-context learning, and generation. By 2022 it became clear that scale + decoder-only + RLHF was the winning recipe.
+    </p>
+  </section>
+
+  <!-- QUIZ -->
+  <section>
+    <h2 class="section-title">Self-Check: Test Your Understanding</h2>
+    <p class="section-sub">5 questions on Transformer architecture and attention.</p>
+
+    <div class="quiz-card">
+      <p class="question">1. Why do Transformers need positional encoding while RNNs do not?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 1)">RNNs were trained on shorter sequences than Transformers</button>
+        <button class="opt-btn" onclick="answer(this, true, 1)">Transformers process all tokens in parallel (no inherent sense of order). RNNs process tokens one at a time, so order is implicit. Positional encoding adds position information to the token embeddings</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Positional encoding is optional and most modern Transformers skip it</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">RNNs actually do use positional encoding under the hood</button>
+      </div>
+      <div class="feedback" id="fb-1"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">2. In the sentence "The animal didn't cross the street because it was too tired", which word does "it" most likely attend to (high attention weight) and why?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 2)">"street" — it's the most recent noun before "it"</button>
+        <button class="opt-btn" onclick="answer(this, true, 2)">"animal" — coreference resolution. "Animal" can plausibly be tired (semantic match); streets cannot. Attention learns to resolve pronouns to their semantic referents</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">"didn't" — attention focuses on negations</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">"because" — attention focuses on causation words</button>
+      </div>
+      <div class="feedback" id="fb-2"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">3. Why do Transformers use multiple attention heads instead of just one big attention?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 3)">For redundancy in case some heads fail</button>
+        <button class="opt-btn" onclick="answer(this, true, 3)">Different heads can specialize in different types of relationships — syntax, coreference, semantics, position. Multiple heads operating in parallel give the model more expressive power than a single large head</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">It's mandated by the original paper's formula</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">More heads always equal better accuracy</button>
+      </div>
+      <div class="feedback" id="fb-3"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">4. Why are virtually all modern LLMs (GPT-5, Claude, Llama, Mistral) decoder-only rather than encoder-decoder?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 4)">Decoder-only models are faster but less accurate</button>
+        <button class="opt-btn" onclick="answer(this, true, 4)">Decoder-only is simpler to scale, the autoregressive 'predict next token' objective naturally produces instruction-following and in-context learning, and adding more parameters yields predictable improvements. Generation is the primary use case</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Encoder-decoder models require more GPU memory</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">The encoder was found to be unnecessary</button>
+      </div>
+      <div class="feedback" id="fb-4"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">5. A decoder-only model is generating word #500 in a response. When computing self-attention for that token, which other tokens does it attend to?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 5)">All other tokens in the entire context window, in both directions</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Only the very next token</button>
+        <button class="opt-btn" onclick="answer(this, true, 5)">All previous tokens (positions 1-499) — causal masking ensures the model only sees tokens to its left, never future tokens. This is what makes decoder-only models generate autoregressively</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Only the system prompt — user message tokens are excluded</button>
+      </div>
+      <div class="feedback" id="fb-5"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ============== ARCHITECTURE DETAILS ==============
+const archDetails = {
+  embedding: {
+    title: '🔤 Token Embeddings',
+    body: 'Each input token (integer ID from the tokenizer) is mapped to a dense vector by a learned lookup table. For GPT-3, each vector has 12,288 dimensions; for smaller models, often 768-4096. This is where text first becomes numbers the rest of the network can process.',
+    formula: 'E_token = EmbeddingTable[token_id]   # shape: (seq_len, d_model)'
+  },
+  positional: {
+    title: '📍 Positional Encoding',
+    body: 'Transformers see all tokens in parallel — they don\'t know which is first vs last. Positional encodings add unique vectors based on each token\'s position. Older models used sinusoidal formulas; modern ones (Llama, Mistral) often use RoPE (Rotary Position Embedding) for better generalization.',
+    formula: 'Input = TokenEmbedding + PositionalEncoding'
+  },
+  repeat: {
+    title: '🔁 N× Stacked Transformer Layers',
+    body: 'The core power of LLMs comes from stacking many identical layers. Each layer refines the representation — early layers learn basic patterns (syntax, parts of speech), later layers handle abstract concepts (sentiment, reasoning). GPT-3 has 96 layers, GPT-4 estimated at 120+. Each adds reasoning depth at the cost of latency and compute.',
+    formula: 'h_n = TransformerLayer(h_{n-1})   for n in 1..N'
+  },
+  layernorm: {
+    title: '📐 Layer Normalization',
+    body: 'Normalizes activations across the embedding dimension to have mean 0 and variance 1. Without it, training deep Transformers becomes unstable — activations can explode or vanish. Pre-LayerNorm (applied before attention/FFN) is now standard; the original paper used Post-LayerNorm.',
+    formula: 'LN(x) = γ · (x - μ) / σ + β'
+  },
+  attention: {
+    title: '👀 Multi-Head Self-Attention',
+    body: 'The defining innovation of Transformers. Each token computes Q, K, V vectors, then attends to all other tokens (or only previous tokens in decoder-only models). The attention weights are interpretable: they tell us which tokens the model is "looking at" when processing each position. Multiple heads run in parallel, each learning different relationship patterns.',
+    formula: 'Attention(Q,K,V) = softmax(QK^T / √d_k) V'
+  },
+  ffn: {
+    title: '⚙️ Feed-Forward Network (FFN)',
+    body: 'After attention mixes information across tokens, the FFN processes each token independently through a 2-layer MLP. The hidden dimension is typically 4× the model dimension. Recent research suggests the FFN is where the model stores most of its factual knowledge — modify FFN weights and you modify what the model "knows".',
+    formula: 'FFN(x) = ReLU(x · W_1 + b_1) · W_2 + b_2'
+  },
+  output: {
+    title: '📤 Output Layer (LM Head)',
+    body: 'A final linear projection from the model\'s hidden dimension to the vocabulary size (~100K for GPT-4), followed by softmax. This produces a probability distribution over which token comes next. The actual generated token is then sampled from this distribution using strategies like top-p, top-k, or greedy.',
+    formula: 'P(next_token) = softmax(h_final · W_output)'
+  },
+};
+
+function showArchDetail(el, key) {
+  document.querySelectorAll('.arch-block').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const d = archDetails[key];
+  document.getElementById('arch-detail').innerHTML = `
+    <h3>${d.title}</h3>
+    <p>${d.body}</p>
+    <div class="formula">${d.formula}</div>
+  `;
+}
+
+// ============== ATTENTION HEATMAPS ==============
+const sentences = [
+  {
+    tokens: ['The','animal','didn\'t','cross','the','street','because','it','was','tired'],
+    weights: [
+      // row = source token, col = attending TO token (causal masked for visual clarity)
+      // self-attention values (focus on coreference patterns)
+      [0.45,0.18,0.05,0.03,0.05,0.05,0.04,0.03,0.06,0.06], // The
+      [0.05,0.55,0.10,0.06,0.04,0.05,0.03,0.04,0.04,0.04], // animal
+      [0.04,0.20,0.40,0.10,0.05,0.06,0.04,0.04,0.04,0.03], // didn't
+      [0.04,0.18,0.10,0.36,0.12,0.10,0.03,0.03,0.02,0.02], // cross
+      [0.05,0.10,0.06,0.10,0.46,0.18,0.02,0.01,0.01,0.01], // the
+      [0.03,0.10,0.05,0.10,0.16,0.50,0.03,0.01,0.01,0.01], // street
+      [0.05,0.10,0.05,0.04,0.04,0.05,0.50,0.10,0.05,0.02], // because
+      [0.03,0.50,0.04,0.03,0.02,0.06,0.06,0.16,0.06,0.04], // it ← attends strongly to "animal"
+      [0.04,0.08,0.06,0.04,0.03,0.04,0.08,0.16,0.42,0.05], // was
+      [0.04,0.20,0.05,0.04,0.03,0.05,0.05,0.10,0.10,0.34], // tired
+    ],
+    explainer: 'Notice the <span class="target">"it"</span> row — it attends most strongly to <span class="attended">"animal"</span> (weight 0.50). This is coreference resolution emerging from attention. The model learns that "tired" semantically applies to animals, not streets.',
+    activeRow: 7
+  },
+  {
+    tokens: ['The','cats','in','the','garden','are','sleeping','peacefully'],
+    weights: [
+      [0.42,0.16,0.06,0.06,0.08,0.10,0.06,0.06],
+      [0.08,0.58,0.08,0.04,0.06,0.06,0.06,0.04],
+      [0.04,0.20,0.42,0.08,0.10,0.06,0.05,0.05],
+      [0.04,0.10,0.08,0.50,0.14,0.04,0.05,0.05],
+      [0.05,0.14,0.10,0.16,0.40,0.05,0.05,0.05],
+      [0.04,0.54,0.05,0.04,0.10,0.10,0.08,0.05], // are ← attends to "cats" (plural subject)
+      [0.05,0.14,0.05,0.04,0.10,0.12,0.40,0.10], // sleeping
+      [0.05,0.10,0.04,0.04,0.08,0.05,0.30,0.34], // peacefully
+    ],
+    explainer: 'Watch the <span class="target">"are"</span> row — attention concentrates on <span class="attended">"cats"</span> (weight 0.54), not the closer noun "garden". This is subject-verb agreement: "are" is plural, so it must agree with the plural subject "cats". One attention head specializes in this.',
+    activeRow: 5
+  },
+  {
+    tokens: ['The','book','that','John','read','yesterday','was','fascinating'],
+    weights: [
+      [0.42,0.16,0.06,0.08,0.06,0.06,0.08,0.08],
+      [0.08,0.55,0.10,0.06,0.06,0.04,0.06,0.05],
+      [0.05,0.22,0.40,0.12,0.10,0.04,0.04,0.03],
+      [0.05,0.10,0.10,0.50,0.14,0.05,0.04,0.02],
+      [0.04,0.18,0.06,0.20,0.40,0.06,0.04,0.02],
+      [0.04,0.12,0.04,0.10,0.20,0.42,0.04,0.04],
+      [0.06,0.46,0.06,0.06,0.10,0.06,0.12,0.08], // was ← long-range to "book"
+      [0.04,0.32,0.04,0.04,0.08,0.04,0.16,0.28], // fascinating ← also to "book"
+    ],
+    explainer: 'The <span class="target">"was"</span> token attends across a 5-token gap back to <span class="attended">"book"</span> (weight 0.46), skipping the entire relative clause "that John read yesterday". This is long-range dependency — a strength of Transformers over RNNs, which lose information over distance.',
+    activeRow: 6
+  },
+];
+
+let currentSentence = 0;
+
+function renderHeatmap() {
+  const s = sentences[currentSentence];
+  const table = document.getElementById('heatmap');
+  let html = '<tr><th></th>';
+  s.tokens.forEach(t => html += `<th class="col-header">${t}</th>`);
+  html += '</tr>';
+
+  s.tokens.forEach((token, i) => {
+    const isActive = i === s.activeRow;
+    html += `<tr><td class="row-label" style="${isActive ? 'color:#f472b6;font-weight:700' : ''}">${token}</td>`;
+    s.weights[i].forEach((w, j) => {
+      // Color: pink/magenta for high attention, dark for low
+      const intensity = Math.pow(w, 0.7);
+      const r = Math.round(15 + (236 - 15) * intensity);
+      const g = Math.round(23 + (72 - 23) * intensity);
+      const b = Math.round(42 + (153 - 42) * intensity);
+      const bg = `rgb(${r},${g},${b})`;
+      const isMax = i === s.activeRow && s.weights[i][j] === Math.max(...s.weights[i]) && i !== j;
+      html += `<td class="cell" style="background:${bg}; color:${intensity > 0.4 ? '#fff' : '#94a3b8'}; ${isMax ? 'box-shadow: 0 0 0 2px #fbbf24 inset;' : ''}" title="${token} → ${s.tokens[j]}: ${w.toFixed(2)}">${w.toFixed(2)}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  table.innerHTML = html;
+  document.getElementById('attn-explainer').innerHTML = '💡 ' + s.explainer;
+}
+
+function loadSentence(idx, btn) {
+  document.querySelectorAll('.sentence-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSentence = idx;
+  renderHeatmap();
+}
+
+// ============== QUIZ ==============
+const explanations = {
+  1: "Correct! RNNs process tokens one-by-one in sequence, so position is implicit in the order of processing. Transformers process all tokens in parallel — they need explicit positional information injected into the embeddings, or the model would have no way to distinguish 'dog bites man' from 'man bites dog'.",
+  2: "Correct! This is the famous example from the 'Attention Is All You Need' paper. The model learns through training that 'animal' is a plausible subject of 'tired' while 'street' is not. Attention thus implements coreference resolution without being explicitly programmed to.",
+  3: "Correct! Each head learns a different specialization. Some focus on syntax, others on semantics, others on position. Multi-head attention is provably more expressive than single-head with the same total parameters, because each head explores a different subspace of relationships.",
+  4: "Correct! Decoder-only architectures scale predictably (more parameters → more capability), the autoregressive objective is simple, and the architecture handles every generation task without separate encoder-decoder design. The success of GPT-3 demonstrated this clearly and the entire field followed.",
+  5: "Correct! Causal masking is the defining feature of decoder-only models. When generating token 500, the model only sees tokens 1-499. This mirrors how language is actually generated (left to right) and prevents the model from 'cheating' by looking at future tokens during training."
+};
+const wrongs = {
+  1: "Not quite. The reason isn't about training-set length or being optional. Transformers process tokens in parallel — they have no inherent notion of order. RNNs process tokens sequentially, so order is built into the architecture itself.",
+  2: "Not quite. While position matters, attention learns semantic relationships, not just adjacency. 'It' attends to 'animal' because the model learned that animals can be tired but streets typically aren't.",
+  3: "Not quite. Multiple heads aren't for redundancy or just convention — they exist because each head can specialize in detecting different relationship patterns. This dramatically increases expressive power.",
+  4: "Not quite. Decoder-only models aren't slower or less accurate — they're the dominant architecture because of scalability and the natural fit between the next-token-prediction objective and the generation tasks we care about.",
+  5: "Not quite. Decoder-only models use causal masking — token at position N can only see positions 1 through N-1. This enforces the autoregressive constraint that makes generation work."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+
+// Initialize
+showArchDetail(document.querySelector('[data-id="attention"]'), 'attention');
+renderHeatmap();
+</script>
+</body>
+</html>

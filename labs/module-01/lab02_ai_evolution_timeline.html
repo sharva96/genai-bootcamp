@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 2 — Evolution of Artificial Intelligence</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #8b5cf6; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+
+  .main { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Era filter buttons */
+  .era-filter { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px; }
+  .era-btn {
+    padding: 8px 18px; border-radius: 99px; border: 1.5px solid #334155;
+    background: #1e293b; color: #94a3b8; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+  }
+  .era-btn:hover, .era-btn.active { color: #fff; border-color: transparent; }
+  .era-btn[data-era="all"].active    { background: #475569; }
+  .era-btn[data-era="symbolic"].active  { background: #6366f1; border-color: #6366f1; }
+  .era-btn[data-era="winter"].active    { background: #64748b; border-color: #64748b; }
+  .era-btn[data-era="statistical"].active { background: #0891b2; border-color: #0891b2; }
+  .era-btn[data-era="deep"].active      { background: #7c3aed; border-color: #7c3aed; }
+  .era-btn[data-era="genai"].active     { background: #059669; border-color: #059669; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before {
+    content: '';
+    position: absolute; left: 12px; top: 0; bottom: 0;
+    width: 2px; background: linear-gradient(to bottom, #6366f1, #8b5cf6, #06b6d4, #10b981);
+  }
+
+  .event {
+    position: relative; margin-bottom: 32px;
+    opacity: 1; transition: opacity 0.3s, transform 0.3s;
+  }
+  .event.dimmed { opacity: 0.12; pointer-events: none; }
+
+  .event-dot {
+    position: absolute; left: -27px; top: 14px;
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2.5px solid #0f172a;
+    transition: transform 0.2s;
+  }
+  .event:hover .event-dot { transform: scale(1.4); }
+
+  .event-card {
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    padding: 18px 22px; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .event-card:hover { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+
+  .event-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .event-year { font-size: 1.1rem; font-weight: 700; min-width: 56px; }
+  .event-title { font-size: 1rem; font-weight: 600; color: #f1f5f9; flex: 1; }
+  .era-tag { font-size: 0.72rem; padding: 2px 9px; border-radius: 99px; font-weight: 600; white-space: nowrap; }
+
+  .event-body { font-size: 0.88rem; color: #94a3b8; line-height: 1.6; }
+  .event-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155; display: none; }
+  .event-detail.open { display: block; }
+  .event-detail p { font-size: 0.88rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 8px; }
+  .event-detail .why { color: #fbbf24; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Era colors */
+  .symbolic   { color: #818cf8; } .dot-symbolic  { background: #6366f1; }  .tag-symbolic  { background: rgba(99,102,241,0.2);  color: #818cf8; }
+  .winter     { color: #94a3b8; } .dot-winter    { background: #64748b; }  .tag-winter    { background: rgba(100,116,139,0.2); color: #94a3b8; }
+  .statistical{ color: #38bdf8; } .dot-statistical{ background: #0891b2; } .tag-statistical{ background: rgba(8,145,178,0.2);  color: #38bdf8; }
+  .deep       { color: #a78bfa; } .dot-deep      { background: #7c3aed; }  .tag-deep      { background: rgba(124,58,237,0.2);  color: #a78bfa; }
+  .genai      { color: #34d399; } .dot-genai     { background: #059669; }  .tag-genai     { background: rgba(5,150,105,0.2);   color: #34d399; }
+
+  /* Why-now box */
+  .why-now {
+    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(16,185,129,0.08));
+    border: 1px solid #6366f1; border-radius: 16px; padding: 28px 32px; margin-top: 48px;
+  }
+  .why-now h2 { color: #818cf8; margin-bottom: 20px; font-size: 1.2rem; }
+  .why-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .why-card { background: #0f172a; border-radius: 10px; padding: 18px; text-align: center; }
+  .why-card .icon { font-size: 2rem; margin-bottom: 10px; }
+  .why-card h3 { font-size: 0.95rem; color: #f1f5f9; margin-bottom: 6px; }
+  .why-card p  { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; }
+
+  @media (max-width: 640px) { .why-grid, .detail-grid { grid-template-columns: 1fr; } }
+
+  /* Quiz */
+  .quiz-section { margin-top: 56px; }
+  .quiz-section h2 { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  .quiz-section .qs-sub { font-size: 0.88rem; color: #64748b; margin-bottom: 28px; }
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 1 · Lab 2</div>
+  <h1>Evolution of Artificial Intelligence</h1>
+  <p>Click any milestone to expand details. Use the filters to focus on an era.</p>
+</div>
+
+<div class="main">
+
+  <div class="era-filter">
+    <button class="era-btn active" data-era="all" onclick="filterEra('all', this)">All Eras</button>
+    <button class="era-btn" data-era="symbolic"    onclick="filterEra('symbolic', this)">🔵 Symbolic AI</button>
+    <button class="era-btn" data-era="winter"      onclick="filterEra('winter', this)">❄️ AI Winters</button>
+    <button class="era-btn" data-era="statistical" onclick="filterEra('statistical', this)">📊 Statistical ML</button>
+    <button class="era-btn" data-era="deep"        onclick="filterEra('deep', this)">🧠 Deep Learning</button>
+    <button class="era-btn" data-era="genai"       onclick="filterEra('genai', this)">✨ Generative AI</button>
+  </div>
+
+  <div class="timeline" id="timeline"></div>
+
+  <div class="why-now">
+    <h2>⚡ Why Did Generative AI Explode in 2022?</h2>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="icon">📚</div>
+        <h3>Massive Datasets</h3>
+        <p>Trillions of tokens of text, code, and images from the internet — more data than any human could read in thousands of lifetimes.</p>
+      </div>
+      <div class="why-card">
+        <div class="icon">⚙️</div>
+        <h3>GPU Compute Scale</h3>
+        <p>Training clusters of thousands of NVIDIA GPUs, costing millions per run, made billion-parameter models feasible.</p>
+      </div>
+      <div class="why-card">
+        <div class="icon">🔬</div>
+        <h3>Transformer Architecture</h3>
+        <p>The 2017 "Attention Is All You Need" paper enabled full parallelization and direct modeling of long-range dependencies.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const events = [
+  {
+    year: "1950", era: "symbolic", title: "Turing Test Proposed",
+    summary: "Alan Turing asks: 'Can machines think?' — and proposes a test for machine intelligence.",
+    detail: "In his landmark paper 'Computing Machinery and Intelligence', Turing proposed the Imitation Game (now the Turing Test): if a machine can fool a human into thinking it's human in conversation, it may be considered intelligent. This defined the goal of AI for decades.",
+    why: "This was the founding question of the entire field. Every AI chatbot today is, in a sense, trying to pass a version of this test."
+  },
+  {
+    year: "1956", era: "symbolic", title: "Dartmouth Conference — AI is Born",
+    summary: "John McCarthy coins the term 'Artificial Intelligence' at a summer workshop at Dartmouth College.",
+    detail: "McCarthy, Minsky, Shannon, and others gathered with the hypothesis that 'every aspect of learning or any other feature of intelligence can be so precisely described that a machine can be made to simulate it'. The field of AI was officially born.",
+    why: "This optimistic framing set the tone — and the expectations — that would later contribute to the first AI winter."
+  },
+  {
+    year: "1966", era: "symbolic", title: "ELIZA — First Chatbot",
+    summary: "MIT's Joseph Weizenbaum creates ELIZA, a chatbot that mimics a psychotherapist using simple pattern matching.",
+    detail: "ELIZA used a script called DOCTOR that matched input patterns to scripted responses. It had no understanding whatsoever — yet users frequently developed emotional attachments to it. Weizenbaum was disturbed by this and wrote 'Computer Power and Human Reason' as a warning.",
+    why: "ELIZA showed that humans anthropomorphize AI easily — a phenomenon still relevant today when people form relationships with ChatGPT."
+  },
+  {
+    year: "1974", era: "winter", title: "First AI Winter Begins",
+    summary: "Funding collapses as promised AI breakthroughs fail to materialize. Critics expose fundamental limitations.",
+    detail: "The Lighthill Report (UK, 1973) criticized AI research as producing only 'toy' systems. The US DARPA cut AI funding dramatically. Rule-based systems couldn't scale — writing rules for every scenario was impossible. Computers lacked the memory and speed needed.",
+    why: "Overselling capabilities without delivering is a recurring pattern. The AI winters shaped skepticism that persists today."
+  },
+  {
+    year: "1980", era: "symbolic", title: "Expert Systems Era Peaks",
+    summary: "Rule-based expert systems like MYCIN bring AI into commercial use in medicine and finance.",
+    detail: "MYCIN diagnosed blood infections with 65% accuracy — better than human doctors in studies. XCON configured VAX computers at DEC, saving $40M annually. The AI industry briefly reached $1B+ in revenue. But expert systems required enormous manual effort to encode knowledge.",
+    why: "Expert systems proved AI had commercial value — but also that hand-crafting intelligence doesn't scale."
+  },
+  {
+    year: "1987", era: "winter", title: "Second AI Winter",
+    summary: "Expert system markets collapse. LISP machines become obsolete. DARPA cuts funding again.",
+    detail: "Apple and IBM personal computers made expensive LISP machines obsolete. Expert systems required constant expert-hours to maintain rules. The gap between AI hype and capability caused massive investor pullback. Most AI companies founded in the 1980s failed.",
+    why: "This winter lasted until the mid-1990s and made 'AI' a cautious word in industry for years."
+  },
+  {
+    year: "1997", era: "statistical", title: "Deep Blue Defeats Kasparov",
+    summary: "IBM's Deep Blue becomes the first computer to beat a reigning world chess champion under tournament conditions.",
+    detail: "Deep Blue evaluated 200 million positions per second using specialized hardware and hand-crafted evaluation functions. It was not 'learning' — but it demonstrated that machines could outperform humans at a task requiring intelligence. The match was watched by millions worldwide.",
+    why: "Chess was long considered the 'Drosophila of AI'. This victory shifted public perception of what machines could do."
+  },
+  {
+    year: "2001", era: "statistical", title: "Statistical ML Matures",
+    summary: "SVMs, Random Forests, and Naive Bayes become industry workhorses for classification and prediction.",
+    detail: "Statistical ML brought rigorous mathematical foundations to AI. Support Vector Machines excelled at classification with small datasets. Random Forests and gradient boosting became dominant for tabular data. Email spam filters, search ranking, and fraud detection were all transformed.",
+    why: "This era produced reliable, explainable ML that still powers much of today's enterprise software."
+  },
+  {
+    year: "2012", era: "deep", title: "AlexNet — Deep Learning Revolution",
+    summary: "AlexNet wins ImageNet by a 10-point margin, using deep CNNs on GPUs. The modern AI era begins.",
+    detail: "Geoffrey Hinton's team trained a deep convolutional neural network on two NVIDIA GTX 580 GPUs. It achieved a top-5 error rate of 15.3%, compared to 26.2% for the next best entry. This paper triggered a massive shift — every major tech company redirected R&D into deep learning within 2 years.",
+    why: "This is the Big Bang of modern AI. Before AlexNet, deep learning was niche. After it, deep learning was mandatory."
+  },
+  {
+    year: "2013", era: "deep", title: "Word2Vec — Semantic Embeddings",
+    summary: "Google's Mikolov publishes Word2Vec: words as vectors where king - man + woman ≈ queen.",
+    detail: "Word2Vec trained shallow neural networks on massive text corpora to produce dense vector representations where semantic relationships are encoded in geometry. For the first time, a machine could perform word analogy reasoning purely from statistics.",
+    why: "Embeddings became the backbone of modern NLP — and are still central to how today's LLMs and semantic search work."
+  },
+  {
+    year: "2017", era: "deep", title: "Transformer Architecture",
+    summary: "Google Brain publishes 'Attention Is All You Need' — replacing RNNs with self-attention.",
+    detail: "Vaswani et al. introduced the Transformer: an architecture that processes all tokens in parallel using self-attention, allowing any token to directly attend to any other. This enabled full GPU parallelization during training and could model long-range dependencies that RNNs lost. Every modern LLM is built on this.",
+    why: "The single most important algorithmic breakthrough in AI history. Without Transformers, ChatGPT does not exist."
+  },
+  {
+    year: "2018", era: "deep", title: "BERT & GPT-1",
+    summary: "Google releases BERT (bidirectional); OpenAI releases GPT-1 (generative). The pre-train/fine-tune paradigm takes hold.",
+    detail: "BERT (Bidirectional Encoder Representations from Transformers) pre-trained on masked language modeling — predicting hidden words. GPT-1 used a causal (left-to-right) decoder for generative pre-training. Both showed that fine-tuning a pre-trained model outperformed task-specific architectures.",
+    why: "This paradigm — pre-train on massive data, fine-tune for specific tasks — is the foundation of how all modern LLMs are built."
+  },
+  {
+    year: "2020", era: "genai", title: "GPT-3 (175B parameters)",
+    summary: "OpenAI's GPT-3 demonstrates few-shot learning and emergent capabilities at unprecedented scale.",
+    detail: "GPT-3 had 175 billion parameters, trained on 500 billion tokens. For the first time, a model could perform new tasks from just a few examples in the prompt — no fine-tuning needed. Emergent abilities appeared: coding, translation, arithmetic, and reasoning — none explicitly trained for.",
+    why: "GPT-3 proved that scale alone produces qualitative capability jumps. It launched the era of 'foundation models' and the API economy around LLMs."
+  },
+  {
+    year: "2022", era: "genai", title: "ChatGPT — Mainstream Adoption",
+    summary: "ChatGPT reaches 1 million users in 5 days and 100 million in 2 months — the fastest product adoption in history.",
+    detail: "OpenAI combined GPT-3.5 with RLHF (Reinforcement Learning from Human Feedback) to create an assistant that was helpful, safe, and conversational. The interface was simple: a chat box. No technical knowledge required. Every industry was disrupted overnight.",
+    why: "This was the iPhone moment for AI. Before ChatGPT, AI was for specialists. After it, AI became a daily tool for hundreds of millions."
+  },
+  {
+    year: "2023", era: "genai", title: "GPT-4, Claude 2, Gemini",
+    summary: "Multimodal models, 128K+ context windows, and coding ability reach professional-grade quality.",
+    detail: "GPT-4 passed the bar exam in the top 10%. Claude 2 offered 100K token context. Gemini was natively multimodal across text, image, audio, and video. GitHub Copilot reached 1 million paid subscribers. The competitive landscape exploded with dozens of frontier models.",
+    why: "2023 was when AI moved from impressive demo to enterprise deployment — productivity tools, copilots, and agents became real products."
+  },
+  {
+    year: "Late 2024", era: "genai", title: "OpenAI o1 — Reasoning Models Arrive",
+    summary: "OpenAI releases o1: the first model that 'thinks' before responding, dramatically improving accuracy on math, code, and reasoning.",
+    detail: "o1 (codename 'Strawberry') generates hidden chain-of-thought tokens at inference time before producing visible output. On math olympiad qualifying tests, it reached gold-medal level — vs GPT-4o at bronze. This split LLMs into two categories: fast standard models for chat, and slower reasoning models for hard problems. The successor o3 followed in early 2025 with even stronger benchmarks.",
+    why: "Reasoning at inference time introduced a new AI scaling lever. Beyond just bigger models, you can spend more compute per query for better answers — fundamentally changing the cost/quality trade-off."
+  },
+  {
+    year: "Jan 2025", era: "genai", title: "DeepSeek-R1 — The Open Reasoning Shock",
+    summary: "Chinese startup DeepSeek releases R1, matching OpenAI o1 quality at ~3% of the cost. AI infrastructure stocks lose hundreds of billions in value overnight.",
+    detail: "DeepSeek-R1 was trained primarily via reinforcement learning rather than massive supervised fine-tuning. It matched OpenAI o1 on math, code, and reasoning benchmarks at $0.55/M tokens vs o1's ~$15/M. The weights were openly released. The 'AI moat' narrative — that only billion-dollar labs could build frontier models — broke overnight. NVIDIA stock dropped 17% in a single day.",
+    why: "This reset assumptions about AI economics. Open-weight competition at the frontier is now real. Every closed-model lab has been forced to accelerate releases and drop prices since."
+  },
+  {
+    year: "2025", era: "genai", title: "GPT-5, Claude 4, Gemini 2.5 — Frontier Convergence",
+    summary: "OpenAI's GPT-5, Anthropic's Claude 4 family, and Google's Gemini 2.5 launch within months. Autonomous agents become production-grade.",
+    detail: "GPT-5 unified standard + reasoning into one model with adaptive compute. Claude 4 (Sonnet, Opus) led coding benchmarks (SWE-bench Verified). Gemini 2.5 Pro extended context to 2 million tokens. Autonomous coding agents — Claude Code, Devin, Cursor Agent, Manus — began shipping real features end-to-end with minimal supervision. Anthropic's Model Context Protocol (MCP) became the industry standard for connecting LLMs to tools.",
+    why: "2025 was the year AI became infrastructure. Three frontier labs converged on similar capabilities, prices dropped 10-50×, and agents began shipping production code. AI shifted from 'demo' to 'default tool'."
+  },
+  {
+    year: "2026", era: "genai", title: "Claude Opus 4.7 & Agentic AI Goes Mainstream",
+    summary: "Frontier reasoning models complete multi-hour autonomous tasks. Voice AI replaces traditional IVR. Real-time video chat with AI assistants becomes standard.",
+    detail: "Claude Opus 4.7 (Anthropic) and peer reasoning models routinely complete day-long engineering tasks autonomously. GPT-5 Voice and Gemini Live enable natural real-time conversation with sub-300ms latency. Sora 2 and Veo 3 produce broadcast-quality video with synchronized audio. EU AI Act enforcement begins; US passes federal AI legislation. The safety and governance conversation intensifies as agentic capabilities accelerate.",
+    why: "We're now in the 'agents that do' era — not just 'assistants that answer'. The economic and societal impact is just beginning to materialize across every industry."
+  }
+];
+
+function renderTimeline(filterEraValue) {
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+  events.forEach((e, i) => {
+    const dimmed = filterEraValue !== 'all' && e.era !== filterEraValue;
+    const div = document.createElement('div');
+    div.className = `event${dimmed ? ' dimmed' : ''}`;
+    div.innerHTML = `
+      <div class="event-dot dot-${e.era}"></div>
+      <div class="event-card" onclick="toggleDetail(${i})">
+        <div class="event-top">
+          <span class="event-year ${e.era}">${e.year}</span>
+          <span class="event-title">${e.title}</span>
+          <span class="era-tag tag-${e.era}">${eraLabel(e.era)}</span>
+        </div>
+        <div class="event-body">${e.summary}</div>
+        <div class="event-detail" id="detail-${i}">
+          <p>${e.detail}</p>
+          <p class="why">Why it matters today:</p>
+          <p>${e.why}</p>
+        </div>
+      </div>`;
+    tl.appendChild(div);
+  });
+}
+
+function eraLabel(era) {
+  return { symbolic:'Symbolic AI', winter:'AI Winter', statistical:'Statistical ML', deep:'Deep Learning', genai:'Generative AI' }[era];
+}
+
+function toggleDetail(i) {
+  const el = document.getElementById('detail-' + i);
+  el.classList.toggle('open');
+}
+
+function filterEra(era, btn) {
+  document.querySelectorAll('.era-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTimeline(era);
+}
+
+renderTimeline('all');
+</script>
+</body>
+</html>

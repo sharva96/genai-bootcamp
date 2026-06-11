@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 1 — NLP Tasks Explorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #6366f1; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Category tabs */
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px; }
+  .tab-btn {
+    padding: 10px 18px; border-radius: 10px; border: 1.5px solid #334155;
+    background: #1e293b; color: #94a3b8; font-size: 0.88rem; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+  }
+  .tab-btn:hover { border-color: #6366f1; color: #e2e8f0; }
+  .tab-btn.active { color: #fff; border-color: transparent; background: #6366f1; }
+
+  /* Panel */
+  .cat-panel { display: none; animation: fadeIn 0.3s; }
+  .cat-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .cat-header { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.3); border-radius: 16px; padding: 24px 28px; margin-bottom: 32px; }
+  .cat-header h2 { font-size: 1.4rem; color: #818cf8; margin-bottom: 6px; }
+  .cat-header p  { color: #94a3b8; line-height: 1.6; font-size: 0.95rem; }
+
+  /* Task cards */
+  .task-grid { display: grid; gap: 16px; margin-bottom: 32px; }
+  .task-card { background: #1e293b; border: 1.5px solid #334155; border-radius: 14px; padding: 24px; transition: border-color 0.2s; }
+  .task-card:hover { border-color: var(--c, #6366f1); }
+  .task-top { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+  .task-icon { font-size: 2rem; flex-shrink: 0; }
+  .task-name { font-size: 1.1rem; font-weight: 700; color: var(--c, #f1f5f9); margin-bottom: 4px; }
+  .task-def  { font-size: 0.9rem; color: #94a3b8; line-height: 1.5; }
+
+  .example-box { background: #0f172a; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
+  .ex-in, .ex-out { background: #1e293b; border-radius: 8px; padding: 10px 12px; }
+  .ex-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+  .ex-in .ex-label  { color: #6366f1; }
+  .ex-out .ex-label { color: #10b981; }
+  .ex-content { font-size: 0.85rem; color: #cbd5e1; line-height: 1.4; font-style: italic; }
+  .ex-arrow { font-size: 1.2rem; color: #475569; text-align: center; }
+
+  .uses-section { background: #0f172a; border-radius: 10px; padding: 14px 16px; }
+  .uses-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 8px; }
+  .uses-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .use-pill { font-size: 0.76rem; padding: 3px 10px; border-radius: 99px; background: rgba(99,102,241,0.15); color: #a5b4fc; }
+
+  .approach-line { font-size: 0.82rem; color: #fbbf24; margin-top: 12px; padding: 10px 14px; background: rgba(251,191,36,0.08); border-left: 3px solid #fbbf24; border-radius: 4px; line-height: 1.5; }
+  .approach-line strong { color: #fcd34d; }
+
+  /* Identifier game */
+  .game-section { background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.06)); border: 1px solid #10b981; border-radius: 16px; padding: 28px; margin-bottom: 56px; }
+  .game-section h2 { color: #34d399; margin-bottom: 8px; }
+  .game-sub { font-size: 0.88rem; color: #94a3b8; margin-bottom: 20px; }
+  .game-prompt { background: #0f172a; border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+  .gp-text { font-size: 0.95rem; color: #f1f5f9; font-style: italic; line-height: 1.6; }
+  .gp-question { font-size: 0.85rem; color: #cbd5e1; margin-top: 14px; font-weight: 600; }
+  .game-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  .game-btn { background: #1e293b; border: 1.5px solid #334155; border-radius: 8px; padding: 10px; color: #94a3b8; font-size: 0.82rem; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .game-btn:hover:not(:disabled) { border-color: #10b981; color: #e2e8f0; }
+  .game-btn.correct { border-color: #10b981 !important; background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .game-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.15); color: #fca5a5; }
+  .game-feedback { display: none; margin-top: 12px; font-size: 0.85rem; padding: 10px 14px; border-radius: 8px; line-height: 1.5; }
+  .game-feedback.show { display: block; }
+  .game-feedback.ok { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .game-feedback.bad { background: rgba(239,68,68,0.1); color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  /* Quiz */
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 28px; }
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 700px) { .example-box { grid-template-columns: 1fr; } .game-options { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 2 · Lab 1</div>
+  <h1>NLP Tasks Explorer</h1>
+  <p>Explore the major categories of NLP tasks, see real input → output examples, and understand where each fits in business.</p>
+</div>
+
+<div class="main">
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showCat('classification', event)">🏷 Classification</button>
+    <button class="tab-btn" onclick="showCat('extraction', event)">🔍 Extraction</button>
+    <button class="tab-btn" onclick="showCat('generation', event)">✍️ Generation</button>
+    <button class="tab-btn" onclick="showCat('qa', event)">❓ Question Answering</button>
+    <button class="tab-btn" onclick="showCat('retrieval', event)">📚 Retrieval</button>
+  </div>
+
+  <!-- CLASSIFICATION -->
+  <div class="cat-panel active" id="cat-classification">
+    <div class="cat-header" style="background:rgba(99,102,241,0.08); border-color:rgba(99,102,241,0.3)">
+      <h2 style="color:#818cf8">🏷 Classification Tasks</h2>
+      <p>Assign one or more labels to a piece of text. The "yes/no/which-category" family — among the most common and commercially deployed NLP tasks.</p>
+    </div>
+    <div class="task-grid">
+
+      <div class="task-card" style="--c:#818cf8">
+        <div class="task-top">
+          <div class="task-icon">😊</div>
+          <div>
+            <div class="task-name">Sentiment Analysis</div>
+            <div class="task-def">Determine the emotional tone of text — positive, negative, neutral, or fine-grained emotion labels.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"The product is decent but customer support was a nightmare."</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">{"sentiment": "mixed", "score": -0.3, "aspects": {"product": "neutral", "support": "negative"}}</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Brand monitoring</span><span class="use-pill">Customer feedback</span><span class="use-pill">Review aggregation</span><span class="use-pill">Social media analysis</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Use an LLM (GPT-5 mini, Claude Haiku) with a system prompt — no training needed. For massive volume: fine-tune BERT or DistilBERT for 100× cost reduction.</div>
+      </div>
+
+      <div class="task-card" style="--c:#818cf8">
+        <div class="task-top">
+          <div class="task-icon">📁</div>
+          <div>
+            <div class="task-name">Topic / Intent Classification</div>
+            <div class="task-def">Assign a category from a predefined taxonomy. Used for routing, organization, and triage.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"My password isn't working and I can't log in to my account."</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">{"intent": "account_recovery", "subcategory": "password_reset", "urgency": "medium"}</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Support ticket routing</span><span class="use-pill">Email triage</span><span class="use-pill">Voice assistant intent</span><span class="use-pill">Content moderation</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Zero-shot with LLMs handles 100+ categories without training. Provide the label list in the prompt. Add few-shot examples for tricky edge cases.</div>
+      </div>
+
+      <div class="task-card" style="--c:#818cf8">
+        <div class="task-top">
+          <div class="task-icon">🚨</div>
+          <div>
+            <div class="task-name">Spam / Toxicity / Safety</div>
+            <div class="task-def">Binary or multi-label detection of unwanted, harmful, or unsafe content.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"CONGRATS! You won $5000. Click here to claim NOW!!!"</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">{"is_spam": true, "confidence": 0.97, "signals": ["urgency_pressure", "money_offer", "suspicious_link"]}</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Email spam filtering</span><span class="use-pill">Comment moderation</span><span class="use-pill">Phishing detection</span><span class="use-pill">Trust &amp; Safety</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Use OpenAI Moderation API or Anthropic safety endpoints for general toxicity. For domain-specific spam (e.g. crypto scams), fine-tune a small classifier on labeled examples.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXTRACTION -->
+  <div class="cat-panel" id="cat-extraction">
+    <div class="cat-header" style="background:rgba(236,72,153,0.08); border-color:rgba(236,72,153,0.3)">
+      <h2 style="color:#f472b6">🔍 Information Extraction</h2>
+      <p>Pull out structured pieces of information from unstructured text. Critical for data ingestion, knowledge graphs, and search.</p>
+    </div>
+    <div class="task-grid">
+
+      <div class="task-card" style="--c:#f472b6">
+        <div class="task-top">
+          <div class="task-icon">👤</div>
+          <div>
+            <div class="task-name">Named Entity Recognition (NER)</div>
+            <div class="task-def">Identify and classify named things — people, organizations, locations, dates, money amounts.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"Apple CEO Tim Cook met President Biden in Washington on March 15, 2025."</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">[{"text":"Apple","type":"ORG"},{"text":"Tim Cook","type":"PER"},{"text":"Biden","type":"PER"},{"text":"Washington","type":"LOC"},{"text":"March 15, 2025","type":"DATE"}]</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Contract analysis</span><span class="use-pill">News monitoring</span><span class="use-pill">Compliance screening</span><span class="use-pill">Knowledge graph</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> LLMs (GPT-5, Claude Sonnet) do NER zero-shot — just ask "extract all entities". For domain-specific entities (drug names, legal clauses), use structured output mode or spaCy with custom labels.</div>
+      </div>
+
+      <div class="task-card" style="--c:#f472b6">
+        <div class="task-top">
+          <div class="task-icon">📋</div>
+          <div>
+            <div class="task-name">Structured Data Extraction</div>
+            <div class="task-def">Convert unstructured text into structured JSON, CSV, or database records.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"Booking for 2 nights, June 15-17, deluxe room, 2 guests, request: late checkout, $450 total"</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">{"check_in":"2026-06-15","check_out":"2026-06-17","room_type":"deluxe","guests":2,"total_usd":450,"requests":["late_checkout"]}</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Invoice processing</span><span class="use-pill">Form digitization</span><span class="use-pill">Resume parsing</span><span class="use-pill">Booking automation</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Use OpenAI Structured Outputs or Anthropic tool use with a strict JSON schema (Pydantic). Guarantees valid structured output every time.</div>
+      </div>
+
+      <div class="task-card" style="--c:#f472b6">
+        <div class="task-top">
+          <div class="task-icon">🔗</div>
+          <div>
+            <div class="task-name">Relation Extraction</div>
+            <div class="task-def">Identify relationships between entities — who works for whom, what is a part of what, who reports to whom.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"Sarah, the new VP of Engineering at Acme, reports to CEO John Smith."</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">[{"subject":"Sarah","relation":"works_at","object":"Acme","role":"VP of Engineering"},{"subject":"Sarah","relation":"reports_to","object":"John Smith"}]</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Org charts from text</span><span class="use-pill">Drug interactions</span><span class="use-pill">Legal due diligence</span><span class="use-pill">Investigative research</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> LLMs handle this with structured output. For high-volume use cases, train a specialized model on triplet-extraction format.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GENERATION -->
+  <div class="cat-panel" id="cat-generation">
+    <div class="cat-header" style="background:rgba(245,158,11,0.08); border-color:rgba(245,158,11,0.3)">
+      <h2 style="color:#fbbf24">✍️ Generation Tasks</h2>
+      <p>Produce new text from existing text. Includes summarization, translation, completion, and creative writing.</p>
+    </div>
+    <div class="task-grid">
+
+      <div class="task-card" style="--c:#fbbf24">
+        <div class="task-top">
+          <div class="task-icon">📄</div>
+          <div>
+            <div class="task-name">Summarization</div>
+            <div class="task-def">Condense long text into a shorter version. Two flavors: extractive (pick key sentences) and abstractive (rewrite).</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"[20-page financial report with 8 key findings, growth metrics, risk factors, and forward guidance...]"</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">"Revenue grew 32% YoY led by cloud (+58%). Two material risks: regulatory pressure in EU, supply chain disruption. Guidance raised to $4.5B for FY26."</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Executive briefings</span><span class="use-pill">Research review</span><span class="use-pill">Meeting notes</span><span class="use-pill">News digests</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Long context models (Claude Sonnet 4.6 500K, Gemini 2.5 Pro 2M) summarize entire documents in one call. Specify output length and audience explicitly.</div>
+      </div>
+
+      <div class="task-card" style="--c:#fbbf24">
+        <div class="task-top">
+          <div class="task-icon">🌐</div>
+          <div>
+            <div class="task-name">Machine Translation</div>
+            <div class="task-def">Convert text from one language to another. Modern LLMs handle 100+ language pairs without specialized training.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"We appreciate your patience and will resolve this by Friday."</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output (Spanish, formal)</div><div class="ex-content">"Agradecemos su paciencia y resolveremos este asunto antes del viernes."</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Customer support i18n</span><span class="use-pill">Content localization</span><span class="use-pill">Cross-border commerce</span><span class="use-pill">Real-time translation</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> GPT-5 and Claude handle nuanced translation (formal vs casual, tone, regional dialect). For real-time / high-volume use Google Translate API or DeepL.</div>
+      </div>
+
+      <div class="task-card" style="--c:#fbbf24">
+        <div class="task-top">
+          <div class="task-icon">🔄</div>
+          <div>
+            <div class="task-name">Text Transformation / Rewriting</div>
+            <div class="task-def">Change style, tone, formality, or simplify complex content while preserving meaning.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input (legalese)</div><div class="ex-content">"Notwithstanding the foregoing, party A shall indemnify and hold harmless party B from any and all claims arising from..."</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output (plain English)</div><div class="ex-content">"Even with the above rules, Party A is responsible for protecting Party B from any legal claims caused by..."</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Plain-language laws</span><span class="use-pill">Medical-to-patient text</span><span class="use-pill">Brand voice rewriting</span><span class="use-pill">Accessibility</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> System prompt defines the target style. Add explicit examples (few-shot) for brand-specific tone or unusual transformations.</div>
+      </div>
+
+      <div class="task-card" style="--c:#fbbf24">
+        <div class="task-top">
+          <div class="task-icon">📝</div>
+          <div>
+            <div class="task-name">Open-ended Generation</div>
+            <div class="task-def">Produce new content from a prompt — articles, emails, code, fiction, marketing copy.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">"Write a 50-word LinkedIn post announcing our $20M Series A funding. Tone: excited but humble."</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">"Huge milestone today — we've closed our $20M Series A led by Accel. Grateful to every team member and customer who got us here. This fuels our mission to make X accessible to every Y. We're hiring across all roles. 🚀"</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Content marketing</span><span class="use-pill">Email drafts</span><span class="use-pill">Code generation</span><span class="use-pill">Creative writing</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Specify audience, length, tone, and format. Use higher temperature (0.7-1.0) for creativity. For consistent brand voice, fine-tune on past content.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QA -->
+  <div class="cat-panel" id="cat-qa">
+    <div class="cat-header" style="background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.3)">
+      <h2 style="color:#f87171">❓ Question Answering</h2>
+      <p>Answer natural-language questions. Three main types: extractive (find span in a document), generative (free-form answer), and conversational (multi-turn dialogue).</p>
+    </div>
+    <div class="task-grid">
+
+      <div class="task-card" style="--c:#f87171">
+        <div class="task-top">
+          <div class="task-icon">📖</div>
+          <div>
+            <div class="task-name">Extractive QA (Reading Comprehension)</div>
+            <div class="task-def">Find the exact span of text in a document that answers a question.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">Doc: "Our refund policy allows returns within 30 days of purchase."<br>Q: "How long is the return window?"</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">{"answer": "30 days", "confidence": 0.98, "span": [37, 44]}</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Help center search</span><span class="use-pill">Document Q&amp;A</span><span class="use-pill">Compliance lookup</span><span class="use-pill">Legal research</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> LLMs with RAG (Retrieval-Augmented Generation) — retrieve relevant passages, then have the model answer from them. Always returns citations.</div>
+      </div>
+
+      <div class="task-card" style="--c:#f87171">
+        <div class="task-top">
+          <div class="task-icon">💭</div>
+          <div>
+            <div class="task-name">Generative / Open-domain QA</div>
+            <div class="task-def">Answer questions without a specific document — using world knowledge or reasoning.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">Q: "If I invest $10K monthly at 8% annual return, how much will I have after 25 years?"</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">"Approximately $9.13 million. Using the future value of annuity formula: FV = PMT × [((1+r)^n - 1)/r]..."</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">General-purpose chatbots</span><span class="use-pill">AI tutors</span><span class="use-pill">Financial assistants</span><span class="use-pill">Research</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Use a reasoning model (o3, Claude Opus 4.7) for math/logic questions. Always cross-check factual claims — hallucination risk is real.</div>
+      </div>
+
+      <div class="task-card" style="--c:#f87171">
+        <div class="task-top">
+          <div class="task-icon">💬</div>
+          <div>
+            <div class="task-name">Conversational QA</div>
+            <div class="task-def">Multi-turn dialogue with context — the model remembers earlier turns and resolves references like "it" or "that".</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input (turn 2)</div><div class="ex-content">Turn 1: "What's our Q3 revenue?"<br>Turn 1 answer: "$42M"<br>Turn 2: "How does that compare to last year?"</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">"Q3 2026 revenue ($42M) is up 28% from Q3 2025 ($32.8M). Strongest QoQ growth in 8 quarters."</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">ChatGPT-style assistants</span><span class="use-pill">Internal data Q&amp;A</span><span class="use-pill">Customer support</span><span class="use-pill">Voice assistants</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Maintain conversation history in messages array. Use long-context models (200K+) for extended chats. For very long sessions, summarize older turns to manage tokens.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RETRIEVAL -->
+  <div class="cat-panel" id="cat-retrieval">
+    <div class="cat-header" style="background:rgba(16,185,129,0.08); border-color:rgba(16,185,129,0.3)">
+      <h2 style="color:#34d399">📚 Retrieval Tasks</h2>
+      <p>Find the most relevant content from a large collection. The foundation of modern search and RAG systems.</p>
+    </div>
+    <div class="task-grid">
+
+      <div class="task-card" style="--c:#34d399">
+        <div class="task-top">
+          <div class="task-icon">🔎</div>
+          <div>
+            <div class="task-name">Semantic Search</div>
+            <div class="task-def">Find documents by meaning, not keyword. "How to cancel subscription" matches "ending my plan" — even with no shared words.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">Query: "how do I quit my membership"<br>Corpus: 10,000 help articles</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">Top 3: 1) "Cancelling your subscription" (sim: 0.91), 2) "Account closure process" (0.84), 3) "Pausing your plan" (0.76)</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">Modern search engines</span><span class="use-pill">Help center search</span><span class="use-pill">RAG context retrieval</span><span class="use-pill">Recommendation engines</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Embed query and documents with same embedding model (text-embedding-3-large, voyage-3). Index in a vector DB (Pinecone, Weaviate, pgvector). Use cosine similarity to rank.</div>
+      </div>
+
+      <div class="task-card" style="--c:#34d399">
+        <div class="task-top">
+          <div class="task-icon">📊</div>
+          <div>
+            <div class="task-name">Reranking</div>
+            <div class="task-def">Take a candidate set from initial retrieval and reorder by relevance using a more powerful model. Two-stage pipeline.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">Query: "Python async best practices"<br>Top 20 vector search results</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">Reordered top 5 with relevance scores, removing tangentially-related results that scored high in initial retrieval.</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">RAG quality boost</span><span class="use-pill">Enterprise search</span><span class="use-pill">Code search</span><span class="use-pill">E-commerce ranking</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Use specialized rerankers (Cohere Rerank, Voyage Rerank) — they take query + document pairs and output a relevance score with much higher precision than embedding similarity alone.</div>
+      </div>
+
+      <div class="task-card" style="--c:#34d399">
+        <div class="task-top">
+          <div class="task-icon">🎯</div>
+          <div>
+            <div class="task-name">Similarity Matching / Deduplication</div>
+            <div class="task-def">Find documents similar to a given one — for clustering, recommendations, or removing duplicates.</div>
+          </div>
+        </div>
+        <div class="example-box">
+          <div class="ex-in"><div class="ex-label">Input</div><div class="ex-content">Doc: "AI startups raised $50B in 2025."<br>Corpus: 1M news articles</div></div>
+          <div class="ex-arrow">⟶</div>
+          <div class="ex-out"><div class="ex-label">Output</div><div class="ex-content">Cluster of 47 articles covering the same story, sorted by similarity. Top match: "$50B in AI funding marks record year" (sim 0.94).</div></div>
+        </div>
+        <div class="uses-section">
+          <div class="uses-label">Business uses</div>
+          <div class="uses-list">
+            <span class="use-pill">News deduplication</span><span class="use-pill">Plagiarism detection</span><span class="use-pill">"Related articles"</span><span class="use-pill">Document clustering</span>
+          </div>
+        </div>
+        <div class="approach-line"><strong>Modern approach:</strong> Same embedding stack as semantic search. For clustering, use HDBSCAN or k-means on the embedding vectors directly.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IDENTIFIER GAME -->
+  <div class="game-section">
+    <h2>🎯 Identify the NLP Task</h2>
+    <p class="game-sub">Read each scenario and pick which NLP task type it represents. This sharpens your ability to map business problems to NLP solutions.</p>
+
+    <div class="game-prompt">
+      <p class="gp-text">"A bank wants to automatically categorize 50,000 incoming customer emails per day into: account_issue, loan_inquiry, fraud_alert, general_question."</p>
+      <p class="gp-question">Which NLP task is this?</p>
+      <div class="game-options">
+        <button class="game-btn" onclick="gameAnswer(this, true, 1)">Intent Classification</button>
+        <button class="game-btn" onclick="gameAnswer(this, false, 1)">Named Entity Recognition</button>
+        <button class="game-btn" onclick="gameAnswer(this, false, 1)">Semantic Search</button>
+      </div>
+      <div class="game-feedback" id="gf-1"></div>
+    </div>
+
+    <div class="game-prompt">
+      <p class="gp-text">"A pharmaceutical company needs to extract drug names, dosages, and adverse reactions from 100,000 clinical trial reports."</p>
+      <p class="gp-question">Which NLP task is this?</p>
+      <div class="game-options">
+        <button class="game-btn" onclick="gameAnswer(this, false, 2)">Translation</button>
+        <button class="game-btn" onclick="gameAnswer(this, true, 2)">Named Entity Recognition (medical NER)</button>
+        <button class="game-btn" onclick="gameAnswer(this, false, 2)">Summarization</button>
+      </div>
+      <div class="game-feedback" id="gf-2"></div>
+    </div>
+
+    <div class="game-prompt">
+      <p class="gp-text">"An e-commerce site wants users to search for products in natural language ('cozy sweater for hiking in winter') and get relevant matches even if those exact words aren't in product descriptions."</p>
+      <p class="gp-question">Which NLP task is this?</p>
+      <div class="game-options">
+        <button class="game-btn" onclick="gameAnswer(this, false, 3)">Sentiment Analysis</button>
+        <button class="game-btn" onclick="gameAnswer(this, false, 3)">Question Answering</button>
+        <button class="game-btn" onclick="gameAnswer(this, true, 3)">Semantic Search</button>
+      </div>
+      <div class="game-feedback" id="gf-3"></div>
+    </div>
+
+    <div class="game-prompt">
+      <p class="gp-text">"A consulting firm wants an internal chatbot where employees can ask 'What was our recommended approach in the 2024 healthcare merger case?' and get an answer grounded in their case files."</p>
+      <p class="gp-question">Which NLP task is this?</p>
+      <div class="game-options">
+        <button class="game-btn" onclick="gameAnswer(this, false, 4)">Translation</button>
+        <button class="game-btn" onclick="gameAnswer(this, true, 4)">Question Answering (with RAG)</button>
+        <button class="game-btn" onclick="gameAnswer(this, false, 4)">Spam Detection</button>
+      </div>
+      <div class="game-feedback" id="gf-4"></div>
+    </div>
+  </div>
+
+  <!-- SELF CHECK -->
+  <h2 class="section-title">Self-Check: Test Your Understanding</h2>
+  <p class="section-sub">5 questions to confirm you can map business problems to the right NLP approach.</p>
+
+  <div class="quiz-card">
+    <p class="question">1. A retail company wants to analyze 1 million product reviews to understand what customers like and dislike about specific product features. Which NLP task is most fitting?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="answer(this, false, 1)">Translation</button>
+      <button class="opt-btn" onclick="answer(this, true, 1)">Aspect-based Sentiment Analysis — extract product aspects (battery life, design, packaging) and classify sentiment per aspect, not just overall</button>
+      <button class="opt-btn" onclick="answer(this, false, 1)">Named Entity Recognition only</button>
+      <button class="opt-btn" onclick="answer(this, false, 1)">Generative QA</button>
+    </div>
+    <div class="feedback" id="fb-1"></div>
+  </div>
+
+  <div class="quiz-card">
+    <p class="question">2. What is the fundamental difference between extractive QA and generative QA?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="answer(this, false, 2)">Extractive QA is faster while generative QA is more accurate</button>
+      <button class="opt-btn" onclick="answer(this, true, 2)">Extractive QA finds an exact span of text in a given document. Generative QA produces a free-form answer that may synthesize across sources or use model knowledge</button>
+      <button class="opt-btn" onclick="answer(this, false, 2)">Extractive QA only works for English while generative QA is multilingual</button>
+      <button class="opt-btn" onclick="answer(this, false, 2)">They're the same thing with different names</button>
+    </div>
+    <div class="feedback" id="fb-2"></div>
+  </div>
+
+  <div class="quiz-card">
+    <p class="question">3. Why is semantic search considered a major improvement over traditional keyword search?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="answer(this, false, 3)">It runs faster on smaller datasets</button>
+      <button class="opt-btn" onclick="answer(this, true, 3)">It matches by meaning, not exact words. "Quit my membership" can match "cancel subscription" because they share semantic meaning — even with zero shared keywords</button>
+      <button class="opt-btn" onclick="answer(this, false, 3)">It doesn't require any indexes or computation</button>
+      <button class="opt-btn" onclick="answer(this, false, 3)">It always returns more results than keyword search</button>
+    </div>
+    <div class="feedback" id="fb-3"></div>
+  </div>
+
+  <div class="quiz-card">
+    <p class="question">4. A startup builds a help-center chatbot. They ingest 5,000 support articles, embed them, store in a vector DB, retrieve top 5 matches for each user question, then feed those to an LLM to generate an answer. What is this architecture called?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="answer(this, false, 4)">Fine-tuning</button>
+      <button class="opt-btn" onclick="answer(this, false, 4)">Reinforcement Learning from Human Feedback (RLHF)</button>
+      <button class="opt-btn" onclick="answer(this, true, 4)">Retrieval-Augmented Generation (RAG) — combining semantic retrieval with LLM generation. The standard architecture for grounded Q&A over private documents</button>
+      <button class="opt-btn" onclick="answer(this, false, 4)">Chain-of-thought prompting</button>
+    </div>
+    <div class="feedback" id="fb-4"></div>
+  </div>
+
+  <div class="quiz-card">
+    <p class="question">5. You need to convert messy handwritten invoice descriptions (e.g., "2 widgets, deluxe model, July 15, $450 ttl, net 30") into structured fields for accounting software. Which NLP approach is most reliable in production?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="answer(this, false, 5)">Simple sentiment analysis</button>
+      <button class="opt-btn" onclick="answer(this, false, 5)">Free-form generation with high temperature</button>
+      <button class="opt-btn" onclick="answer(this, true, 5)">Structured Data Extraction with OpenAI Structured Outputs or Anthropic tool-use — defining a strict JSON schema (Pydantic) guarantees valid output with the right field types</button>
+      <button class="opt-btn" onclick="answer(this, false, 5)">Translation to a different language</button>
+    </div>
+    <div class="feedback" id="fb-5"></div>
+  </div>
+
+</div>
+
+<script>
+function showCat(cat, ev) {
+  document.querySelectorAll('.cat-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('cat-' + cat).classList.add('active');
+  ev.target.closest('.tab-btn').classList.add('active');
+}
+
+const gameExpl = {
+  1: "Correct! This is intent classification — assigning incoming messages to a predefined category set. Modern approach: zero-shot LLM (provide categories in prompt) or fine-tuned small model for very high volume.",
+  2: "Correct! This is medical NER (Named Entity Recognition) with domain-specific entity types. Use Claude or GPT-5 with structured output, or specialized models like BioBERT for higher precision.",
+  3: "Correct! Natural-language search that matches by meaning is semantic search. Embed products + queries with same model, use vector similarity. Often combined with reranking for best quality.",
+  4: "Correct! This is RAG-based question answering — retrieve from the firm's private case files, then answer grounded in retrieved content. Standard pattern for enterprise knowledge bases."
+};
+const gameWrong = {
+  1: "Not quite. NER would find entities like names/amounts in the email. Semantic search finds similar documents. The task here is categorizing each email into one of 4 buckets — that's intent classification.",
+  2: "Not quite. Translation converts between languages, summarization condenses text. Extracting specific structured items (drug names, dosages, reactions) from text is NER — specifically, medical NER.",
+  3: "Not quite. Sentiment analyzes emotional tone, QA answers questions. Matching natural language queries to relevant products by meaning is semantic search.",
+  4: "Not quite. Translation is language-to-language, spam detection classifies messages. Answering employee questions grounded in private files is QA — typically with RAG retrieval first."
+};
+
+function gameAnswer(btn, correct, qid) {
+  btn.parentElement.querySelectorAll('.game-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('gf-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? gameExpl[qid] : gameWrong[qid]);
+  fb.className = 'game-feedback show ' + (correct ? 'ok' : 'bad');
+}
+
+const explanations = {
+  1: "Correct! Standard sentiment analysis gives a single score per document. Aspect-based sentiment goes deeper: it extracts product features and assigns sentiment per feature. This tells the product team WHAT to improve — not just overall happiness.",
+  2: "Correct! Extractive QA = find the exact text span (returns position indices). Generative QA = synthesize a free-form answer (may combine sources, may use model knowledge). Modern RAG systems blend both: retrieve documents, then generate an answer grounded in them with citations.",
+  3: "Correct! Embedding-based semantic search captures meaning. This is transformational for user experience — users no longer need to guess your exact terminology. It's why every modern help center and enterprise search uses embeddings.",
+  4: "Correct! This is the canonical RAG architecture: embed → vector DB → retrieve top-k → augment prompt with retrieved context → generate. It's the dominant pattern for chatbots grounded in private knowledge.",
+  5: "Correct! Structured Outputs (OpenAI) or tool-use with strict schemas (Anthropic) guarantee valid JSON matching your Pydantic model. This is production-grade extraction with type safety — far more reliable than free-form generation that you parse with regex."
+};
+const wrongs = {
+  1: "Not quite. While overall sentiment is useful, the question asks specifically about understanding what customers like/dislike about specific product features — that requires aspect-based sentiment analysis.",
+  2: "Not quite. The difference isn't about speed or language coverage. It's about output type: extractive returns a verbatim span from the source, generative produces a new free-form answer.",
+  3: "Not quite. Semantic search isn't faster or simpler — it's actually more compute-intensive. Its advantage is matching by meaning, which dramatically improves recall and user experience.",
+  4: "Not quite. The pattern of retrieving relevant documents first, then having the LLM answer based on them, is Retrieval-Augmented Generation (RAG). It's how almost every production AI app over private data is built.",
+  5: "Not quite. For accurate field-by-field extraction with type safety, you need structured output mode with a strict schema — not free-form generation or unrelated NLP tasks."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 5 — Responsible AI Principles</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #ef4444; color: #fff; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 28px; }
+
+  /* Principles grid */
+  .principles-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 56px; }
+  .principle-card {
+    background: #1e293b; border: 1.5px solid #334155; border-radius: 14px; padding: 22px;
+    cursor: pointer; transition: transform 0.15s, border-color 0.2s;
+  }
+  .principle-card:hover { transform: translateY(-3px); }
+  .principle-card.active { border-color: var(--c); }
+  .p-icon { font-size: 2rem; margin-bottom: 10px; }
+  .p-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; color: var(--c); }
+  .p-short { font-size: 0.83rem; color: #94a3b8; line-height: 1.5; }
+  .p-detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155; font-size: 0.83rem; color: #cbd5e1; line-height: 1.6; }
+  .p-detail.open { display: block; }
+  .practice { margin-top: 10px; background: #0f172a; border-radius: 8px; padding: 10px 12px; }
+  .practice-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: #10b981; margin-bottom: 4px; }
+
+  /* Hallucination demo */
+  .hallucination-section { margin-bottom: 56px; }
+  .h-demo { background: #1e293b; border-radius: 14px; padding: 28px; border: 1px solid #334155; }
+  .h-demo h3 { font-size: 1rem; margin-bottom: 20px; color: #fbbf24; }
+  .h-cases { display: flex; flex-direction: column; gap: 16px; }
+  .h-case { background: #0f172a; border-radius: 10px; padding: 18px; border-left: 3px solid #ef4444; }
+  .h-case.ok { border-left-color: #10b981; }
+  .h-prompt { font-size: 0.85rem; color: #94a3b8; margin-bottom: 10px; }
+  .h-prompt span { color: #818cf8; font-weight: 600; }
+  .h-response { font-size: 0.9rem; color: #e2e8f0; line-height: 1.5; margin-bottom: 10px; font-style: italic; }
+  .h-verdict { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; }
+  .h-verdict.bad  { color: #f87171; }
+  .h-verdict.good { color: #34d399; }
+  .h-explain { font-size: 0.8rem; color: #94a3b8; margin-top: 6px; line-height: 1.5; }
+
+  /* Scenario quiz */
+  .scenario-section { margin-bottom: 56px; }
+  .scenario-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
+  .scenario-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 10px; }
+  .scenario-desc { font-size: 0.95rem; color: #f1f5f9; line-height: 1.6; margin-bottom: 18px; background: #0f172a; border-radius: 8px; padding: 14px; }
+  .sc-question { font-size: 0.9rem; color: #cbd5e1; margin-bottom: 14px; font-weight: 500; }
+  .sc-options { display: flex; flex-direction: column; gap: 8px; }
+  .sc-btn {
+    background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 14px;
+    color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s;
+  }
+  .sc-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+  .sc-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .sc-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .sc-feedback { display: none; margin-top: 12px; padding: 12px 14px; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; }
+  .sc-feedback.show { display: block; }
+  .sc-feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .sc-feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  /* Red flags checklist */
+  .checklist-section {}
+  .checklist { display: flex; flex-direction: column; gap: 10px; }
+  .check-item { background: #1e293b; border-radius: 10px; padding: 16px 20px; display: flex; align-items: flex-start; gap: 14px; cursor: pointer; border: 1.5px solid #334155; transition: border-color 0.15s; }
+  .check-item:hover { border-color: #475569; }
+  .check-item.checked { border-color: #10b981; }
+  .check-box { width: 22px; height: 22px; border: 2px solid #334155; border-radius: 6px; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .check-item.checked .check-box { background: #10b981; border-color: #10b981; color: #fff; font-size: 0.85rem; }
+  .check-title { font-size: 0.9rem; font-weight: 600; color: #f1f5f9; margin-bottom: 3px; }
+  .check-desc  { font-size: 0.82rem; color: #64748b; line-height: 1.5; }
+  .check-item.checked .check-desc { color: #94a3b8; }
+  .progress-bar-wrap { background: #1e293b; border-radius: 99px; height: 8px; margin: 16px 0 4px; }
+  .progress-bar { height: 8px; border-radius: 99px; background: #10b981; transition: width 0.4s; }
+  .progress-label { font-size: 0.8rem; color: #64748b; text-align: right; }
+
+  @media (max-width: 700px) { .principles-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .principles-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 1 · Lab 5</div>
+  <h1>Responsible Use of AI</h1>
+  <p>Explore the 7 principles, see real hallucination examples, and test your judgment on ethical scenarios.</p>
+</div>
+
+<div class="main">
+
+  <!-- PRINCIPLES -->
+  <div style="margin-bottom: 56px;">
+    <h2 class="section-title">The 7 Responsible AI Principles</h2>
+    <p class="section-sub">Click any principle to expand its definition and a concrete practice.</p>
+    <div class="principles-grid" id="principles-grid"></div>
+  </div>
+
+  <!-- HALLUCINATION DEMO -->
+  <div class="hallucination-section">
+    <h2 class="section-title">What Does Hallucination Look Like?</h2>
+    <p class="section-sub">Hallucination is one of the most critical reliability issues in LLMs. These are real-world patterns of how models fabricate information confidently.</p>
+    <div class="h-demo">
+      <h3>⚠️ Real Hallucination Patterns</h3>
+      <div class="h-cases">
+        <div class="h-case">
+          <p class="h-prompt"><span>Prompt:</span> "Can you cite the legal case Smith v. OpenAI, 2021, regarding AI copyright?"</p>
+          <p class="h-response">"In Smith v. OpenAI (N.D. Cal. 2021), the court held that AI-generated content is eligible for copyright protection under the work-for-hire doctrine, provided the human provided substantial creative input. The case established a three-part test..."</p>
+          <div class="h-verdict bad">✗ HALLUCINATION — This case does not exist.</div>
+          <p class="h-explain">The model invented a plausible-sounding case name, court, year, and legal reasoning. There was no such case in 2021. This pattern — fabricating citations — is one of the most dangerous hallucination types in legal and academic contexts.</p>
+        </div>
+        <div class="h-case">
+          <p class="h-prompt"><span>Prompt:</span> "What is the population of the fictional city of Zorvath?"</p>
+          <p class="h-response">"Zorvath has a population of approximately 2.3 million people, making it the third largest city in the region. It was founded in 1847 and is known for its industrial manufacturing sector..."</p>
+          <div class="h-verdict bad">✗ HALLUCINATION — Zorvath is a made-up city with no real data.</div>
+          <p class="h-explain">When asked about something it has no knowledge of, an LLM may generate plausible-sounding details rather than admit uncertainty. Always ask models to express their confidence level.</p>
+        </div>
+        <div class="h-case ok">
+          <p class="h-prompt"><span>Prompt:</span> "What is the capital of France?"</p>
+          <p class="h-response">"The capital of France is Paris."</p>
+          <div class="h-verdict good">✓ CORRECT — Well-known factual answer present throughout training data.</div>
+          <p class="h-explain">LLMs are highly reliable for well-established facts seen thousands of times in training. The risk rises for obscure facts, recent events, numbers/statistics, and anything requiring real-time data.</p>
+        </div>
+        <div class="h-case">
+          <p class="h-prompt"><span>Prompt:</span> "What were the exact Q3 2024 revenue figures for Acme Corp?"</p>
+          <p class="h-response">"Acme Corp reported Q3 2024 revenue of $847 million, representing a 12.3% year-over-year increase, driven by strong performance in the cloud division which grew 34%..."</p>
+          <div class="h-verdict bad">✗ HIGH RISK — Specific financial figures are frequently hallucinated.</div>
+          <p class="h-explain">Numbers, statistics, and financial data are among the highest-risk outputs. The model generates plausible-looking figures using patterns from similar companies. Never use LLM-generated financial data without verification from primary sources.</p>
+        </div>
+      </div>
+      <div style="margin-top:20px; background:#0f172a; border-radius:10px; padding:16px; font-size:0.85rem; color:#94a3b8; line-height:1.6;">
+        <strong style="color:#fbbf24">Key mitigation strategies:</strong><br>
+        • Use <strong>Retrieval-Augmented Generation (RAG)</strong> — ground the model in verified documents<br>
+        • Ask the model: <em>"If you're not certain, say so"</em><br>
+        • Always verify factual claims, statistics, and citations from primary sources<br>
+        • Use lower temperature (0.0–0.3) for factual tasks<br>
+        • Add to your system prompt: <em>"Do not fabricate citations or statistics. If you don't know, say 'I don't have reliable information on this.'"</em>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO QUIZ -->
+  <div class="scenario-section">
+    <h2 class="section-title">Scenario Judgment: What Would You Do?</h2>
+    <p class="section-sub">Apply responsible AI principles to real-world situations. Choose the best response.</p>
+
+    <div class="scenario-card">
+      <div class="scenario-label">Scenario 1 — Healthcare</div>
+      <div class="scenario-desc">A hospital deploys an AI chatbot to help patients understand their diagnosis reports. The chatbot is powered by GPT-4o and provides detailed medical explanations. A patient receives a response saying their test results "may indicate early-stage pancreatic cancer" and becomes extremely distressed — but their doctor says the AI misinterpreted a routine marker.</div>
+      <p class="sc-question">Which responsible AI principle was most violated, and what should the hospital have done?</p>
+      <div class="sc-options">
+        <button class="sc-btn" onclick="scAnswer(this, false, 1)">Fairness — the AI was biased against this patient's demographic</button>
+        <button class="sc-btn" onclick="scAnswer(this, true,  1)">Safety + Human Oversight — medical AI must have clinical review before patient-facing deployment; AI should not deliver diagnosis information without a doctor in the loop</button>
+        <button class="sc-btn" onclick="scAnswer(this, false, 1)">Privacy — the patient's data was exposed to the AI model</button>
+        <button class="sc-btn" onclick="scAnswer(this, false, 1)">Transparency — the patient wasn't told they were talking to AI</button>
+      </div>
+      <div class="sc-feedback" id="sfb-1"></div>
+    </div>
+
+    <div class="scenario-card">
+      <div class="scenario-label">Scenario 2 — HR Tool</div>
+      <div class="scenario-desc">A company uses an AI tool to screen resumes for software engineering roles. They train the model on the last 10 years of successful hires. An audit reveals the model consistently scores resumes from women and candidates from certain universities 20% lower — even with identical qualifications.</div>
+      <p class="sc-question">What is the root cause and the correct remediation?</p>
+      <div class="sc-options">
+        <button class="sc-btn" onclick="scAnswer(this, false, 2)">The model is broken and needs to be retrained from scratch with a larger dataset</button>
+        <button class="sc-btn" onclick="scAnswer(this, false, 2)">The problem is the audit tool, not the AI model itself</button>
+        <button class="sc-btn" onclick="scAnswer(this, true,  2)">Historical hiring data reflects past bias (fewer women hired historically). The model learned and amplified that bias. The training data must be audited, bias metrics added, and human review required for all borderline candidates.</button>
+        <button class="sc-btn" onclick="scAnswer(this, false, 2)">This is expected behavior since the model learned from real outcomes — no action needed</button>
+      </div>
+      <div class="sc-feedback" id="sfb-2"></div>
+    </div>
+
+    <div class="scenario-card">
+      <div class="scenario-label">Scenario 3 — Customer Data</div>
+      <div class="scenario-desc">A law firm wants to use ChatGPT to summarize client legal briefs to save 3 hours per case. The attorney plans to paste full client documents (including names, case details, and confidential strategy) directly into the chat interface.</div>
+      <p class="sc-question">What is the primary risk, and what should the firm do instead?</p>
+      <div class="sc-options">
+        <button class="sc-btn" onclick="scAnswer(this, false, 3)">No risk — OpenAI has strong security and the data is encrypted in transit</button>
+        <button class="sc-btn" onclick="scAnswer(this, true,  3)">Privacy & compliance risk — client data sent to a third-party API may violate attorney-client privilege and bar rules. The firm should use an on-premises model or enterprise API with data processing agreements (DPAs), or redact identifying information before processing.</button>
+        <button class="sc-btn" onclick="scAnswer(this, false, 3)">Reliability risk — the AI might summarize incorrectly, which is the main concern</button>
+        <button class="sc-btn" onclick="scAnswer(this, false, 3)">Fairness risk — the AI may be biased against certain types of legal cases</button>
+      </div>
+      <div class="sc-feedback" id="sfb-3"></div>
+    </div>
+  </div>
+
+  <!-- CHECKLIST -->
+  <div class="checklist-section">
+    <h2 class="section-title">Pre-Deployment Responsible AI Checklist</h2>
+    <p class="section-sub">Before deploying an AI application, check each item. Click to mark as reviewed.</p>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="prog-bar" style="width:0%"></div></div>
+    <div class="progress-label" id="prog-label">0 / 8 reviewed</div>
+    <div class="checklist" id="checklist"></div>
+  </div>
+
+</div>
+
+<script>
+const principles = [
+  { icon:"⚖️", title:"Fairness", color:"#818cf8",
+    short:"AI systems must not discriminate or amplify bias based on protected characteristics.",
+    detail:"Training data often contains historical human biases. Models learn and can amplify these. A hiring AI trained on past decisions may penalize women; a facial recognition system may perform worse on darker skin tones.",
+    practice:"Audit model outputs across demographic groups. Use fairness metrics (equal opportunity, demographic parity). Require diverse training data. Test specifically for edge cases involving protected groups." },
+  { icon:"🔍", title:"Transparency", color:"#67e8f9",
+    short:"Users should know when they're interacting with AI, and organizations must be able to explain AI-driven decisions.",
+    detail:"Transparency has two faces: disclosure (telling users they're using AI) and explainability (being able to explain why the AI made a decision). Both matter, especially in regulated industries.",
+    practice:"Label AI-generated content. Provide model cards and system documentation. For high-stakes decisions, use interpretable models or build explanation layers. The EU AI Act requires transparency for high-risk AI systems." },
+  { icon:"🔒", title:"Privacy & Security", color:"#a78bfa",
+    short:"AI systems must handle personal data responsibly and protect against misuse.",
+    detail:"LLMs may memorize sensitive information from training data. Prompts sent to cloud APIs may be logged. Fine-tuned models can 'leak' training data. Voice cloning enables identity fraud.",
+    practice:"Avoid sending PII in prompts. Review the API provider's data policy. Use on-premises models for sensitive data. Implement input/output scanning. Apply data minimization principles." },
+  { icon:"🛡️", title:"Safety", color:"#f87171",
+    short:"AI outputs must not cause harm — physically, psychologically, or societally.",
+    detail:"Safety risks range from an AI writing dangerous instructions to a medical AI giving wrong diagnoses. Even seemingly harmless applications can cause harm at scale — biased content recommendations affecting millions.",
+    practice:"Red-team your application (deliberately test for harmful outputs). Implement content filtering at input and output layers. Use system prompts to constrain model behavior. Define clear escalation paths for edge cases." },
+  { icon:"✅", title:"Reliability & Accuracy", color:"#34d399",
+    short:"AI systems must perform consistently and accurately, especially in high-stakes contexts.",
+    detail:"Hallucination is the most critical reliability issue — models generating confident but false information. Reliability degrades on out-of-distribution inputs, rare events, and tasks outside training distribution.",
+    practice:"Build a test suite covering edge cases. Monitor production outputs for quality drift. Use RAG to ground factual responses. Set appropriate user expectations about confidence and limitations." },
+  { icon:"👤", title:"Human Oversight", color:"#fbbf24",
+    short:"High-stakes AI decisions must have humans in the loop — AI augments, not replaces, human judgment.",
+    detail:"Automation bias — the tendency to over-trust AI recommendations — is a real risk. Studies show radiologists miss more tumors when they see AI outputs first. In medicine, law, and finance, AI should be an assistant, not a decision-maker.",
+    practice:"Design human-in-the-loop workflows for consequential decisions. Define clear escalation triggers. Avoid over-automation — preserve meaningful human oversight. Train users on appropriate trust calibration." },
+  { icon:"📋", title:"Accountability", color:"#fb923c",
+    short:"Organizations must take responsibility for their AI systems and their outcomes.",
+    detail:"When an AI system causes harm, accountability must be clearly assigned. This requires audit trails, version control, clear ownership, and governance policies. 'The AI decided' is not an acceptable defense.",
+    practice:"Maintain audit logs of AI decisions. Version-control your models and prompts. Establish a clear AI governance policy. Assign an AI owner for each production system. Define incident response procedures." },
+];
+
+const scenarios_fb = {
+  1: "Correct. This is fundamentally a Human Oversight + Safety failure. Medical AI must have a clinician in the loop before information reaches patients. The system needed: a disclaimer that responses are not medical advice, a requirement to consult a doctor before acting on AI output, and clinical review of the AI's response logic before deployment.",
+  2: "Correct. This is textbook bias from historical data. AI systems learn patterns — including discriminatory ones — from their training data. If your past hiring data shows women were hired less often (due to historical bias), the model learns this as a 'feature'. Mitigation requires: debiasing the training set, adding fairness constraints, and maintaining human review.",
+  3: "Correct. This is a privacy and professional ethics violation. In the US, sharing client confidences with a third party may waive attorney-client privilege. The correct path is: enterprise API agreement with a data processing agreement (DPA), or a self-hosted model, or anonymization before processing. Many law firms now have formal AI use policies for exactly this reason."
+};
+const scenarios_fb_wrong = {
+  1: "Not quite. While transparency (labeling AI) matters, the most critical failure here is deploying medical AI without clinical safety controls. The patient received diagnosis-level information from an AI without a doctor in the loop — that's a Safety and Human Oversight violation with potentially life-altering consequences.",
+  2: "Not quite. The root cause is that historical hiring data encodes past discriminatory patterns. The model learned those patterns perfectly — that's what it was trained to do. The problem is in the data and the lack of fairness evaluation, not a technical model defect.",
+  3: "Not quite. While security and accuracy matter, the primary concern here is privacy and attorney-client privilege. Pasting confidential client documents into a commercial AI service is a data protection issue that could violate professional ethics rules and client trust."
+};
+
+function scAnswer(btn, correct, qid) {
+  btn.closest('.scenario-card').querySelectorAll('.sc-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('sfb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? scenarios_fb[qid] : scenarios_fb_wrong[qid]);
+  fb.className = 'sc-feedback show ' + (correct ? 'ok' : 'bad');
+}
+
+function renderPrinciples() {
+  const grid = document.getElementById('principles-grid');
+  principles.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'principle-card';
+    card.style.cssText = `--c: ${p.color}`;
+    card.innerHTML = `
+      <div class="p-icon">${p.icon}</div>
+      <div class="p-title">${p.title}</div>
+      <div class="p-short">${p.short}</div>
+      <div class="p-detail" id="pd-${i}">
+        <p style="margin-bottom:10px">${p.detail}</p>
+        <div class="practice">
+          <div class="practice-label">Practice</div>
+          <p>${p.practice}</p>
+        </div>
+      </div>`;
+    card.onclick = () => {
+      const detail = document.getElementById('pd-' + i);
+      detail.classList.toggle('open');
+      card.classList.toggle('active');
+    };
+    grid.appendChild(card);
+  });
+}
+
+const checklistItems = [
+  { title: "Fairness audit", desc: "Tested model outputs across demographic groups for disparate impact or bias." },
+  { title: "Hallucination mitigation", desc: "Added RAG or verification steps for any factual claims the model produces." },
+  { title: "PII review", desc: "Confirmed no personally identifiable information is sent to third-party APIs without consent and DPA." },
+  { title: "Content safety filters", desc: "Implemented input and output filtering for harmful, toxic, or off-policy content." },
+  { title: "Human-in-the-loop for high-stakes decisions", desc: "High-impact actions (medical, legal, financial) require human review before execution." },
+  { title: "AI disclosure", desc: "Users are informed they are interacting with or receiving content from an AI system." },
+  { title: "Audit logging", desc: "All AI interactions are logged with timestamps, model version, and input/output for accountability." },
+  { title: "Incident response plan", desc: "A documented plan exists for what happens when the AI system causes harm or behaves unexpectedly." },
+];
+
+let checked = 0;
+function renderChecklist() {
+  const cl = document.getElementById('checklist');
+  checklistItems.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'check-item';
+    div.id = 'ci-' + i;
+    div.innerHTML = `<div class="check-box" id="cb-${i}"></div><div><div class="check-title">${item.title}</div><div class="check-desc">${item.desc}</div></div>`;
+    div.onclick = () => toggleCheck(i);
+    cl.appendChild(div);
+  });
+}
+function toggleCheck(i) {
+  const item = document.getElementById('ci-' + i);
+  const box  = document.getElementById('cb-' + i);
+  const wasChecked = item.classList.contains('checked');
+  item.classList.toggle('checked');
+  box.textContent = wasChecked ? '' : '✓';
+  checked += wasChecked ? -1 : 1;
+  const pct = Math.round((checked / checklistItems.length) * 100);
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = `${checked} / ${checklistItems.length} reviewed`;
+}
+
+renderPrinciples();
+renderChecklist();
+</script>
+</body>
+</html>

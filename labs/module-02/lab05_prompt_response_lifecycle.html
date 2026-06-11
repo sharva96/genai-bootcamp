@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 5 — Prompt-Response Lifecycle</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge     { display: inline-block; background: #10b981; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+  section { margin-bottom: 56px; }
+
+  /* Pipeline */
+  .pipeline { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .pl-step {
+    background: #0f172a; border-radius: 10px; padding: 16px 20px; cursor: pointer;
+    border-left: 3px solid #475569; transition: all 0.2s; margin-bottom: 4px;
+  }
+  .pl-step:hover { background: #1a2235; }
+  .pl-step.active { border-left-color: #10b981; background: rgba(16,185,129,0.08); }
+  .pl-step-top { display: flex; align-items: center; gap: 14px; }
+  .pl-step-num { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #334155; color: #94a3b8; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+  .pl-step.active .pl-step-num { background: #10b981; color: #0f172a; }
+  .pl-step-title { font-size: 0.95rem; font-weight: 600; color: #f1f5f9; }
+  .pl-step-summary { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+  .pl-step-arrow { margin-left: auto; color: #475569; transition: transform 0.2s; }
+  .pl-step.active .pl-step-arrow { transform: rotate(90deg); color: #10b981; }
+  .pl-detail { display: none; margin-top: 14px; padding: 16px 20px; background: rgba(16,185,129,0.04); border-radius: 8px; }
+  .pl-detail.open { display: block; }
+  .pl-detail p { font-size: 0.88rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 10px; }
+  .pl-detail .demo-box { background: #0f172a; border-radius: 6px; padding: 12px 14px; font-family: 'Consolas', monospace; font-size: 0.82rem; color: #fbbf24; margin-top: 8px; line-height: 1.5; white-space: pre-wrap; }
+  .pl-detail .insight { font-size: 0.8rem; color: #94a3b8; font-style: italic; margin-top: 10px; padding-left: 12px; border-left: 2px solid #6366f1; }
+
+  /* Sampling */
+  .sampling-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .param-row { display: grid; grid-template-columns: 110px 1fr 60px; gap: 16px; align-items: center; margin-bottom: 16px; }
+  .param-label { font-size: 0.9rem; color: #cbd5e1; font-weight: 600; }
+  .param-label small { display: block; color: #64748b; font-size: 0.72rem; font-weight: 400; margin-top: 2px; }
+  .param-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 99px; background: #334155; outline: none; cursor: pointer; }
+  .param-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #10b981; cursor: pointer; border: 3px solid #0f172a; box-shadow: 0 0 0 2px #10b981; }
+  .param-slider::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #10b981; cursor: pointer; border: 3px solid #0f172a; }
+  .param-value { font-family: 'Consolas', monospace; font-weight: 700; color: #34d399; font-size: 1rem; text-align: center; }
+
+  .dist-section { margin-top: 24px; padding: 20px; background: #0f172a; border-radius: 12px; }
+  .dist-prompt { font-size: 0.88rem; color: #94a3b8; margin-bottom: 14px; }
+  .dist-prompt span.text { color: #cbd5e1; font-style: italic; }
+  .dist-bars { display: flex; flex-direction: column; gap: 5px; }
+  .dist-bar-row { display: grid; grid-template-columns: 110px 1fr 60px; gap: 10px; align-items: center; font-size: 0.84rem; font-family: 'Consolas', monospace; }
+  .dist-token { color: #f1f5f9; text-align: right; }
+  .dist-token.eliminated { color: #475569; text-decoration: line-through; }
+  .dist-bar-wrap { background: #1e293b; border-radius: 4px; height: 18px; overflow: hidden; }
+  .dist-bar-fill { height: 100%; transition: width 0.3s; border-radius: 4px; }
+  .dist-bar-fill.cut { opacity: 0.4; }
+  .dist-prob { color: #34d399; text-align: left; }
+  .dist-prob.eliminated { color: #475569; }
+  .dist-explainer { margin-top: 16px; padding: 12px 14px; background: rgba(99,102,241,0.1); border-radius: 6px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; border-left: 3px solid #6366f1; }
+
+  /* Context window */
+  .ctx-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .ctx-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .ctx-btn { background: #334155; border: 1px solid #475569; color: #cbd5e1; padding: 8px 14px; border-radius: 8px; font-size: 0.84rem; cursor: pointer; transition: all 0.15s; }
+  .ctx-btn:hover { background: #475569; }
+  .ctx-btn.reset { background: #7c1d1d; border-color: #991b1b; color: #fecaca; }
+  .ctx-meter-label { font-size: 0.84rem; color: #94a3b8; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .ctx-meter { background: #0f172a; border-radius: 99px; height: 28px; overflow: hidden; margin-bottom: 12px; position: relative; }
+  .ctx-meter-fill { height: 100%; background: linear-gradient(90deg, #10b981, #fbbf24, #ef4444); border-radius: 99px; transition: width 0.4s; }
+  .ctx-meter-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.82rem; font-weight: 700; color: #fff; text-shadow: 0 0 8px rgba(0,0,0,0.6); }
+  .ctx-messages { background: #0f172a; border-radius: 10px; padding: 16px; max-height: 280px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.82rem; }
+  .ctx-msg { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid #1e293b; }
+  .ctx-msg:last-child { border-bottom: none; }
+  .ctx-role { font-weight: 700; min-width: 80px; }
+  .ctx-role.system    { color: #818cf8; }
+  .ctx-role.user      { color: #34d399; }
+  .ctx-role.assistant { color: #fbbf24; }
+  .ctx-role.document  { color: #f472b6; }
+  .ctx-content { color: #cbd5e1; line-height: 1.4; flex: 1; }
+  .ctx-tokens { color: #64748b; font-size: 0.72rem; }
+
+  /* Streaming */
+  .stream-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .stream-controls { display: flex; gap: 10px; margin-bottom: 18px; align-items: center; flex-wrap: wrap; }
+  .stream-btn { background: #10b981; border: none; color: #0f172a; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.86rem; transition: opacity 0.2s; }
+  .stream-btn:hover:not(:disabled) { opacity: 0.9; }
+  .stream-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .stream-output { background: #0f172a; border-radius: 10px; padding: 18px; min-height: 140px; font-size: 0.92rem; line-height: 1.55; color: #f1f5f9; }
+  .stream-output span.tok { display: inline-block; background: rgba(16,185,129,0.15); border-radius: 3px; padding: 1px 3px; margin: 0 1px; animation: fadeIn 0.2s; }
+  .stream-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .stream-stat { background: #0f172a; border-radius: 8px; padding: 10px 14px; text-align: center; }
+  .stream-stat-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 3px; }
+  .stream-stat-val { font-family: 'Consolas', monospace; font-weight: 700; color: #34d399; font-size: 1.1rem; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #10b981; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 700px) {
+    .param-row { grid-template-columns: 1fr; }
+    .stream-stats { grid-template-columns: 1fr; }
+    .dist-bar-row { grid-template-columns: 80px 1fr 50px; font-size: 0.78rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 2 · Lab 5</div>
+  <h1>Prompt-Response Lifecycle</h1>
+  <p>The complete pipeline from typing a prompt to seeing the response — step by step, with interactive parameter exploration.</p>
+</div>
+
+<div class="main">
+
+  <!-- PIPELINE -->
+  <section>
+    <h2 class="section-title">🔄 The 9-Step Pipeline</h2>
+    <p class="section-sub">Click each step to see what happens inside the model. We'll trace the prompt: <em>"Explain transformer attention simply."</em></p>
+
+    <div class="pipeline">
+      <div id="pipeline-steps"></div>
+    </div>
+  </section>
+
+  <!-- SAMPLING -->
+  <section>
+    <h2 class="section-title">🎲 Sampling Parameters Playground</h2>
+    <p class="section-sub">After the model computes probabilities for the next token, it has to pick one. These three parameters control how it chooses.</p>
+
+    <div class="sampling-card">
+      <div class="param-row">
+        <div class="param-label">Temperature<small>0 = deterministic<br>1 = creative<br>1.5+ = chaotic</small></div>
+        <input type="range" class="param-slider" id="temp" min="0" max="2" step="0.05" value="0.7" oninput="renderDistribution()">
+        <div class="param-value" id="temp-val">0.70</div>
+      </div>
+      <div class="param-row">
+        <div class="param-label">Top-p (nucleus)<small>Cumulative<br>probability cutoff</small></div>
+        <input type="range" class="param-slider" id="topp" min="0.1" max="1" step="0.05" value="1.0" oninput="renderDistribution()">
+        <div class="param-value" id="topp-val">1.00</div>
+      </div>
+      <div class="param-row">
+        <div class="param-label">Top-k<small>Keep only the<br>top K candidates</small></div>
+        <input type="range" class="param-slider" id="topk" min="1" max="10" step="1" value="10" oninput="renderDistribution()">
+        <div class="param-value" id="topk-val">10</div>
+      </div>
+
+      <div class="dist-section">
+        <div class="dist-prompt">Prompt: <span class="text">"The capital of France is "</span> — next-token distribution:</div>
+        <div class="dist-bars" id="dist-bars"></div>
+        <div class="dist-explainer" id="dist-explainer"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTEXT WINDOW -->
+  <section>
+    <h2 class="section-title">📐 Context Window Simulator</h2>
+    <p class="section-sub">Every message in a conversation gets re-sent to the model on each call. Watch the context fill up.</p>
+
+    <div class="ctx-card">
+      <div class="ctx-controls">
+        <button class="ctx-btn" onclick="addMsg('system')">+ System prompt (500 tokens)</button>
+        <button class="ctx-btn" onclick="addMsg('user')">+ User question (200 tokens)</button>
+        <button class="ctx-btn" onclick="addMsg('assistant')">+ Assistant response (400 tokens)</button>
+        <button class="ctx-btn" onclick="addMsg('document')">+ Long document (8,000 tokens)</button>
+        <button class="ctx-btn reset" onclick="resetCtx()">Reset</button>
+      </div>
+
+      <div class="ctx-meter-label">
+        <span>Context tokens used</span>
+        <span id="ctx-numbers">0 / 128,000</span>
+      </div>
+      <div class="ctx-meter">
+        <div class="ctx-meter-fill" id="ctx-fill" style="width:0%"></div>
+        <div class="ctx-meter-text" id="ctx-pct">0%</div>
+      </div>
+
+      <div class="ctx-messages" id="ctx-messages">
+        <p style="color:#64748b; font-style:italic; text-align:center; padding:20px;">Add messages above to see the context window fill up.</p>
+      </div>
+
+      <p style="margin-top:14px; font-size:0.82rem; color:#64748b; line-height:1.5">
+        💡 At ~80% capacity, performance often degrades (the "lost in the middle" effect). At 100%, the model errors out and you must summarize or prune older turns.
+      </p>
+    </div>
+  </section>
+
+  <!-- STREAMING -->
+  <section>
+    <h2 class="section-title">⚡ Token Streaming Simulation</h2>
+    <p class="section-sub">Why does ChatGPT type word-by-word? Because the model literally generates one token at a time. Click "Generate" to see it.</p>
+
+    <div class="stream-card">
+      <div class="stream-controls">
+        <button class="stream-btn" id="stream-btn" onclick="startStream()">▶ Generate response</button>
+        <span style="font-size:0.84rem; color:#64748b;">Watch each token arrive — this is exactly how API streaming (SSE) works.</span>
+      </div>
+
+      <div class="stream-output" id="stream-output">
+        <span style="color:#64748b; font-style:italic;">Click "Generate" to start the simulation...</span>
+      </div>
+
+      <div class="stream-stats">
+        <div class="stream-stat"><div class="stream-stat-label">Tokens generated</div><div class="stream-stat-val" id="stream-tokens">0</div></div>
+        <div class="stream-stat"><div class="stream-stat-label">Tokens / second</div><div class="stream-stat-val" id="stream-tps">—</div></div>
+        <div class="stream-stat"><div class="stream-stat-label">Elapsed time</div><div class="stream-stat-val" id="stream-time">0.0s</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section>
+    <h2 class="section-title">Self-Check: Test Your Understanding</h2>
+    <p class="section-sub">5 questions on the full lifecycle and sampling controls.</p>
+
+    <div class="quiz-card">
+      <p class="question">1. You set temperature=0.0 and submit the same prompt twice in a row. What do you expect?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, true, 1)">Identical (or nearly identical) responses every time. Temperature=0 means greedy decoding — always pick the highest-probability token</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">Random responses each time — temperature doesn't actually control output</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">An error — temperature of 0 is invalid</button>
+        <button class="opt-btn" onclick="answer(this, false, 1)">The same response, but only on the first call. Subsequent calls become random</button>
+      </div>
+      <div class="feedback" id="fb-1"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">2. You're using top-p (nucleus sampling) with p=0.9. What does this do?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 2)">Eliminates the top 90% of candidates</button>
+        <button class="opt-btn" onclick="answer(this, true, 2)">Keeps only the smallest set of tokens whose cumulative probability adds up to 0.9, then samples from those. Adaptively narrows the candidate pool based on actual distribution shape</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">Returns only tokens with individual probability above 90%</button>
+        <button class="opt-btn" onclick="answer(this, false, 2)">Same as temperature=0.9</button>
+      </div>
+      <div class="feedback" id="fb-2"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">3. A multi-turn chat app has been running for 50 turns, ~400 tokens per turn. The model has a 32K context. What's the most likely failure mode to plan for?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 3)">The model will forget its training data</button>
+        <button class="opt-btn" onclick="answer(this, true, 3)">Context overflow — 50 × 400 = 20K tokens already, plus system prompt + continued growth, you'll hit 32K. Mitigate by summarizing old turns, sliding-window truncation, or switching to a long-context model</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">The API charges a flat fee regardless of token count</button>
+        <button class="opt-btn" onclick="answer(this, false, 3)">Streaming will become impossible</button>
+      </div>
+      <div class="feedback" id="fb-3"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">4. Why does the model produce one token at a time (autoregressively) instead of generating the full response at once?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 4)">It's a UI choice to make responses feel more natural</button>
+        <button class="opt-btn" onclick="answer(this, true, 4)">It's how the architecture works: the model only knows how to predict the NEXT token given all previous tokens. To generate token N+1, it needs token N as input. This sequential dependency is the autoregressive constraint</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Hardware limitations — GPUs can only produce one token per clock cycle</button>
+        <button class="opt-btn" onclick="answer(this, false, 4)">Cost optimization — it's cheaper per token</button>
+      </div>
+      <div class="feedback" id="fb-4"></div>
+    </div>
+
+    <div class="quiz-card">
+      <p class="question">5. You're building a financial reporting tool that extracts structured fields (revenue, growth %, expenses) from earnings transcripts. Best sampling config?</p>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this, false, 5)">Temperature=1.5, top-p=0.95 for creative analysis</button>
+        <button class="opt-btn" onclick="answer(this, true, 5)">Temperature=0.0 with structured output mode — extraction needs deterministic, accurate, well-formatted output. High temperature would introduce inconsistency and increase fabrication risk</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Temperature=0.7 for "natural" responses</button>
+        <button class="opt-btn" onclick="answer(this, false, 5)">Temperature doesn't affect accuracy, only style</button>
+      </div>
+      <div class="feedback" id="fb-5"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ============== PIPELINE ==============
+const steps = [
+  {
+    title: 'User Input',
+    summary: 'You type a prompt into ChatGPT, Claude, or via an API call.',
+    detail: 'The user submits raw text — a sentence, multi-turn conversation, document, or tool result. At this point, nothing AI has happened yet.',
+    demo: 'User input:\n"Explain transformer attention simply."',
+    insight: 'This raw text is just a string of UTF-8 characters. The model can\'t process this directly.'
+  },
+  {
+    title: 'Tokenization',
+    summary: 'Text is broken into tokens — the units the model actually processes.',
+    detail: 'A BPE tokenizer splits the text into sub-word pieces, each mapped to an integer ID. Common words = single tokens; rare words split into multiple sub-pieces.',
+    demo: 'Tokens: ["Explain", " transformer", " attention", " simply", "."]\nToken IDs: [56158, 47000, 6529, 8523, 13]\nTotal: 5 tokens',
+    insight: 'Different tokenizers (cl100k_base, o200k_base, Claude\'s, Llama\'s) produce different splits. This is why model pricing varies per million tokens.'
+  },
+  {
+    title: 'Context Assembly',
+    summary: 'Full prompt = system prompt + conversation history + user message.',
+    detail: 'The API server concatenates all messages — system prompt (persona/rules), prior turns, and the new user message. This entire sequence must fit within the context window.',
+    demo: 'Final context (sent to model):\n  [SYSTEM] "You are a helpful AI tutor..."  (45 tokens)\n  [USER]   "Explain transformer attention simply."  (5 tokens)\nTotal: 50 tokens\nLimit: 128,000 tokens',
+    insight: 'There is no server-side "memory" — every API call re-sends the entire conversation history. This is why long chats become expensive.'
+  },
+  {
+    title: 'Embedding + Positional Encoding',
+    summary: 'Token IDs → dense vectors with position information added.',
+    detail: 'Each token ID looks up its embedding vector (typically 768-12,288 dims). Positional encoding (sinusoidal or RoPE) tells the model the order of tokens.',
+    demo: 'Token IDs: [56158, 47000, 6529, ...]\n      ↓ embedding lookup\nVectors: [[0.32, -0.15, ..., 0.04],\n          [-0.12, 0.45, ..., -0.22],\n          ...]\nShape: (50, 12288)\n      ↓ + positional encoding\nFinal input to transformer layers',
+    insight: 'This is the conversion from discrete symbols to continuous vectors. From here on, everything is matrix multiplication.'
+  },
+  {
+    title: 'Transformer Forward Pass',
+    summary: 'Vectors flow through N stacked transformer layers.',
+    detail: 'Modern frontier models have ~80-100+ layers. Each layer: self-attention (tokens look at each other) → feed-forward network → layer norm. Each adds reasoning depth.',
+    demo: 'Input shape: (50 tokens, 12288 dims)\n      ↓\nLayer 1: Attention → FFN → output: (50, 12288)\nLayer 2: Attention → FFN → output: (50, 12288)\n  ...\nLayer 96: output: (50, 12288)',
+    insight: 'This is the most computationally expensive step. A single 50-token pass through a frontier model involves trillions of FLOPs.'
+  },
+  {
+    title: 'Next-Token Prediction',
+    summary: 'Final hidden state → probability distribution over the vocabulary.',
+    detail: 'A linear layer projects the final hidden state to vocab size (~100K). Softmax converts these "logits" into probabilities for every possible next token.',
+    demo: 'Probability distribution (top 5):\n  " The"         → 0.32\n  " Transformer" → 0.18\n  " Attention"   → 0.14\n  " Sure"        → 0.09\n  " Let"         → 0.07\n  ... 99,995 other tokens',
+    insight: 'The model doesn\'t "choose" — it outputs probabilities. The choosing happens in the next step.'
+  },
+  {
+    title: 'Sampling / Decoding',
+    summary: 'Pick the actual next token using a sampling strategy.',
+    detail: 'Strategies: greedy (always top), top-k (top K tokens), top-p (cumulative probability mass), with temperature scaling. This is where deterministic vs creative behavior is set.',
+    demo: 'With temperature=0.7 and top-p=0.9:\n  → After filtering: keep top 12 tokens\n  → Sample weighted by adjusted probabilities\n  → Selected: " Transformer"  (token ID 47000)',
+    insight: 'Same prompt + same temperature + same seed = deterministic output. The randomness is controllable.'
+  },
+  {
+    title: 'Autoregressive Loop',
+    summary: 'Append token → run forward pass again → repeat.',
+    detail: 'The selected token becomes part of the input. Re-run forward pass, predict next token, sample, append. Continue until: end-of-sequence token, max_tokens reached, or stop sequence matches.',
+    demo: 'Generation trace:\n  ... + " Transformer"\n     → next: " attention"\n  ... + " Transformer attention"\n     → next: " is"\n  ... + " Transformer attention is"\n     → next: " a"\n  ... continues until [EOS]',
+    insight: 'KV caching speeds this up massively: instead of recomputing K/V for all tokens each step, older ones are cached.'
+  },
+  {
+    title: 'Detokenization & Streaming',
+    summary: 'Token IDs → text → streamed to user.',
+    detail: 'Each generated token is converted back to text and streamed over the network. This is why responses "type out" in ChatGPT — that\'s the model literally producing one token at a time.',
+    demo: 'Stream events to client:\n  {"delta": "Transformer"}\n  {"delta": " attention"}\n  {"delta": " is"}\n  {"delta": " a"}\n  ...\n  {"finish_reason": "stop"}\n\nFinal response: "Transformer attention is..."',
+    insight: 'Streaming is a UX win — users see progress immediately instead of waiting 30 seconds for the complete response.'
+  },
+];
+
+let activeStep = -1;
+function renderPipeline() {
+  const container = document.getElementById('pipeline-steps');
+  container.innerHTML = '';
+  steps.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'pl-step';
+    div.innerHTML =
+      '<div class="pl-step-top">' +
+        '<div class="pl-step-num">' + (i + 1) + '</div>' +
+        '<div style="flex:1">' +
+          '<div class="pl-step-title">' + s.title + '</div>' +
+          '<div class="pl-step-summary">' + s.summary + '</div>' +
+        '</div>' +
+        '<div class="pl-step-arrow">&#9654;</div>' +
+      '</div>' +
+      '<div class="pl-detail" id="pl-detail-' + i + '">' +
+        '<p>' + s.detail + '</p>' +
+        '<div class="demo-box">' + s.demo + '</div>' +
+        '<p class="insight">' + s.insight + '</p>' +
+      '</div>';
+    div.addEventListener('click', function() { togglePlStep(i, div); });
+    container.appendChild(div);
+  });
+}
+
+function togglePlStep(i, el) {
+  if (activeStep === i) {
+    el.classList.remove('active');
+    document.getElementById('pl-detail-' + i).classList.remove('open');
+    activeStep = -1;
+    return;
+  }
+  document.querySelectorAll('.pl-step').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.pl-detail').forEach(d => d.classList.remove('open'));
+  el.classList.add('active');
+  document.getElementById('pl-detail-' + i).classList.add('open');
+  activeStep = i;
+}
+
+// ============== SAMPLING DISTRIBUTION ==============
+const baseLogits = [
+  { token: ' Paris',      logit: 8.2 },
+  { token: ' the',        logit: 5.4 },
+  { token: ' a',          logit: 4.1 },
+  { token: ' Lyon',       logit: 3.6 },
+  { token: ' Marseille',  logit: 3.2 },
+  { token: ' located',    logit: 2.9 },
+  { token: ' famously',   logit: 2.6 },
+  { token: ' currently',  logit: 2.2 },
+  { token: ' actually',   logit: 1.9 },
+  { token: ' historic',   logit: 1.5 },
+];
+
+function renderDistribution() {
+  const temp = +document.getElementById('temp').value;
+  const topp = +document.getElementById('topp').value;
+  const topk = +document.getElementById('topk').value;
+
+  document.getElementById('temp-val').textContent = temp.toFixed(2);
+  document.getElementById('topp-val').textContent = topp.toFixed(2);
+  document.getElementById('topk-val').textContent = topk;
+
+  const effTemp = Math.max(temp, 0.01);
+  const adjusted = baseLogits.map(t => ({ token: t.token, logit: t.logit / effTemp }));
+  const maxL = Math.max(...adjusted.map(t => t.logit));
+  const exps = adjusted.map(t => Math.exp(t.logit - maxL));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  let probs = adjusted.map((t, i) => ({ token: t.token, prob: exps[i] / sum }));
+
+  // Apply top-k
+  probs = probs.map((p, i) => ({ ...p, kept_topk: i < topk }));
+
+  // Apply top-p
+  let cum = 0;
+  probs = probs.map(p => { cum += p.prob; return { ...p, cum }; });
+  probs.forEach((p, i) => {
+    const cumBefore = i === 0 ? 0 : probs[i-1].cum;
+    p.kept_topp = cumBefore < topp;
+  });
+  probs.forEach(p => { p.kept = p.kept_topk && p.kept_topp; });
+
+  const keptSum = probs.filter(p => p.kept).reduce((s, p) => s + p.prob, 0) || 1;
+
+  const container = document.getElementById('dist-bars');
+  container.innerHTML = '';
+  probs.forEach((p, i) => {
+    const displayProb = p.kept ? p.prob / keptSum : p.prob;
+    const width = Math.max(2, displayProb * 100);
+    const color = p.kept
+      ? (i === 0 ? '#10b981' : '#34d399')
+      : '#475569';
+    container.innerHTML +=
+      '<div class="dist-bar-row">' +
+        '<div class="dist-token ' + (p.kept ? '' : 'eliminated') + '">' + p.token + '</div>' +
+        '<div class="dist-bar-wrap"><div class="dist-bar-fill ' + (p.kept ? '' : 'cut') + '" style="width:' + width + '%; background:' + color + '"></div></div>' +
+        '<div class="dist-prob ' + (p.kept ? '' : 'eliminated') + '">' + (p.prob * 100).toFixed(1) + '%</div>' +
+      '</div>';
+  });
+
+  let msg;
+  if (temp < 0.1) {
+    msg = '🎯 <strong>Greedy/deterministic mode.</strong> The top token gets nearly all probability mass — "Paris" will always be picked. Use this for extraction, classification, anything needing consistency.';
+  } else if (temp < 0.5) {
+    msg = '🎯 <strong>Focused mode.</strong> Distribution is sharp — strong preference for the top tokens. Good for factual Q&A, code, structured output.';
+  } else if (temp < 1.0) {
+    msg = '🎨 <strong>Balanced mode.</strong> Some creativity allowed. Default for chat assistants and most general use cases.';
+  } else if (temp < 1.5) {
+    msg = '🎨 <strong>Creative mode.</strong> Lower-probability tokens have a real chance. Good for brainstorming, creative writing, variations.';
+  } else {
+    msg = '🎲 <strong>Chaotic mode.</strong> Distribution is very flat — even unlikely tokens get picked. Often produces nonsense. Rarely used in practice.';
+  }
+  const cutoffCount = probs.filter(p => p.kept).length;
+  if (cutoffCount < probs.length) {
+    msg += ' <strong>Top-p/k cut off ' + (probs.length - cutoffCount) + ' tokens</strong> from consideration.';
+  }
+  document.getElementById('dist-explainer').innerHTML = msg;
+}
+
+// ============== CONTEXT WINDOW ==============
+const ctxMessages = [];
+const CTX_LIMIT = 128000;
+
+const msgTemplates = {
+  system:    { tokens: 500,  content: 'You are a helpful AI assistant. Respond clearly and concisely. Follow these rules: (1) Always cite sources, (2) Never make up facts...' },
+  user:      { tokens: 200,  content: 'What is the difference between encoder and decoder in transformers? Please explain like I am a software engineer new to ML.' },
+  assistant: { tokens: 400,  content: 'Great question! The encoder reads input bidirectionally (every token sees every other token), while the decoder uses causal masking...' },
+  document:  { tokens: 8000, content: '[Pasted 30-page financial report — Q3 2026 earnings, MD&A, risk factors, forward guidance, supplementary tables, footnotes...]' },
+};
+
+function addMsg(type) {
+  ctxMessages.push({ type: type, ...msgTemplates[type] });
+  renderCtx();
+}
+
+function resetCtx() {
+  ctxMessages.length = 0;
+  renderCtx();
+}
+
+function renderCtx() {
+  const total = ctxMessages.reduce((s, m) => s + m.tokens, 0);
+  const pct = Math.min(100, (total / CTX_LIMIT) * 100);
+  document.getElementById('ctx-fill').style.width = pct + '%';
+  document.getElementById('ctx-pct').textContent = pct.toFixed(1) + '%';
+  document.getElementById('ctx-numbers').textContent =
+    total.toLocaleString() + ' / ' + CTX_LIMIT.toLocaleString();
+
+  const msgContainer = document.getElementById('ctx-messages');
+  if (ctxMessages.length === 0) {
+    msgContainer.innerHTML = '<p style="color:#64748b; font-style:italic; text-align:center; padding:20px;">Add messages above to see the context window fill up.</p>';
+    return;
+  }
+  msgContainer.innerHTML = '';
+  ctxMessages.forEach(m => {
+    msgContainer.innerHTML +=
+      '<div class="ctx-msg">' +
+        '<div class="ctx-role ' + m.type + '">[' + m.type.toUpperCase() + ']</div>' +
+        '<div class="ctx-content">' + m.content.substring(0, 100) + '...</div>' +
+        '<div class="ctx-tokens">' + m.tokens.toLocaleString() + ' tok</div>' +
+      '</div>';
+  });
+}
+
+// ============== STREAMING ==============
+const streamResponse = "Transformer attention works by letting each word in a sentence look at every other word and decide which ones matter most. It uses three vectors per word — a query (what am I looking for), a key (what do I offer), and a value (what info do I pass on). The query is compared against all keys to compute weights, which then mix the values into a context-aware representation. This is how the model figures out, for example, that 'it' refers to 'animal' in a sentence.";
+
+const streamTokens = streamResponse.match(/\S+\s*|\s+/g) || [];
+let streamIndex = 0;
+let streamStartTime = 0;
+let streamInterval = null;
+
+function startStream() {
+  if (streamInterval) clearInterval(streamInterval);
+  document.getElementById('stream-output').innerHTML = '';
+  document.getElementById('stream-btn').disabled = true;
+  document.getElementById('stream-btn').textContent = '⏳ Generating...';
+  streamIndex = 0;
+  streamStartTime = Date.now();
+
+  streamInterval = setInterval(function() {
+    if (streamIndex >= streamTokens.length) {
+      clearInterval(streamInterval);
+      document.getElementById('stream-btn').disabled = false;
+      document.getElementById('stream-btn').textContent = '▶ Generate again';
+      return;
+    }
+    const tok = streamTokens[streamIndex];
+    const span = document.createElement('span');
+    span.className = 'tok';
+    span.textContent = tok;
+    document.getElementById('stream-output').appendChild(span);
+    streamIndex++;
+
+    const elapsed = (Date.now() - streamStartTime) / 1000;
+    const tps = streamIndex / elapsed;
+    document.getElementById('stream-tokens').textContent = streamIndex;
+    document.getElementById('stream-tps').textContent = tps.toFixed(1);
+    document.getElementById('stream-time').textContent = elapsed.toFixed(1) + 's';
+  }, 50 + Math.random() * 80);
+}
+
+// ============== QUIZ ==============
+const explanations = {
+  1: "Correct! Temperature=0 means greedy decoding — always pick the highest-probability token. Given the same model version, prompt, and parameters, output is deterministic. This is the right setting for classification, extraction, and any task where consistency matters.",
+  2: "Correct! Top-p (nucleus sampling) adapts to the probability distribution. For confident predictions, only the top few tokens fit the 0.9 budget. For uncertain predictions, more tokens are kept. This handles distribution shape better than top-k.",
+  3: "Correct! Context overflow is a real production concern. At 50 turns × 400 tokens = 20K, plus system prompt and continued growth, you hit 32K easily. Standard mitigations: sliding window (drop oldest), summarization of older turns, or upgrading to a long-context model.",
+  4: "Correct! This isn't a UI choice or hardware limit — it's the architecture. The model is trained to predict P(next_token | previous_tokens). To generate token N+1, it must first know token N. This sequential dependency is fundamental to autoregressive LLMs.",
+  5: "Correct! For structured factual extraction, you want temperature=0 (deterministic) plus structured output mode (Pydantic schema). High temperature introduces inconsistency and increases hallucination risk — exactly what you don't want for financial data."
+};
+const wrongs = {
+  1: "Not quite. Temperature=0 is valid and produces deterministic output. The model always picks the highest-probability token. Same input + same model + temp 0 = same output every time.",
+  2: "Not quite. Top-p with p=0.9 keeps the smallest set of tokens whose cumulative probability is ≥ 0.9, then samples from those. It's about cumulative probability mass, not individual token probability.",
+  3: "Not quite. The model doesn't forget training data. The constraint here is the context window — too many turns accumulate too many tokens and exceed the model's limit.",
+  4: "Not quite. Sequential generation isn't a UX choice or hardware quirk — it's how autoregressive language models fundamentally operate. They predict the next token given everything before it.",
+  5: "Not quite. Temperature significantly affects accuracy for structured tasks. Higher temperature introduces variability and increases the chance of fabricated numbers — disastrous for financial data."
+};
+
+function answer(btn, correct, qid) {
+  const card = btn.closest('.quiz-card');
+  card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  const fb = document.getElementById('fb-' + qid);
+  fb.textContent = (correct ? '✓ ' : '✗ ') + (correct ? explanations[qid] : wrongs[qid]);
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+}
+
+// Initialize
+renderPipeline();
+renderDistribution();
+</script>
+</body>
+</html>
