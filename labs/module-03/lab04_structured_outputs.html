@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 4 — Structured Output Workshop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #f59e0b; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Technique tabs */
+  .tech-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .tech-tab { padding: 8px 16px; border-radius: 8px; border: 1.5px solid #334155; background: #1e293b; color: #94a3b8; font-size: 0.84rem; cursor: pointer; transition: all 0.15s; }
+  .tech-tab:hover { border-color: #f59e0b; }
+  .tech-tab.active { background: #f59e0b; border-color: #f59e0b; color: #0f172a; font-weight: 700; }
+
+  .tech-panel { display: none; animation: fadeIn 0.25s; }
+  .tech-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .tech-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .code-box { background: #0f172a; border-radius: 10px; padding: 16px; font-family: 'Consolas', monospace; font-size: 0.78rem; color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; overflow-x: auto; border: 1px solid #1e293b; }
+  .code-box .kw   { color: #818cf8; }
+  .code-box .str  { color: #34d399; }
+  .code-box .cmt  { color: #475569; font-style: italic; }
+  .code-box .fn   { color: #fbbf24; }
+  .code-box .num  { color: #fb923c; }
+
+  .output-preview { background: #0f172a; border-radius: 10px; padding: 16px; font-family: 'Consolas', monospace; font-size: 0.82rem; color: #34d399; line-height: 1.6; white-space: pre-wrap; border-left: 3px solid #34d399; }
+  .pro-con { margin-top: 14px; }
+  .pro-con-item { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; margin-bottom: 6px; line-height: 1.4; color: #94a3b8; }
+
+  /* JSON Schema Builder */
+  .schema-builder { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .field-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .field-table th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; padding: 8px 10px; text-align: left; border-bottom: 1px solid #334155; }
+  .field-table td { padding: 8px 6px; vertical-align: middle; }
+  .field-input { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; color: #e2e8f0; font-size: 0.8rem; width: 100%; }
+  .field-input:focus { outline: none; border-color: #f59e0b; }
+  .type-select { background: #0f172a; border: 1px solid #334155; border-radius: 6px; padding: 6px 8px; color: #e2e8f0; font-size: 0.8rem; width: 100%; }
+  .req-check { width: 18px; height: 18px; accent-color: #f59e0b; cursor: pointer; }
+  .del-btn { background: rgba(239,68,68,0.1); border: 1px solid #ef4444; color: #fca5a5; width: 26px; height: 26px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; }
+
+  .sb-actions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .sb-btn { padding: 8px 14px; border-radius: 7px; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; border: 1px solid; }
+  .sb-btn-add { background: rgba(245,158,11,0.1); border-color: #f59e0b; color: #fbbf24; }
+  .sb-btn-add:hover { background: rgba(245,158,11,0.2); }
+
+  .schema-preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .schema-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 8px; }
+
+  /* Temperature visualizer */
+  .temp-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .temp-slider-row { display: grid; grid-template-columns: 100px 1fr 60px; gap: 16px; align-items: center; margin-bottom: 20px; }
+  .temp-label { font-size: 0.9rem; color: #cbd5e1; font-weight: 600; }
+  .temp-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 99px; background: linear-gradient(90deg, #818cf8, #10b981, #fbbf24, #ef4444); outline: none; cursor: pointer; }
+  .temp-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #f59e0b; cursor: pointer; border: 3px solid #0f172a; }
+  .temp-value { font-family: 'Consolas', monospace; font-weight: 700; color: #fbbf24; font-size: 1.1rem; text-align: center; }
+
+  .temp-effect-label { font-size: 0.82rem; color: #94a3b8; margin-bottom: 14px; padding: 10px 14px; border-radius: 8px; background: #0f172a; }
+  .temp-outputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .temp-run { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid #334155; }
+  .temp-run-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 6px; }
+  .temp-run-output { font-size: 0.82rem; color: #e2e8f0; line-height: 1.4; min-height: 50px; }
+
+  /* Failure modes */
+  .failure-grid { display: grid; gap: 12px; }
+  .failure-card { background: #1e293b; border-radius: 12px; padding: 18px 20px; border: 1px solid #334155; }
+  .failure-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .failure-icon { font-size: 1.3rem; flex-shrink: 0; }
+  .failure-name { font-size: 0.95rem; font-weight: 700; color: #ef4444; }
+  .failure-body { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .fb-col-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+  .fb-symptom  .fb-col-label { color: #ef4444; }
+  .fb-example  .fb-col-label { color: #64748b; }
+  .fb-fix      .fb-col-label { color: #10b981; }
+  .fb-content { font-size: 0.8rem; color: #94a3b8; line-height: 1.45; }
+  .fb-code { font-family: 'Consolas', monospace; font-size: 0.76rem; background: #0f172a; padding: 6px 8px; border-radius: 4px; color: #fbbf24; margin-top: 4px; }
+
+  /* Best practices */
+  .bp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .bp-card { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; }
+  .bp-title { font-size: 0.88rem; font-weight: 700; color: #fbbf24; margin-bottom: 6px; }
+  .bp-text  { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
+  .bp-why   { font-size: 0.75rem; color: #64748b; margin-top: 6px; font-style: italic; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #f59e0b; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  .score-banner { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid #f59e0b; border-radius: 14px; padding: 24px; text-align: center; display: none; }
+  .score-banner.show { display: block; }
+  .score-num { font-size: 2.5rem; font-weight: 800; color: #fbbf24; }
+  .score-label { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+
+  @media (max-width: 700px) {
+    .tech-grid { grid-template-columns: 1fr; }
+    .schema-preview-grid { grid-template-columns: 1fr; }
+    .temp-outputs { grid-template-columns: 1fr; }
+    .failure-body { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 3 · Lab 4</div>
+  <h1>Structured Output Workshop</h1>
+  <p>Master the techniques to get LLMs to produce reliable, parseable JSON, tables, and formatted data</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Techniques -->
+  <section>
+    <h2 class="section-title">Output Structuring Techniques</h2>
+    <p class="section-sub">Three approaches to reliable structured output — from basic to production-grade.</p>
+
+    <div class="tech-tabs">
+      <button class="tech-tab active" onclick="showTech(0, this)">Technique 1: Explicit JSON Instructions</button>
+      <button class="tech-tab" onclick="showTech(1, this)">Technique 2: JSON Schema Mode</button>
+      <button class="tech-tab" onclick="showTech(2, this)">Technique 3: Pydantic + Structured Outputs</button>
+    </div>
+
+    <div id="tech0" class="tech-panel active">
+      <div class="tech-grid">
+        <div>
+          <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Prompt Code</div>
+          <div class="code-box">prompt = <span class="str">"""
+Extract structured information from this biography.
+Return ONLY valid JSON. Do not include any
+explanation or markdown code fences.
+
+Required fields:
+- name (string)
+- age (integer or null)
+- occupation (string)
+- skills (array of strings)
+- location (string or null)
+
+Biography:
+{bio}
+"""</span>
+
+response = client.chat.completions.create(
+    model=<span class="str">"gpt-4o-mini"</span>,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>,
+               <span class="str">"content"</span>: prompt}],
+    temperature=<span class="num">0.0</span>   <span class="cmt"># deterministic</span>
+)</div>
+          <div class="pro-con">
+            <div class="pro-con-item"><span style="color:#10b981">✓</span> Works with any model, no special API features needed</div>
+            <div class="pro-con-item"><span style="color:#10b981">✓</span> No additional dependencies</div>
+            <div class="pro-con-item"><span style="color:#ef4444">✗</span> Model may occasionally wrap JSON in markdown code blocks</div>
+            <div class="pro-con-item"><span style="color:#ef4444">✗</span> No guarantee of valid JSON — need defensive parsing</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Expected Output</div>
+          <div class="output-preview">{
+  "name": "Maria Chen",
+  "age": 34,
+  "occupation": "Machine Learning Engineer",
+  "skills": [
+    "PyTorch",
+    "distributed training",
+    "MLOps",
+    "LLM fine-tuning"
+  ],
+  "location": "San Francisco"
+}</div>
+          <div style="margin-top:12px; padding:10px 14px; background:rgba(251,191,36,0.08); border-radius:8px; border-left:3px solid #fbbf24; font-size:0.8rem; color:#cbd5e1; line-height:1.5;">
+            <strong style="color:#fbbf24;">Defensive Parsing Tip:</strong> Always wrap json.loads() in a try/except. Strip markdown fences if present. Log and retry on failure.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tech1" class="tech-panel">
+      <div class="tech-grid">
+        <div>
+          <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Prompt Code</div>
+          <div class="code-box"><span class="cmt"># OpenAI JSON mode — guarantees valid JSON object</span>
+response = client.chat.completions.create(
+    model=<span class="str">"gpt-4o-mini"</span>,
+    messages=[
+        {<span class="str">"role"</span>: <span class="str">"system"</span>,
+         <span class="str">"content"</span>: <span class="str">"Extract person info as JSON."</span>},
+        {<span class="str">"role"</span>: <span class="str">"user"</span>,
+         <span class="str">"content"</span>: bio_text}
+    ],
+    response_format={<span class="str">"type"</span>: <span class="str">"json_object"</span>},
+    temperature=<span class="num">0.0</span>
+)
+
+<span class="cmt"># Output is guaranteed to be valid JSON</span>
+data = json.loads(
+    response.choices[<span class="num">0</span>].message.content
+)</div>
+          <div class="pro-con">
+            <div class="pro-con-item"><span style="color:#10b981">✓</span> API guarantees the response is valid JSON</div>
+            <div class="pro-con-item"><span style="color:#10b981">✓</span> No markdown wrapping or prose pollution</div>
+            <div class="pro-con-item"><span style="color:#10b981">✓</span> Can still use json.loads() directly</div>
+            <div class="pro-con-item"><span style="color:#ef4444">✗</span> Doesn't guarantee specific field names/schema</div>
+            <div class="pro-con-item"><span style="color:#ef4444">✗</span> OpenAI-specific feature (not universal)</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">When to Use This</div>
+          <div style="background:#0f172a; border-radius:10px; padding:14px 16px; font-size:0.84rem; color:#cbd5e1; line-height:1.55;">
+            <p style="margin-bottom:10px;">Use JSON mode when you need valid JSON structure but the exact schema is flexible — for example, when asking the model to summarize information into JSON where the model determines the best structure.</p>
+            <p>Combine with explicit field instructions in the system prompt to get both valid JSON <em>and</em> predictable field names.</p>
+          </div>
+          <div style="margin-top:12px; background:#0f172a; border-radius:8px; padding:12px 14px; border-left:3px solid #818cf8; font-size:0.8rem; color:#94a3b8; line-height:1.5;">
+            <strong style="color:#818cf8;">Important:</strong> Even in JSON mode, you must describe the fields you want in the prompt. The API enforces JSON syntax, not your schema.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tech2" class="tech-panel">
+      <div class="tech-grid">
+        <div>
+          <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Pydantic + .parse()</div>
+          <div class="code-box"><span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, Field
+
+<span class="kw">class</span> <span class="fn">PersonInfo</span>(BaseModel):
+    name: <span class="fn">str</span>
+    age: <span class="fn">int</span> | <span class="kw">None</span>
+    occupation: <span class="fn">str</span>
+    skills: <span class="fn">list</span>[<span class="fn">str</span>]
+    location: <span class="fn">str</span> | <span class="kw">None</span>
+    <span class="cmt"># Add validation constraints:</span>
+    confidence: <span class="fn">float</span> = Field(ge=<span class="num">0.0</span>, le=<span class="num">1.0</span>)
+
+response = client.beta.chat.completions.parse(
+    model=<span class="str">"gpt-4o-mini"</span>,
+    messages=[
+        {<span class="str">"role"</span>: <span class="str">"user"</span>,
+         <span class="str">"content"</span>: bio_text}
+    ],
+    response_format=<span class="fn">PersonInfo</span>,
+    temperature=<span class="num">0.0</span>
+)
+
+<span class="cmt"># Fully typed, validated Python object</span>
+person = response.choices[<span class="num">0</span>].message.parsed
+<span class="fn">print</span>(person.name, person.skills)</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Why This Is Production-Grade</div>
+          <div style="background:#0f172a; border-radius:10px; padding:14px 16px;">
+            <div class="pro-con-item" style="margin-bottom:8px;"><span style="color:#10b981">✓</span> API guarantees JSON conforming to your exact schema</div>
+            <div class="pro-con-item" style="margin-bottom:8px;"><span style="color:#10b981">✓</span> Returns a typed Python object — no parsing needed</div>
+            <div class="pro-con-item" style="margin-bottom:8px;"><span style="color:#10b981">✓</span> Pydantic validators enforce ranges, enums, nullability</div>
+            <div class="pro-con-item" style="margin-bottom:8px;"><span style="color:#10b981">✓</span> IDE autocomplete works on the result object</div>
+            <div class="pro-con-item" style="margin-bottom:8px;"><span style="color:#ef4444">✗</span> Requires pydantic dependency</div>
+            <div class="pro-con-item"><span style="color:#ef4444">✗</span> OpenAI-specific .parse() method</div>
+          </div>
+          <div style="margin-top:12px; padding:10px 14px; background:rgba(16,185,129,0.08); border-radius:8px; border-left:3px solid #10b981; font-size:0.8rem; color:#cbd5e1; line-height:1.5;">
+            Use this for any production code where parsing failures would cause downstream errors. The schema is the contract — the API will enforce it.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: Schema Builder -->
+  <section>
+    <h2 class="section-title">JSON Schema Designer</h2>
+    <p class="section-sub">Define fields for your extraction schema and see the generated JSON schema and Pydantic model in real time.</p>
+
+    <div class="schema-builder">
+      <div class="sb-actions">
+        <button class="sb-btn sb-btn-add" onclick="addField()">+ Add Field</button>
+      </div>
+
+      <table class="field-table">
+        <thead>
+          <tr>
+            <th>Field Name</th>
+            <th>Type</th>
+            <th>Description / Constraint</th>
+            <th>Required</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="fieldBody"></tbody>
+      </table>
+
+      <div class="schema-preview-grid">
+        <div>
+          <div class="schema-label">JSON Schema (for prompt instruction)</div>
+          <div class="code-box" id="jsonSchemaPreview" style="color:#34d399;"></div>
+        </div>
+        <div>
+          <div class="schema-label">Pydantic Model</div>
+          <div class="code-box" id="pydanticPreview" style="color:#818cf8;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Temperature Effect -->
+  <section>
+    <h2 class="section-title">Temperature & Structured Output</h2>
+    <p class="section-sub">See how temperature affects consistency when generating structured output for the same classification task.</p>
+
+    <div class="temp-card">
+      <div class="temp-slider-row">
+        <div class="temp-label">Temperature<br><small style="color:#64748b;font-size:0.72rem;font-weight:400;">0 = deterministic</small></div>
+        <input type="range" class="temp-slider" min="0" max="20" value="0" id="tempSlider" oninput="updateTemp()">
+        <div class="temp-value" id="tempValue">0.0</div>
+      </div>
+      <div class="temp-effect-label" id="tempEffectLabel"></div>
+      <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Three simulated runs for: "Classify sentiment of: The product works but arrived late."</div>
+      <div class="temp-outputs" id="tempOutputs"></div>
+    </div>
+  </section>
+
+  <!-- Section 4: Failure Modes -->
+  <section>
+    <h2 class="section-title">JSON Failure Modes & Fixes</h2>
+    <p class="section-sub">The six most common ways structured output generation breaks — and how to fix each.</p>
+
+    <div class="failure-grid">
+      <div class="failure-card">
+        <div class="failure-header"><div class="failure-icon">📦</div><div class="failure-name">Format Drift (Markdown Wrapping)</div></div>
+        <div class="failure-body">
+          <div class="fb-symptom"><div class="fb-col-label">Symptom</div><div class="fb-content">Output wrapped in ```json code blocks, causing json.loads() to fail</div></div>
+          <div class="fb-example"><div class="fb-col-label">Example</div><div class="fb-content">```json<br>{"sentiment": "positive"}<br>```</div></div>
+          <div class="fb-fix"><div class="fb-col-label">Fix</div><div class="fb-content">Add to prompt: "Return ONLY valid JSON. No markdown, no code fences." Or use json_object mode. Or strip fences with regex.</div></div>
+        </div>
+      </div>
+
+      <div class="failure-card">
+        <div class="failure-header"><div class="failure-icon">✍️</div><div class="failure-name">Prose Pollution</div></div>
+        <div class="failure-body">
+          <div class="fb-symptom"><div class="fb-col-label">Symptom</div><div class="fb-content">Model explains its answer before/after the JSON: "Here is the analysis: {...} I hope this helps!"</div></div>
+          <div class="fb-example"><div class="fb-col-label">Example</div><div class="fb-content">"Based on the review, the sentiment is: {"sentiment": "positive"}"</div></div>
+          <div class="fb-fix"><div class="fb-col-label">Fix</div><div class="fb-content">Add: "Do not include any explanation, preamble, or commentary. Return only the JSON object."</div></div>
+        </div>
+      </div>
+
+      <div class="failure-card">
+        <div class="failure-header"><div class="failure-icon">🔑</div><div class="failure-name">Wrong Key Names</div></div>
+        <div class="failure-body">
+          <div class="fb-symptom"><div class="fb-col-label">Symptom</div><div class="fb-content">Model uses "Sentiment" instead of "sentiment", "key_phrase" instead of "key_phrases"</div></div>
+          <div class="fb-example"><div class="fb-col-label">Example</div><div class="fb-content">{"Sentiment": "positive", "Phrases": [...]}</div></div>
+          <div class="fb-fix"><div class="fb-col-label">Fix</div><div class="fb-content">Show exact key names in the prompt schema. Use few-shot examples with the exact schema. Use Pydantic + .parse() to enforce schema.</div></div>
+        </div>
+      </div>
+
+      <div class="failure-card">
+        <div class="failure-header"><div class="failure-icon">✂️</div><div class="failure-name">Truncated JSON</div></div>
+        <div class="failure-body">
+          <div class="fb-symptom"><div class="fb-col-label">Symptom</div><div class="fb-content">JSON cuts off mid-structure; finish_reason is "length" not "stop"</div></div>
+          <div class="fb-example"><div class="fb-col-label">Example</div><div class="fb-content">{"sentiment": "positive", "key_phrases": ["fast", "easy</div></div>
+          <div class="fb-fix"><div class="fb-col-label">Fix</div><div class="fb-content">Increase max_tokens. Check response.choices[0].finish_reason. For large outputs, paginate or reduce required fields.</div></div>
+        </div>
+      </div>
+
+      <div class="failure-card">
+        <div class="failure-header"><div class="failure-icon">📊</div><div class="failure-name">Wrong Value Types</div></div>
+        <div class="failure-body">
+          <div class="fb-symptom"><div class="fb-col-label">Symptom</div><div class="fb-content">Confidence returned as "0.95" (string) instead of 0.95 (float); years as "3" instead of 3</div></div>
+          <div class="fb-example"><div class="fb-col-label">Example</div><div class="fb-content">{"confidence": "high"} instead of {"confidence": 0.85}</div></div>
+          <div class="fb-fix"><div class="fb-col-label">Fix</div><div class="fb-content">Specify type explicitly: "confidence: float 0.0–1.0". Use Pydantic for type coercion and validation. Add a few-shot example showing the correct type.</div></div>
+        </div>
+      </div>
+
+      <div class="failure-card">
+        <div class="failure-header"><div class="failure-icon">🔄</div><div class="failure-name">Inconsistency Across Runs</div></div>
+        <div class="failure-body">
+          <div class="fb-symptom"><div class="fb-col-label">Symptom</div><div class="fb-content">Same input produces different JSON keys or values on different API calls</div></div>
+          <div class="fb-example"><div class="fb-col-label">Example</div><div class="fb-content">Run 1: {"sentiment": "mixed"}, Run 2: {"sentiment": "neutral"}</div></div>
+          <div class="fb-fix"><div class="fb-col-label">Fix</div><div class="fb-content">Set temperature=0.0. Add explicit enum for allowed values. Add a tiebreaker rule in the prompt for ambiguous cases.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 5: Best Practices -->
+  <section>
+    <h2 class="section-title">Structured Output Best Practices</h2>
+    <p class="section-sub">A checklist for production-quality structured output generation.</p>
+
+    <div class="bp-grid">
+      <div class="bp-card">
+        <div class="bp-title">Set temperature=0.0</div>
+        <div class="bp-text">Always use zero temperature for structured outputs. This maximizes consistency across runs of the same input.</div>
+        <div class="bp-why">Why: Non-zero temperature introduces randomness that causes the same input to produce structurally different outputs.</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Specify field types explicitly</div>
+        <div class="bp-text">Don't assume the model knows your type requirements. Write "confidence: float 0.0–1.0" not just "confidence".</div>
+        <div class="bp-why">Why: Models default to string for ambiguous fields. Explicit types prevent "0.95" vs 0.95 type errors.</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Add "Return ONLY valid JSON"</div>
+        <div class="bp-text">Explicitly forbid explanations, markdown fences, and preambles in the output format specification.</div>
+        <div class="bp-why">Why: Without this, models often prefix JSON with explanation text that breaks json.loads().</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Validate and retry on failure</div>
+        <div class="bp-text">Wrap all JSON parsing in try/except. On failure, add an error correction instruction and retry up to 3 times.</div>
+        <div class="bp-why">Why: Even with perfect prompts, models occasionally produce malformed JSON — defensive parsing prevents silent failures.</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Use Pydantic for production code</div>
+        <div class="bp-text">For any code where parsing failures would cause downstream errors, use Pydantic + .parse() for schema enforcement.</div>
+        <div class="bp-why">Why: The API guarantees schema conformance — you get a typed Python object with no manual validation code needed.</div>
+      </div>
+      <div class="bp-card">
+        <div class="bp-title">Test with adversarial inputs</div>
+        <div class="bp-text">Before deploying, test your structured prompts with empty strings, very long inputs, special characters, and inputs in unexpected languages.</div>
+        <div class="bp-why">Why: Edge cases that work fine with prose output often break structured output parsers in unexpected ways.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section>
+    <h2 class="section-title">Self-Check Quiz</h2>
+    <p class="section-sub">5 questions · Select an answer to see immediate feedback</p>
+
+    <div class="quiz-card" id="q1">
+      <div class="question">1. Your JSON extraction prompt works 95% of the time but occasionally wraps output in markdown code fences. What is the most efficient fix?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q1',false)">A. Switch to a larger model — it won't produce markdown fences</button>
+        <button class="opt-btn" onclick="answer(this,'q1',true)">B. Add "Return ONLY valid JSON. No markdown code fences." to the prompt, or use json_object response_format mode</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">C. Parse the output with a Markdown library to strip the fences first</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">D. Increase temperature to make the output more variable</button>
+      </div>
+      <div class="feedback" id="fb_q1"></div>
+    </div>
+
+    <div class="quiz-card" id="q2">
+      <div class="question">2. What does OpenAI's response_format={"type": "json_object"} GUARANTEE?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q2',false)">A. The output will contain all the fields you specified in the prompt</button>
+        <button class="opt-btn" onclick="answer(this,'q2',true)">B. The output will be syntactically valid JSON — but not necessarily with your specific field names or schema</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">C. The output will match a Pydantic model you provide</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">D. The output will never exceed 1000 tokens</button>
+      </div>
+      <div class="feedback" id="fb_q2"></div>
+    </div>
+
+    <div class="quiz-card" id="q3">
+      <div class="question">3. A JSON response is cut off mid-structure: {"key_phrases": ["fast", "eas. What caused this and how do you fix it?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q3',false)">A. The model hit a safety filter — rephrase the prompt</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">B. Low temperature caused truncation — increase to 0.7</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">C. The response hit the max_tokens limit — check finish_reason and increase max_tokens</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">D. The API has a hard 100-word limit on JSON responses</button>
+      </div>
+      <div class="feedback" id="fb_q3"></div>
+    </div>
+
+    <div class="quiz-card" id="q4">
+      <div class="question">4. Why is using Pydantic + client.beta.chat.completions.parse() preferred over manual JSON parsing for production code?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. It's faster — no JSON parsing overhead compared to json.loads()</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">B. It works without an API key</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">C. The API guarantees schema conformance, returns a typed Python object, and Pydantic enforces value constraints (ranges, enums, nullability)</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. It allows using larger models at no extra cost</button>
+      </div>
+      <div class="feedback" id="fb_q4"></div>
+    </div>
+
+    <div class="quiz-card" id="q5">
+      <div class="question">5. You need an LLM to extract a "confidence" field as a float between 0.0 and 1.0, but it keeps returning "high", "medium", or "low". What is the most reliable fix?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. Post-process the string output by mapping "high"→0.9, "medium"→0.6, "low"→0.3</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">B. Ask the model to think step by step before giving the confidence score</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">C. Specify in the prompt "confidence: float between 0.0 and 1.0" and add a few-shot example showing the numeric format, or use Pydantic with Field(ge=0.0, le=1.0)</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. Use a higher temperature to get more varied outputs</button>
+      </div>
+      <div class="feedback" id="fb_q5"></div>
+    </div>
+
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-num" id="scoreNum">0/5</div>
+      <div class="score-label">Quiz complete! Review any incorrect answers above.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// Technique tabs
+function showTech(idx, btn) {
+  document.querySelectorAll('.tech-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tech-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tech' + idx).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Schema builder
+let fields = [
+  { name: 'sentiment', type: 'string', desc: '"positive" | "negative" | "neutral" | "mixed"', required: true },
+  { name: 'confidence', type: 'float', desc: '0.0 to 1.0', required: true },
+  { name: 'key_phrases', type: 'array', desc: 'array of strings', required: true },
+  { name: 'summary', type: 'string', desc: 'one sentence', required: false }
+];
+
+function renderSchema() {
+  const tbody = document.getElementById('fieldBody');
+  tbody.innerHTML = fields.map((f, i) => `
+    <tr>
+      <td><input class="field-input" value="${escHtml(f.name)}" placeholder="field_name" onchange="updateField(${i},'name',this.value)"></td>
+      <td>
+        <select class="type-select" onchange="updateField(${i},'type',this.value)">
+          ${['string','integer','float','boolean','array','object'].map(t => `<option ${f.type===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </td>
+      <td><input class="field-input" value="${escHtml(f.desc)}" placeholder="Description or constraint..." onchange="updateField(${i},'desc',this.value)"></td>
+      <td style="text-align:center;"><input type="checkbox" class="req-check" ${f.required?'checked':''} onchange="updateField(${i},'required',this.checked)"></td>
+      <td><button class="del-btn" onclick="deleteField(${i})">×</button></td>
+    </tr>`).join('');
+  renderSchemaPreviews();
+}
+
+function updateField(i, key, val) {
+  fields[i][key] = val;
+  renderSchemaPreviews();
+}
+
+function deleteField(i) { fields.splice(i, 1); renderSchema(); }
+
+function addField() {
+  fields.push({ name: 'new_field', type: 'string', desc: '', required: false });
+  renderSchema();
+}
+
+function renderSchemaPreviews() {
+  const reqFields = fields.filter(f => f.required);
+  const optFields = fields.filter(f => !f.required);
+
+  let jsonSchema = 'Required fields:\n';
+  reqFields.forEach(f => jsonSchema += `- ${f.name} (${f.type}): ${f.desc}\n`);
+  if (optFields.length) {
+    jsonSchema += '\nOptional fields:\n';
+    optFields.forEach(f => jsonSchema += `- ${f.name} (${f.type}): ${f.desc}\n`);
+  }
+  jsonSchema += '\nReturn ONLY valid JSON with these exact field names.';
+  document.getElementById('jsonSchemaPreview').textContent = jsonSchema;
+
+  const typeMap = { string: 'str', integer: 'int', float: 'float', boolean: 'bool', array: 'list[str]', object: 'dict' };
+  let pydantic = 'from pydantic import BaseModel, Field\n\nclass Output(BaseModel):\n';
+  fields.forEach(f => {
+    const t = typeMap[f.type] || 'str';
+    const nullable = !f.required ? ` | None = None` : '';
+    const desc = f.desc ? `  # ${f.desc}` : '';
+    pydantic += `    ${f.name}: ${t}${nullable}${desc}\n`;
+  });
+  document.getElementById('pydanticPreview').textContent = pydantic;
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Temperature visualizer
+const tempOutputSets = {
+  0: [
+    '{"sentiment": "mixed", "confidence": 0.72}',
+    '{"sentiment": "mixed", "confidence": 0.72}',
+    '{"sentiment": "mixed", "confidence": 0.72}'
+  ],
+  0.3: [
+    '{"sentiment": "mixed", "confidence": 0.72}',
+    '{"sentiment": "mixed", "confidence": 0.68}',
+    '{"sentiment": "mixed", "confidence": 0.75}'
+  ],
+  0.7: [
+    '{"sentiment": "mixed", "confidence": 0.72}',
+    '{"sentiment": "neutral", "confidence": 0.61}',
+    '{"sentiment": "mixed", "confidence": 0.55}'
+  ],
+  1.0: [
+    '{"sentiment": "neutral", "confidence": 0.58}',
+    'Based on the review, the sentiment appears to be mixed — positive for functionality but negative for delivery. {"sentiment": "mixed", ...}',
+    '{"sentiment": "positive", "confidence": 0.45}'
+  ],
+  1.5: [
+    'The sentiment seems neutral to positive in many ways, as the product works fine.\n{"Sentiment": "Neutral-Positive", "confidence_level": "medium"}',
+    '```json\n{"sentiment": "mixed"}\n```',
+    'Given the mixed signals here, I would say: {"sentiment": "ambiguous", "conf": 0.4, "note": "late arrival tempers positive product experience"}'
+  ]
+};
+
+const tempEffects = {
+  0:   '🟢 Deterministic — identical output every run. Ideal for structured extraction and classification.',
+  0.3: '🟡 Low variation — slight confidence score variation, structure stays consistent. Good for most structured tasks.',
+  0.7: '🟠 Moderate variation — occasional label disagreements across runs. Not recommended for classification.',
+  1.0: '🔴 High variation — structural instability begins; prose may appear mixed with JSON. Avoid for structured output.',
+  1.5: '⛔ Very high — key names change, markdown wrapping appears, schema breaks. Never use for structured output.'
+};
+
+function updateTemp() {
+  const v = parseFloat(document.getElementById('tempSlider').value) / 10;
+  document.getElementById('tempValue').textContent = v.toFixed(1);
+  const key = [0, 0.3, 0.7, 1.0, 1.5].find(k => k >= v - 0.05) ?? 1.5;
+  document.getElementById('tempEffectLabel').textContent = tempEffects[key] || tempEffects[1.5];
+  const outputs = tempOutputSets[key] || tempOutputSets[1.5];
+  document.getElementById('tempOutputs').innerHTML = outputs.map((o, i) => `
+    <div class="temp-run">
+      <div class="temp-run-label">Run ${i+1}</div>
+      <div class="temp-run-output">${escHtml(o)}</div>
+    </div>`).join('');
+}
+
+// Quiz
+const feedbacks = {
+  q1: { ok: "Correct! Adding an explicit instruction to return only valid JSON (no markdown) is the simplest fix. JSON mode is even better as it's enforced by the API.", bad: "The most direct fix is instructing the model to return only raw JSON — no markdown fences. Or enable json_object response_format which prevents this at the API level." },
+  q2: { ok: "Correct! JSON mode guarantees syntactically valid JSON, but the fields inside are still controlled by your prompt instructions — not the mode itself.", bad: "JSON mode guarantees valid JSON syntax only. The field names, types, and structure still depend on your prompt instructions. For schema enforcement, use Pydantic + .parse()." },
+  q3: { ok: "Correct! Truncated JSON almost always means max_tokens was reached. Always check finish_reason — if it's 'length' instead of 'stop', increase max_tokens.", bad: "Truncation is caused by hitting the max_tokens limit. Check finish_reason='length' and increase max_tokens. This has nothing to do with temperature." },
+  q4: { ok: "Correct! Pydantic + .parse() returns a typed Python object with schema guaranteed by the API. No manual parsing, no type checking code, and IDE autocomplete works on the result.", bad: "The key advantages are: API-guaranteed schema conformance, typed Python object (no manual parsing), and Pydantic validates value constraints like ranges and enums." },
+  q5: { ok: "Correct! Specifying the type explicitly in the prompt plus a few-shot example showing the numeric format teaches the model the exact output format expected. Pydantic Field constraints are the most reliable enforcement.", bad: "Explicitly specify 'confidence: float between 0.0 and 1.0' and show a numeric example in a few-shot demonstration. For production, use Pydantic Field(ge=0.0, le=1.0) to enforce the range." }
+};
+
+let answers = {};
+function answer(btn, qId, correct) {
+  if (answers[qId] !== undefined) return;
+  answers[qId] = correct;
+  const allBtns = btn.parentElement.querySelectorAll('.opt-btn');
+  allBtns.forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  if (!correct) allBtns.forEach(b => { if (b.onclick.toString().includes('true')) b.classList.add('correct'); });
+  const fb = document.getElementById('fb_' + qId);
+  fb.textContent = correct ? '✓ ' + feedbacks[qId].ok : '✗ ' + feedbacks[qId].bad;
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+  if (Object.keys(answers).length === 5) {
+    const score = Object.values(answers).filter(Boolean).length;
+    document.getElementById('scoreNum').textContent = score + '/5';
+    document.getElementById('scoreBanner').classList.add('show');
+  }
+}
+
+// Init
+renderSchema();
+updateTemp();
+</script>
+</body>
+</html>

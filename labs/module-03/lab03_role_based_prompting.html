@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 3 — Role-Based Prompting Lab</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #f59e0b; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Role selector */
+  .role-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .role-card {
+    background: #1e293b; border: 1.5px solid #334155; border-radius: 12px; padding: 16px;
+    cursor: pointer; text-align: center; transition: all 0.2s;
+  }
+  .role-card:hover { border-color: var(--rc, #f59e0b); }
+  .role-card.active { border-color: var(--rc, #f59e0b); background: rgba(245,158,11,0.07); }
+  .role-card.active .role-name { color: var(--rc, #fbbf24); }
+  .role-emoji { font-size: 2rem; margin-bottom: 8px; }
+  .role-name  { font-size: 0.88rem; font-weight: 700; color: #cbd5e1; transition: color 0.2s; }
+  .role-tagline { font-size: 0.72rem; color: #64748b; margin-top: 3px; line-height: 1.3; }
+
+  /* Role detail panel */
+  .role-detail { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; display: none; }
+  .role-detail.active { display: block; animation: fadeIn 0.25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .rd-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #334155; }
+  .rd-emoji { font-size: 2.2rem; }
+  .rd-title { font-size: 1.2rem; font-weight: 700; color: #f1f5f9; }
+  .rd-desc  { font-size: 0.84rem; color: #94a3b8; margin-top: 3px; }
+
+  .rd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .rd-panel-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 8px; }
+  .system-prompt-box { background: #0f172a; border-radius: 10px; padding: 14px 16px; font-family: 'Consolas', monospace; font-size: 0.78rem; color: #818cf8; line-height: 1.55; white-space: pre-wrap; border-left: 3px solid #818cf8; }
+  .output-style-box { background: #0f172a; border-radius: 10px; padding: 14px 16px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.55; }
+  .style-tag { display: inline-block; background: rgba(245,158,11,0.12); color: #fbbf24; font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; margin: 3px 4px 3px 0; }
+
+  .sample-response { margin-top: 18px; background: #0f172a; border-radius: 10px; padding: 16px; border-left: 3px solid #f59e0b; }
+  .sr-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 8px; }
+  .sr-question { font-size: 0.82rem; color: #94a3b8; font-style: italic; margin-bottom: 10px; padding: 8px 10px; background: #1e293b; border-radius: 6px; }
+  .sr-answer { font-size: 0.86rem; color: #e2e8f0; line-height: 1.6; }
+
+  /* Role combination builder */
+  .builder-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .builder-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 18px; }
+  .builder-field { }
+  .field-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 8px; }
+  .field-select { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; color: #e2e8f0; font-size: 0.88rem; width: 100%; cursor: pointer; }
+  .field-select:focus { outline: none; border-color: #f59e0b; }
+
+  .generated-system { background: #0f172a; border-radius: 10px; padding: 14px 16px; font-family: 'Consolas', monospace; font-size: 0.8rem; color: #818cf8; line-height: 1.55; white-space: pre-wrap; border-left: 3px solid #818cf8; }
+
+  .add-constraint-btn { background: rgba(245,158,11,0.1); border: 1px dashed #f59e0b; color: #fbbf24; padding: 8px 14px; border-radius: 7px; cursor: pointer; font-size: 0.82rem; margin-bottom: 14px; transition: background 0.15s; }
+  .add-constraint-btn:hover { background: rgba(245,158,11,0.2); }
+  .constraint-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+  .constraint-tag { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; font-size: 0.76rem; padding: 4px 10px; border-radius: 99px; cursor: pointer; transition: background 0.15s; }
+  .constraint-tag.selected { background: rgba(245,158,11,0.25); border-color: #f59e0b; }
+  .constraint-tag:hover { background: rgba(245,158,11,0.2); }
+
+  /* Patterns reference */
+  .pattern-grid { display: grid; gap: 14px; }
+  .pattern-card { background: #1e293b; border-radius: 12px; padding: 18px 20px; border: 1px solid #334155; display: grid; grid-template-columns: 130px 1fr auto; gap: 16px; align-items: start; }
+  .pattern-name { font-size: 0.88rem; font-weight: 700; color: #fbbf24; }
+  .pattern-use  { font-size: 0.8rem; color: #94a3b8; line-height: 1.45; }
+  .pattern-constraint { font-size: 0.75rem; color: #64748b; font-style: italic; line-height: 1.4; max-width: 200px; }
+
+  /* Warning banner */
+  .warning-banner { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 16px; font-size: 0.84rem; color: #fca5a5; line-height: 1.5; margin-bottom: 24px; }
+  .warning-banner strong { color: #ef4444; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #f59e0b; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  .score-banner { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid #f59e0b; border-radius: 14px; padding: 24px; text-align: center; display: none; }
+  .score-banner.show { display: block; }
+  .score-num { font-size: 2.5rem; font-weight: 800; color: #fbbf24; }
+  .score-label { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+
+  @media (max-width: 700px) {
+    .rd-grid { grid-template-columns: 1fr; }
+    .builder-row { grid-template-columns: 1fr; }
+    .pattern-card { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 3 · Lab 3</div>
+  <h1>Role-Based Prompting Lab</h1>
+  <p>Discover how assigning an expert persona transforms tone, depth, and vocabulary of model responses</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Role Explorer -->
+  <section>
+    <h2 class="section-title">Role Persona Explorer</h2>
+    <p class="section-sub">Click a role to see its system prompt template, output characteristics, and a sample response to the same question.</p>
+
+    <div class="role-grid" id="roleGrid"></div>
+    <div id="roleDetailPanel"></div>
+  </section>
+
+  <!-- Warning -->
+  <section>
+    <div class="warning-banner">
+      <strong>Important Limitation:</strong> Assigning a role does <em>not</em> grant the model real expertise. A "board-certified cardiologist" role uses the same underlying knowledge as a "helpful assistant" role. For high-stakes domains (medical, legal, financial), always add: <em>"This is for informational purposes only. Always consult a licensed professional."</em> Roles shape tone and depth — they don't change what the model actually knows.
+    </div>
+  </section>
+
+  <!-- Section 2: Role Combination Builder -->
+  <section>
+    <h2 class="section-title">Role + Audience Combination Builder</h2>
+    <p class="section-sub">The most powerful role prompts combine an expert persona with a specified target audience and optional behavioral constraints.</p>
+
+    <div class="builder-card">
+      <div class="builder-row">
+        <div class="builder-field">
+          <div class="field-label">Expert Role</div>
+          <select class="field-select" id="roleSelect" onchange="updateBuilder()">
+            <option value="senior software engineer specializing in Python">Senior Python Engineer</option>
+            <option value="data scientist with expertise in machine learning">Data Scientist / ML Expert</option>
+            <option value="technical writer with 10 years of experience">Technical Writer</option>
+            <option value="management consultant using structured frameworks">Management Consultant</option>
+            <option value="legal reviewer specializing in technology contracts">Legal Reviewer</option>
+            <option value="Socratic tutor who teaches through questions">Socratic Tutor</option>
+            <option value="devil's advocate who challenges every assumption">Devil's Advocate</option>
+            <option value="security engineer focused on vulnerability analysis">Security Engineer</option>
+          </select>
+        </div>
+        <div class="builder-field">
+          <div class="field-label">Target Audience</div>
+          <select class="field-select" id="audienceSelect" onchange="updateBuilder()">
+            <option value="a senior software engineer">Senior Engineers</option>
+            <option value="a non-technical business executive">Non-Technical Executives</option>
+            <option value="a beginner with no prior experience">Beginners / Students</option>
+            <option value="the entire team including both technical and business stakeholders">Mixed Technical/Business Team</option>
+            <option value="a domain expert who wants precise technical depth">Domain Experts</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-label">Optional Behavioral Constraints (click to toggle)</div>
+      <div class="constraint-tags" id="constraintTags"></div>
+
+      <div class="field-label" style="margin-bottom:8px;">Generated System Prompt</div>
+      <div class="generated-system" id="generatedSystem"></div>
+    </div>
+  </section>
+
+  <!-- Section 3: Common Role Patterns -->
+  <section>
+    <h2 class="section-title">Common Role Patterns Reference</h2>
+    <p class="section-sub">A quick reference for the most useful role types and the constraints to add with each.</p>
+
+    <div class="pattern-grid">
+      <div class="pattern-card">
+        <div><div class="pattern-name">Senior [Lang] Engineer</div></div>
+        <div class="pattern-use">Code review, generation, debugging. Produces precise, idiomatic code with explanations calibrated to developer level.</div>
+        <div class="pattern-constraint">Add: language version, frameworks in use, coding style guide, "no deprecated APIs"</div>
+      </div>
+      <div class="pattern-card">
+        <div><div class="pattern-name">Technical Writer</div></div>
+        <div class="pattern-use">Documentation, guides, release notes. Produces clear, consistent documentation with proper structure.</div>
+        <div class="pattern-constraint">Add: "audience: developers", "include code examples", document type (API docs, tutorial, guide)</div>
+      </div>
+      <div class="pattern-card">
+        <div><div class="pattern-name">Data Analyst</div></div>
+        <div class="pattern-use">Data interpretation, pattern identification, visualization recommendations. Quantitative and precise.</div>
+        <div class="pattern-constraint">Add: "be quantitative", "highlight outliers", "suggest visualization type"</div>
+      </div>
+      <div class="pattern-card">
+        <div><div class="pattern-name">Legal Reviewer</div></div>
+        <div class="pattern-use">Contract analysis, risk flagging, compliance checking. Identifies issues without providing formal legal advice.</div>
+        <div class="pattern-constraint">Add: "flag risks with severity level", "do not give formal legal advice", jurisdiction if relevant</div>
+      </div>
+      <div class="pattern-card">
+        <div><div class="pattern-name">Devil's Advocate</div></div>
+        <div class="pattern-use">Strategic reviews, pressure-testing plans, identifying blind spots. Deliberately challenges every claim.</div>
+        <div class="pattern-constraint">Add: "challenge every assumption", "find the weakest point", "do not agree with the user"</div>
+      </div>
+      <div class="pattern-card">
+        <div><div class="pattern-name">Socratic Tutor</div></div>
+        <div class="pattern-use">Teaching and learning contexts. Guides through questions rather than giving direct answers.</div>
+        <div class="pattern-constraint">Add: "ask questions, don't give answers directly", "adapt complexity to student's demonstrated level"</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section>
+    <h2 class="section-title">Self-Check Quiz</h2>
+    <p class="section-sub">5 questions · Select an answer to see immediate feedback</p>
+
+    <div class="quiz-card" id="q1">
+      <div class="question">1. What is the PRIMARY mechanism by which role-based prompting changes model output?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q1',false)">A. It grants the model access to specialized databases for that domain</button>
+        <button class="opt-btn" onclick="answer(this,'q1',true)">B. It shifts the model's vocabulary, tone, depth, and perspective through conditioning on the role's expected behavior patterns</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">C. It increases the model's parameter count temporarily</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">D. It forces the model to only use information from that professional field</button>
+      </div>
+      <div class="feedback" id="fb_q1"></div>
+    </div>
+
+    <div class="quiz-card" id="q2">
+      <div class="question">2. You ask an LLM playing the role of "board-certified cardiologist" about chest pain symptoms. Which statement is TRUE?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q2',false)">A. The model now has access to actual medical knowledge equivalent to a real cardiologist</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">B. The model's output is clinically verified because of the role assignment</button>
+        <button class="opt-btn" onclick="answer(this,'q2',true)">C. The role changes tone and vocabulary but the underlying knowledge is unchanged — always add a disclaimer for medical topics</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">D. Role-based prompting is not allowed for medical topics by API terms of service</button>
+      </div>
+      <div class="feedback" id="fb_q2"></div>
+    </div>
+
+    <div class="quiz-card" id="q3">
+      <div class="question">3. You're building a code review tool. Which system prompt is MOST effective?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q3',false)">A. "You are a helpful assistant. Review this code."</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">B. "You are an expert. Look at the code and say what's wrong."</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">C. "You are a senior Python engineer. Review code for bugs, security issues, and PEP 8 violations. Be skeptical. Flag every issue, even minor ones. Return findings as a numbered list."</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">D. "You are a code quality AI with 50 years of experience."</button>
+      </div>
+      <div class="feedback" id="fb_q3"></div>
+    </div>
+
+    <div class="quiz-card" id="q4">
+      <div class="question">4. What is "sycophantic drift" in role-based prompting and how do you prevent it?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. When the model generates overly formal responses — prevented by lowering temperature</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">B. When the model gradually abandons its assigned role over a long conversation, becoming more agreeable — prevented by re-anchoring with the system prompt</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">C. When the model copies language from the user's message — prevented by adding more examples</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. When the model refuses to follow the assigned role — prevented by using a stronger model</button>
+      </div>
+      <div class="feedback" id="fb_q4"></div>
+    </div>
+
+    <div class="quiz-card" id="q5">
+      <div class="question">5. Why does specifying BOTH a role AND a target audience produce better output than just a role alone?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. It satisfies an API requirement for system prompts over 50 characters</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">B. It forces the model to use a longer response format</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">C. The role sets the expert perspective, while the audience calibrates complexity, vocabulary, and assumed background — together they precisely define the communication contract</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. Audience specification is just a politeness convention with no real effect</button>
+      </div>
+      <div class="feedback" id="fb_q5"></div>
+    </div>
+
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-num" id="scoreNum">0/5</div>
+      <div class="score-label">Quiz complete! Review any incorrect answers above.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const roles = [
+  {
+    id: 'researcher', emoji: '🔬', name: 'ML Researcher', tagline: 'Technical precision', color: '#818cf8',
+    desc: 'Communicates with mathematical rigor. Uses precise terminology, cites mechanisms, and assumes deep ML background.',
+    system: `You are an ML researcher with expertise in deep learning and language models.\nBe technically precise. Use mathematical notation where helpful.\nAssume the reader has a PhD-level ML background.\nCite relevant concepts (attention, transformer architecture, RLHF, etc.) by name.`,
+    styles: ['Mathematical notation', 'Academic vocabulary', 'Mechanism-focused', 'High technical depth', 'Cites paper concepts'],
+    question: 'How does a neural network learn?',
+    answer: 'Learning occurs via stochastic gradient descent on a loss function L(θ). During forward pass, activations are computed layer-by-layer; backpropagation computes ∂L/∂θ via the chain rule. Weights θ are updated as θ ← θ − η∇L. In transformers, attention weights Aij = softmax(QKᵀ/√d_k)V are learned jointly with feedforward layers, with optimization typically using Adam with warmup scheduling.'
+  },
+  {
+    id: 'executive', emoji: '💼', name: 'Business Exec', tagline: 'Impact-focused', color: '#34d399',
+    desc: 'Focuses on business implications, ROI, and strategic impact. Avoids technical jargon. Uses analogies.',
+    system: `You are a business strategist explaining technology concepts to senior executives.\nFocus on business impact, competitive advantage, and ROI — not technical mechanics.\nAvoid all mathematical notation and technical jargon.\nUse business analogies. Limit responses to what a busy executive needs to act.`,
+    styles: ['Business language', 'ROI-focused', 'No math/jargon', 'Decision-oriented', 'Short & direct'],
+    question: 'How does a neural network learn?',
+    answer: 'Think of it like training a new employee. You show them thousands of examples of good vs. bad decisions, and they gradually adjust their instincts until they get it right most of the time. The more examples and the better the feedback, the smarter they get. For your business, this means the value is in the quality and quantity of your training data — which is why your data assets are a strategic moat.'
+  },
+  {
+    id: 'teacher', emoji: '📚', name: 'Teacher', tagline: 'Memorable analogies', color: '#fbbf24',
+    desc: 'Explains complex concepts through accessible analogies and everyday examples. Checks for understanding.',
+    system: `You are a science teacher explaining concepts to high school students.\nUse memorable, relatable analogies from everyday life.\nAvoid all technical terminology — if you must use a term, immediately explain it in plain language.\nEnd responses with one clarifying question to check understanding.`,
+    styles: ['Everyday analogies', 'No assumed background', 'Conversational tone', 'Ends with a question', 'Step-by-step'],
+    question: 'How does a neural network learn?',
+    answer: 'Imagine learning to ride a bike. You try, fall, your brain notices what went wrong, and you adjust slightly next time. A neural network does the same thing: it tries to answer a question, sees how wrong it was, then tweaks thousands of tiny settings to do a bit better. After millions of tries with different examples, it gets really good — just like you eventually stop wobbling on the bike! Which part of this feels most confusing — the "trying" part or the "adjusting" part?'
+  },
+  {
+    id: 'engineer', emoji: '⚙️', name: 'Sr. Engineer', tagline: 'Implementation focus', color: '#fb923c',
+    desc: 'Focuses on implementation details, code patterns, and practical tradeoffs. Includes pseudocode or actual code.',
+    system: `You are a senior software engineer explaining ML concepts to fellow developers.\nFocus on implementation details, code patterns, and practical trade-offs.\nInclude pseudocode or actual Python where it clarifies the concept.\nSkip theory that doesn't affect implementation decisions.`,
+    styles: ['Code examples', 'Implementation-focused', 'Practical trade-offs', 'Developer vocabulary', 'No fluff'],
+    question: 'How does a neural network learn?',
+    answer: `Training loop in pseudocode:\n\n  for batch in dataloader:\n      pred = model(batch.x)        # forward pass\n      loss = criterion(pred, batch.y) # compute error\n      loss.backward()               # backprop gradients\n      optimizer.step()              # update weights\n      optimizer.zero_grad()         # reset grads\n\nThe optimizer (usually Adam) adjusts each parameter by its gradient scaled by a learning rate. With PyTorch, this is ~10 lines. The art is in architecture choice, learning rate scheduling, and regularization — not the loop itself.`
+  },
+  {
+    id: 'critic', emoji: '🔍', name: 'Code Reviewer', tagline: 'Skeptical & thorough', color: '#ef4444',
+    desc: 'Strictly reviews code for security vulnerabilities, bugs, and quality issues. Does not compliment code.',
+    system: `You are a strict code reviewer specializing in security and correctness.\nIdentify every potential issue — security vulnerabilities, logic bugs, performance problems, code smells.\nBe skeptical. Do not compliment the code.\nNumber each finding. Rate severity: CRITICAL / HIGH / MEDIUM / LOW.`,
+    styles: ['Numbered findings', 'Severity ratings', 'No praise', 'Security-focused', 'Exhaustive'],
+    question: 'Review: user = db.query("SELECT * FROM users WHERE id = " + user_id)',
+    answer: `1. [CRITICAL] SQL Injection — string concatenation with user_input enables DROP TABLE, data exfiltration, or auth bypass. Use parameterized queries: db.query("SELECT * FROM users WHERE id = %s", (user_id,))\n2. [HIGH] SELECT * over-fetches columns — exposes password hashes, PII, or secrets to calling code. Select only needed columns.\n3. [MEDIUM] No input validation on user_id — pass through of unsanitized external input. Validate type (int) before query.\n4. [LOW] No error handling — db exceptions will propagate raw SQL errors to callers, leaking schema information.`
+  },
+  {
+    id: 'consultant', emoji: '📊', name: 'Consultant', tagline: 'MECE frameworks', color: '#a78bfa',
+    desc: 'Structures analysis using MECE frameworks, issue trees, and structured reasoning. Concise and action-oriented.',
+    system: `You are a management consultant. Structure all analysis using MECE principles (Mutually Exclusive, Collectively Exhaustive).\nUse issue trees and numbered hierarchies.\nLead with the recommendation, then support with analysis.\nBe direct — no filler language.`,
+    styles: ['Issue trees', 'MECE structure', 'Recommendation-first', 'Numbered hierarchies', 'Concise'],
+    question: 'Should our company adopt AI in customer support?',
+    answer: `Recommendation: Yes — implement AI-assisted support (Tier 1 automation + agent copilot) within 6 months.\n\nAnalysis:\n1. Cost Impact\n   1.1 Automation of routine queries: −40–60% handle time\n   1.2 Agent copilot: −20% escalation rate\n2. Customer Experience\n   2.1 Response time: 24/7 instant first response (positive)\n   2.2 Complex issues: risk of degraded experience (mitigated by human escalation)\n3. Implementation Risk\n   3.1 Low: off-shelf LLM + existing knowledge base\n   3.2 Medium: integration with ticketing system\n\nCritical path: knowledge base audit (Week 1–2), vendor selection (Week 3–4), pilot (Week 5–8).`
+  }
+];
+
+let activeRole = 0;
+
+function renderRoleGrid() {
+  document.getElementById('roleGrid').innerHTML = roles.map((r, i) => `
+    <div class="role-card ${i===activeRole?'active':''}" style="--rc:${r.color}" onclick="selectRole(${i})">
+      <div class="role-emoji">${r.emoji}</div>
+      <div class="role-name">${r.name}</div>
+      <div class="role-tagline">${r.tagline}</div>
+    </div>`).join('');
+}
+
+function selectRole(idx) {
+  activeRole = idx;
+  renderRoleGrid();
+  renderRoleDetail();
+}
+
+function renderRoleDetail() {
+  const r = roles[activeRole];
+  document.getElementById('roleDetailPanel').innerHTML = `
+    <div class="role-detail active">
+      <div class="rd-header">
+        <div class="rd-emoji">${r.emoji}</div>
+        <div>
+          <div class="rd-title">${r.name}</div>
+          <div class="rd-desc">${r.desc}</div>
+        </div>
+      </div>
+      <div class="rd-grid">
+        <div>
+          <div class="rd-panel-label">System Prompt Template</div>
+          <div class="system-prompt-box">${escHtml(r.system)}</div>
+        </div>
+        <div>
+          <div class="rd-panel-label">Output Style Characteristics</div>
+          <div class="output-style-box">${r.styles.map(s => `<span class="style-tag">${s}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="sample-response">
+        <div class="sr-label">Sample Response — Same Question, Different Role</div>
+        <div class="sr-question">Question: "${r.question}"</div>
+        <div class="sr-answer" style="white-space:pre-wrap;">${escHtml(r.answer)}</div>
+      </div>
+    </div>`;
+}
+
+// Constraint builder
+const constraints = [
+  'Be concise — max 3 sentences per point',
+  'Always include a code example',
+  'Use numbered lists for structure',
+  'End with clear next steps',
+  'Flag risks explicitly',
+  'Do not use jargon',
+  'Recommend the best option, don\'t hedge',
+  'Include a confidence level for claims',
+  'Do not compliment the user\'s work',
+  'Ask one clarifying question if intent is ambiguous'
+];
+let selectedConstraints = new Set();
+
+function renderConstraints() {
+  document.getElementById('constraintTags').innerHTML = constraints.map((c, i) => `
+    <span class="constraint-tag ${selectedConstraints.has(i)?'selected':''}" onclick="toggleConstraint(${i})">${c}</span>`).join('');
+}
+
+function toggleConstraint(i) {
+  if (selectedConstraints.has(i)) selectedConstraints.delete(i);
+  else selectedConstraints.add(i);
+  renderConstraints();
+  updateBuilder();
+}
+
+function updateBuilder() {
+  const role = document.getElementById('roleSelect').value;
+  const audience = document.getElementById('audienceSelect').value;
+  const selected = Array.from(selectedConstraints).map(i => constraints[i]);
+  let sys = `You are a ${role}.\nYour audience is ${audience}.`;
+  if (selected.length > 0) {
+    sys += '\n\nBehavioral constraints:';
+    selected.forEach(c => sys += `\n- ${c}`);
+  }
+  document.getElementById('generatedSystem').textContent = sys;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Quiz
+const feedbacks = {
+  q1: { ok: "Correct! Roles work by conditioning the model's output — they shift vocabulary, tone, assumed background knowledge, and depth of response through the role's expected behavioral patterns.", bad: "Roles shift the model's vocabulary, tone, and depth by conditioning output on the role's expected behavior patterns — not by granting new knowledge or database access." },
+  q2: { ok: "Correct! The model's underlying knowledge doesn't change. A 'cardiologist' role produces more medical-sounding language, but the knowledge is exactly the same. Always add disclaimers for medical topics.", bad: "Assigning a role doesn't change the model's knowledge base. The same pre-trained weights produce the response — just with different tone/vocabulary. Medical topics always need a disclaimer." },
+  q3: { ok: "Correct! This prompt specifies the expertise level, domain (Python), specific review criteria, behavioral directive (be skeptical), and output format (numbered list).", bad: "The best role prompt specifies expertise level, domain, specific focus areas, behavioral stance (skeptical), and output format — not just a generic 'expert' or 'helpful assistant'." },
+  q4: { ok: "Correct! Sycophantic drift occurs when the model gradually abandons its assigned constraints over a long conversation, becoming more agreeable. Re-stating key rules in the system prompt or periodically as reminders prevents this.", bad: "Sycophantic drift is when the model gradually abandons its assigned role constraints over long conversations, becoming more agreeable. Periodic re-anchoring with system prompt rules prevents it." },
+  q5: { ok: "Correct! The role defines the expert's perspective and domain vocabulary, while the audience calibrates complexity, assumed background, and vocabulary appropriateness. Together they precisely define who is speaking and to whom.", bad: "Role + audience is the combination because: the role sets the expert's lens, and the audience calibrates vocabulary complexity and assumed background — together defining both perspective and communication style." }
+};
+
+let answers = {};
+function answer(btn, qId, correct) {
+  if (answers[qId] !== undefined) return;
+  answers[qId] = correct;
+  const allBtns = btn.parentElement.querySelectorAll('.opt-btn');
+  allBtns.forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  if (!correct) allBtns.forEach(b => { if (b.onclick.toString().includes('true')) b.classList.add('correct'); });
+  const fb = document.getElementById('fb_' + qId);
+  fb.textContent = correct ? '✓ ' + feedbacks[qId].ok : '✗ ' + feedbacks[qId].bad;
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+  if (Object.keys(answers).length === 5) {
+    const score = Object.values(answers).filter(Boolean).length;
+    document.getElementById('scoreNum').textContent = score + '/5';
+    document.getElementById('scoreBanner').classList.add('show');
+  }
+}
+
+// Init
+renderRoleGrid();
+renderRoleDetail();
+renderConstraints();
+updateBuilder();
+</script>
+</body>
+</html>

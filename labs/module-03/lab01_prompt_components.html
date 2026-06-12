@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 1 — Prompt Anatomy Builder</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #f59e0b; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Component cards */
+  .comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .comp-card {
+    background: #1e293b; border: 1.5px solid #334155; border-radius: 14px; padding: 20px;
+    cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .comp-card:hover { border-color: var(--cc, #f59e0b); }
+  .comp-card.active { border-color: var(--cc, #f59e0b); background: rgba(245,158,11,0.06); }
+  .comp-card.active .comp-dot { background: var(--cc, #f59e0b); }
+  .comp-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .comp-dot { width: 10px; height: 10px; border-radius: 50%; background: #475569; transition: background 0.2s; flex-shrink: 0; }
+  .comp-num { font-size: 0.7rem; color: #475569; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .comp-name { font-size: 1rem; font-weight: 700; color: #f1f5f9; }
+  .comp-req { font-size: 0.68rem; padding: 2px 8px; border-radius: 99px; margin-left: auto; }
+  .req-always { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .req-opt   { background: rgba(71,85,105,0.4); color: #94a3b8; }
+  .comp-desc { font-size: 0.84rem; color: #94a3b8; line-height: 1.5; margin-bottom: 12px; }
+  .comp-example { background: #0f172a; border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; color: #cbd5e1; font-style: italic; line-height: 1.45; border-left: 3px solid var(--cc, #f59e0b); display: none; }
+  .comp-card.active .comp-example { display: block; }
+  .comp-toggle { font-size: 0.75rem; color: #f59e0b; margin-top: 10px; }
+
+  /* Prompt assembler */
+  .assembler { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .assembler-controls { }
+  .assembler-preview { }
+  .asm-section-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 10px; }
+
+  .toggle-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1e293b; border-radius: 8px; margin-bottom: 8px; cursor: pointer; border: 1px solid #334155; transition: border-color 0.15s; }
+  .toggle-row:hover { border-color: #f59e0b; }
+  .toggle-row.on { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.05); }
+  .toggle-check { width: 18px; height: 18px; border-radius: 4px; border: 2px solid #475569; background: transparent; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.7rem; transition: all 0.15s; }
+  .toggle-row.on .toggle-check { background: #f59e0b; border-color: #f59e0b; color: #0f172a; }
+  .toggle-label { font-size: 0.88rem; color: #cbd5e1; font-weight: 500; flex: 1; }
+  .toggle-badge { font-size: 0.66rem; padding: 2px 7px; border-radius: 99px; }
+
+  .preview-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; min-height: 320px; font-family: 'Consolas', monospace; font-size: 0.8rem; line-height: 1.6; }
+  .preview-segment { margin-bottom: 2px; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; }
+  .preview-segment.sys  { color: #818cf8; background: rgba(129,140,248,0.08); }
+  .preview-segment.ctx  { color: #34d399; background: rgba(52,211,153,0.08); }
+  .preview-segment.ex   { color: #fbbf24; background: rgba(251,191,36,0.08); }
+  .preview-segment.ins  { color: #f1f5f9; background: rgba(241,245,249,0.06); }
+  .preview-segment.data { color: #fb923c; background: rgba(251,146,60,0.08); }
+  .preview-segment.fmt  { color: #a78bfa; background: rgba(167,139,250,0.08); }
+  .preview-empty { color: #475569; font-style: italic; font-size: 0.82rem; padding: 20px 0; text-align: center; }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.74rem; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* Before/After */
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .ba-card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1.5px solid #334155; }
+  .ba-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; font-weight: 700; }
+  .ba-label.weak { color: #ef4444; }
+  .ba-label.strong { color: #10b981; }
+  .ba-prompt { background: #0f172a; border-radius: 8px; padding: 14px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.55; font-family: 'Consolas', monospace; white-space: pre-wrap; }
+  .ba-analysis { margin-top: 12px; }
+  .ba-item { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; margin-bottom: 6px; line-height: 1.4; }
+  .ba-icon { flex-shrink: 0; }
+
+  /* Tabs for before/after examples */
+  .example-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .ex-tab { padding: 7px 14px; border-radius: 8px; border: 1.5px solid #334155; background: #1e293b; color: #94a3b8; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; }
+  .ex-tab.active { background: #f59e0b; border-color: #f59e0b; color: #0f172a; font-weight: 700; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #f59e0b; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  .score-banner { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid #f59e0b; border-radius: 14px; padding: 24px; text-align: center; display: none; }
+  .score-banner.show { display: block; }
+  .score-num { font-size: 2.5rem; font-weight: 800; color: #fbbf24; }
+  .score-label { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+
+  @media (max-width: 700px) { .assembler { grid-template-columns: 1fr; } .ba-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 3 · Lab 1</div>
+  <h1>Prompt Anatomy Builder</h1>
+  <p>Explore the six components of a well-structured prompt and learn to assemble them effectively</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Component Cards -->
+  <section>
+    <h2 class="section-title">The Six Prompt Components</h2>
+    <p class="section-sub">Click each component to expand its example. Not all components are required for every prompt.</p>
+
+    <div class="comp-grid">
+      <div class="comp-card" style="--cc:#818cf8" onclick="toggleComp(this)">
+        <div class="comp-top">
+          <div class="comp-dot"></div>
+          <span class="comp-num">Component 1</span>
+          <span class="comp-name">System Prompt</span>
+          <span class="comp-req req-opt">Optional</span>
+        </div>
+        <p class="comp-desc">Sets the model's persona, role, and behavioral constraints for the entire interaction. Think of it as the "job description" for the AI.</p>
+        <div class="comp-example">You are a customer experience analyst.<br>Classify reviews with precision.<br>Always respond in valid JSON only.<br>Do not include explanations or caveats.</div>
+        <div class="comp-toggle">Click to see example ▾</div>
+      </div>
+
+      <div class="comp-card" style="--cc:#34d399" onclick="toggleComp(this)">
+        <div class="comp-top">
+          <div class="comp-dot"></div>
+          <span class="comp-num">Component 2</span>
+          <span class="comp-name">Context / Background</span>
+          <span class="comp-req req-opt">Optional</span>
+        </div>
+        <p class="comp-desc">Provides situational knowledge the model needs but doesn't have — your domain, audience, constraints, or any relevant background information.</p>
+        <div class="comp-example">## Context<br>These reviews are from an e-commerce platform for consumer electronics.<br>Customers range from technical enthusiasts to casual buyers.<br>Reviews may contain sarcasm or informal language.</div>
+        <div class="comp-toggle">Click to see example ▾</div>
+      </div>
+
+      <div class="comp-card" style="--cc:#fbbf24" onclick="toggleComp(this)">
+        <div class="comp-top">
+          <div class="comp-dot"></div>
+          <span class="comp-num">Component 3</span>
+          <span class="comp-name">Examples (Few-Shot)</span>
+          <span class="comp-req req-opt">Optional</span>
+        </div>
+        <p class="comp-desc">Demonstrates the desired input→output behavior. Conditions the model's output toward your expected format and style without updating model weights.</p>
+        <div class="comp-example">Example 1:<br>Review: "Great product, fast delivery!"<br>Output: {"sentiment": "positive", "confidence": 0.95}<br><br>Example 2:<br>Review: "Broke after two days, terrible quality."<br>Output: {"sentiment": "negative", "confidence": 0.98}</div>
+        <div class="comp-toggle">Click to see example ▾</div>
+      </div>
+
+      <div class="comp-card" style="--cc:#f1f5f9" onclick="toggleComp(this)">
+        <div class="comp-top">
+          <div class="comp-dot"></div>
+          <span class="comp-num">Component 4</span>
+          <span class="comp-name">Instruction</span>
+          <span class="comp-req req-always">Always Required</span>
+        </div>
+        <p class="comp-desc">The explicit task directive — what you want the model to do. Use clear imperative verbs: Classify, Extract, Summarize, Generate, Analyze, Compare.</p>
+        <div class="comp-example">Analyze the following customer review and classify its sentiment.<br>Identify the key phrases that drive the sentiment.</div>
+        <div class="comp-toggle">Click to see example ▾</div>
+      </div>
+
+      <div class="comp-card" style="--cc:#fb923c" onclick="toggleComp(this)">
+        <div class="comp-top">
+          <div class="comp-dot"></div>
+          <span class="comp-num">Component 5</span>
+          <span class="comp-name">Input Data</span>
+          <span class="comp-req req-opt">Often Required</span>
+        </div>
+        <p class="comp-desc">The content to act on — a document, code snippet, text, or data. Always delimit it clearly from the instruction to prevent prompt injection.</p>
+        <div class="comp-example">Review: """<br>The laptop runs fast and the battery lasts<br>all day. Setup was a breeze. However, the<br>keyboard feels shallow compared to my old one.<br>"""</div>
+        <div class="comp-toggle">Click to see example ▾</div>
+      </div>
+
+      <div class="comp-card" style="--cc:#a78bfa" onclick="toggleComp(this)">
+        <div class="comp-top">
+          <div class="comp-dot"></div>
+          <span class="comp-num">Component 6</span>
+          <span class="comp-name">Output Format Spec</span>
+          <span class="comp-req req-opt">Optional</span>
+        </div>
+        <p class="comp-desc">Tells the model exactly how to structure its response — JSON schema, length limits, format type, tone, and any constraints on the output.</p>
+        <div class="comp-example">Respond in JSON with exactly these keys:<br>- sentiment: "positive" | "negative" | "neutral" | "mixed"<br>- confidence: float 0.0–1.0<br>- key_phrases: array of strings<br>- summary: one sentence<br><br>Do not include any other text.</div>
+        <div class="comp-toggle">Click to see example ▾</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: Interactive Assembler -->
+  <section>
+    <h2 class="section-title">Interactive Prompt Assembler</h2>
+    <p class="section-sub">Toggle components on/off to see how they build up a complete prompt in the preview panel.</p>
+
+    <div class="assembler">
+      <div class="assembler-controls">
+        <div class="asm-section-label">Select components to include</div>
+
+        <div class="toggle-row on" onclick="togglePart('sys', this)">
+          <div class="toggle-check">✓</div>
+          <span class="toggle-label">System Prompt</span>
+          <span class="toggle-badge req-opt">Optional</span>
+        </div>
+        <div class="toggle-row on" onclick="togglePart('ctx', this)">
+          <div class="toggle-check">✓</div>
+          <span class="toggle-label">Context / Background</span>
+          <span class="toggle-badge req-opt">Optional</span>
+        </div>
+        <div class="toggle-row on" onclick="togglePart('ex', this)">
+          <div class="toggle-check">✓</div>
+          <span class="toggle-label">Examples (Few-Shot)</span>
+          <span class="toggle-badge req-opt">Optional</span>
+        </div>
+        <div class="toggle-row on" onclick="togglePart('ins', this)" style="cursor:default; opacity:0.7;">
+          <div class="toggle-check">✓</div>
+          <span class="toggle-label">Instruction</span>
+          <span class="toggle-badge req-always">Always Required</span>
+        </div>
+        <div class="toggle-row on" onclick="togglePart('data', this)">
+          <div class="toggle-check">✓</div>
+          <span class="toggle-label">Input Data</span>
+          <span class="toggle-badge req-opt">Often Required</span>
+        </div>
+        <div class="toggle-row on" onclick="togglePart('fmt', this)">
+          <div class="toggle-check">✓</div>
+          <span class="toggle-label">Output Format Spec</span>
+          <span class="toggle-badge req-opt">Optional</span>
+        </div>
+
+        <div style="margin-top: 16px; padding: 12px 14px; background: rgba(245,158,11,0.08); border-radius: 8px; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5;">
+          <strong style="color:#fbbf24;">Tip:</strong> A minimal valid prompt needs just the <strong>Instruction</strong>. Each additional component narrows the model's output distribution toward what you actually want.
+        </div>
+      </div>
+
+      <div class="assembler-preview">
+        <div class="asm-section-label">Live prompt preview</div>
+        <div class="preview-box" id="previewBox">
+          <div class="preview-segment sys" id="pSys">
+            <span style="color:#64748b;">[SYSTEM]</span> You are a customer experience analyst. Classify reviews with precision. Always respond in valid JSON only.
+          </div>
+          <div class="preview-segment ctx" id="pCtx">
+            <span style="color:#64748b;">## Context</span>
+            Reviews are from an e-commerce electronics platform. Customers may use informal language or sarcasm.
+          </div>
+          <div class="preview-segment ex" id="pEx">
+            <span style="color:#64748b;">## Example</span>
+            Review: "Broke after two days." → {"sentiment": "negative", "confidence": 0.98}
+          </div>
+          <div class="preview-segment ins" id="pIns">
+            <span style="color:#64748b;">## Task</span>
+            Analyze the following customer review and classify its sentiment. Identify key phrases.
+          </div>
+          <div class="preview-segment data" id="pData">
+            <span style="color:#64748b;">## Review</span>
+            """The laptop runs fast and battery lasts all day. Setup was easy. However, keyboard feels shallow."""
+          </div>
+          <div class="preview-segment fmt" id="pFmt">
+            <span style="color:#64748b;">## Output Format</span>
+            JSON: {"sentiment": "positive|negative|neutral|mixed", "confidence": 0.0–1.0, "key_phrases": [...], "summary": "..."}
+          </div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#818cf8"></div><span style="color:#818cf8;font-size:0.74rem;">System</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div><span style="color:#34d399;font-size:0.74rem;">Context</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div><span style="color:#fbbf24;font-size:0.74rem;">Examples</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f1f5f9"></div><span style="color:#f1f5f9;font-size:0.74rem;">Instruction</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div><span style="color:#fb923c;font-size:0.74rem;">Input Data</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div><span style="color:#a78bfa;font-size:0.74rem;">Format Spec</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Before/After Comparison -->
+  <section>
+    <h2 class="section-title">Weak vs Strong Prompts</h2>
+    <p class="section-sub">See how adding components transforms a vague prompt into a precise, reliable one.</p>
+
+    <div class="example-tabs">
+      <button class="ex-tab active" onclick="showBA(0, this)">Sentiment Analysis</button>
+      <button class="ex-tab" onclick="showBA(1, this)">Code Review</button>
+      <button class="ex-tab" onclick="showBA(2, this)">Email Writing</button>
+    </div>
+
+    <div id="ba0" class="ba-grid">
+      <div class="ba-card">
+        <div class="ba-label weak">✗ Weak Prompt</div>
+        <div class="ba-prompt">Analyze this review.</div>
+        <div class="ba-analysis">
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No instruction verb — "analyze" is ambiguous</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No output format — prose, JSON, table?</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No context about the domain or audience</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No data delimiters — ambiguous boundaries</span></div>
+        </div>
+      </div>
+      <div class="ba-card">
+        <div class="ba-label strong">✓ Strong Prompt</div>
+        <div class="ba-prompt">You are a customer analytics AI. Reviews are from an e-commerce electronics platform.
+
+Classify the sentiment of this customer review.
+
+Review: """
+The laptop runs fast but the fan is loud.
+"""
+
+Return JSON: {"sentiment": "positive|negative|neutral|mixed", "confidence": 0.0–1.0, "key_phrases": [...]}</div>
+        <div class="ba-analysis">
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Clear persona via system prompt</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Domain context provided</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Input data clearly delimited with triple quotes</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Explicit JSON output schema specified</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ba1" class="ba-grid" style="display:none;">
+      <div class="ba-card">
+        <div class="ba-label weak">✗ Weak Prompt</div>
+        <div class="ba-prompt">Fix the bug in my code.</div>
+        <div class="ba-analysis">
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No code provided — model has nothing to act on</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No description of what the bug is or does</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No language, framework, or version context</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No expectation for explanation vs just the fix</span></div>
+        </div>
+      </div>
+      <div class="ba-card">
+        <div class="ba-label strong">✓ Strong Prompt</div>
+        <div class="ba-prompt">You are a senior Python engineer. The codebase uses Python 3.11 and FastAPI.
+
+Identify and fix the null pointer exception in the function below. Explain what caused it in one sentence.
+
+```python
+def get_user(user_id):
+    user = db.find(user_id)
+    return user.name  # crashes here
+```
+
+Return: fixed code block + one-sentence explanation.</div>
+        <div class="ba-analysis">
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Expert role persona set</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Language and version context provided</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Code delimited in a code block</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Expected output format (code + explanation) specified</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ba2" class="ba-grid" style="display:none;">
+      <div class="ba-card">
+        <div class="ba-label weak">✗ Weak Prompt</div>
+        <div class="ba-prompt">Write an email declining the vendor.</div>
+        <div class="ba-analysis">
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No tone or formality level specified</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No length constraint — could be 10 or 500 words</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No context about why declining or the relationship</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#ef4444">✗</span><span style="color:#94a3b8;">No constraints on what to avoid (apologies, etc.)</span></div>
+        </div>
+      </div>
+      <div class="ba-card">
+        <div class="ba-label strong">✓ Strong Prompt</div>
+        <div class="ba-prompt">Write a professional email declining a software vendor's proposal.
+
+Context: We evaluated their project management tool but chose a competitor. We want to maintain a positive relationship for future consideration.
+
+Constraints:
+- Tone: polite but firm
+- Length: under 80 words
+- Do NOT include apologies
+- Do NOT mention the competitor by name
+- End with an open door for future contact</div>
+        <div class="ba-analysis">
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Tone and length explicitly specified</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Business context provided</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Clear positive constraints (what TO do)</span></div>
+          <div class="ba-item"><span class="ba-icon" style="color:#10b981">✓</span><span style="color:#94a3b8;">Specific negative constraints (what NOT to do)</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section>
+    <h2 class="section-title">Self-Check Quiz</h2>
+    <p class="section-sub">5 questions · Select an answer to see immediate feedback</p>
+
+    <div class="quiz-card" id="q1">
+      <div class="question">1. Which prompt component is the ONLY one that is always required in every prompt?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q1',false)">A. System Prompt — it sets the model's behavior</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">B. Output Format Specification — structure is critical</button>
+        <button class="opt-btn" onclick="answer(this,'q1',true)">C. Instruction — the explicit task directive</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">D. Context / Background — without it the model guesses</button>
+      </div>
+      <div class="feedback" id="fb_q1"></div>
+    </div>
+
+    <div class="quiz-card" id="q2">
+      <div class="question">2. Why should you use delimiters (triple quotes, XML tags) around input data?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q2',false)">A. To make the prompt look more professional</button>
+        <button class="opt-btn" onclick="answer(this,'q2',true)">B. To prevent the model from confusing instructions with content and to guard against prompt injection</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">C. To reduce the token count and lower API costs</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">D. It is a strict API requirement on all OpenAI models</button>
+      </div>
+      <div class="feedback" id="fb_q2"></div>
+    </div>
+
+    <div class="quiz-card" id="q3">
+      <div class="question">3. The instruction "Don't make the response too long" is weaker than "Respond in exactly 3 sentences." Why?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q3',false)">A. Negations use more tokens and are expensive</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">B. The second version uses the word "exactly" which is a magic keyword</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">C. Models follow positive directives more reliably than negations; "3 sentences" is specific and measurable</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">D. There is no real difference — both produce the same result</button>
+      </div>
+      <div class="feedback" id="fb_q3"></div>
+    </div>
+
+    <div class="quiz-card" id="q4">
+      <div class="question">4. Adding a system prompt to your API call primarily achieves what?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. It increases the model's intelligence for that session</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">B. It sets persistent persona, rules, and constraints that apply to all turns in the conversation</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">C. It replaces the need for a user message entirely</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. It enables the model to access external tools and data</button>
+      </div>
+      <div class="feedback" id="fb_q4"></div>
+    </div>
+
+    <div class="quiz-card" id="q5">
+      <div class="question">5. For a classification task with fixed label choices, which temperature setting is most appropriate?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. 1.5 — high creativity produces the best classifications</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">B. 0.7 — the default balanced setting</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">C. 1.0 — matches human-level randomness</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">D. 0.0 — deterministic output ensures consistent classification</button>
+      </div>
+      <div class="feedback" id="fb_q5"></div>
+    </div>
+
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-num" id="scoreNum">0/5</div>
+      <div class="score-label">Quiz complete! Review any incorrect answers above.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// Component toggle
+function toggleComp(card) {
+  card.classList.toggle('active');
+  const toggle = card.querySelector('.comp-toggle');
+  toggle.textContent = card.classList.contains('active') ? 'Click to hide ▴' : 'Click to see example ▾';
+}
+
+// Assembler toggle
+const partIds = { sys: 'pSys', ctx: 'pCtx', ex: 'pEx', ins: 'pIns', data: 'pData', fmt: 'pFmt' };
+function togglePart(part, row) {
+  if (part === 'ins') return; // instruction always required
+  row.classList.toggle('on');
+  const el = document.getElementById(partIds[part]);
+  el.style.display = row.classList.contains('on') ? 'block' : 'none';
+  row.querySelector('.toggle-check').textContent = row.classList.contains('on') ? '✓' : '';
+}
+
+// Before/After tabs
+function showBA(idx, btn) {
+  document.querySelectorAll('[id^="ba"]').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.ex-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('ba' + idx).style.display = 'grid';
+  btn.classList.add('active');
+}
+
+// Quiz
+const feedbacks = {
+  q1: { ok: "Correct! The Instruction is the only mandatory component — it tells the model what task to perform. Everything else enhances precision.", bad: "Not quite. The Instruction (the task directive) is the only always-required component. Others improve quality but aren't strictly mandatory." },
+  q2: { ok: "Correct! Delimiters prevent the model from treating injected user content as your instructions — a key defense against prompt injection attacks.", bad: "The primary reason is security and clarity: delimiters separate your instructions from the input data, preventing prompt injection." },
+  q3: { ok: "Correct! Models handle positive constraints more reliably. '3 sentences' gives the model a concrete, measurable target; 'not too long' is subjective.", bad: "The key insight is that positive constraints ('do X') are more reliable than negations ('don't do Y'). Specificity reduces ambiguity." },
+  q4: { ok: "Correct! The system prompt persists across all turns in a conversation, making it the right place to set the model's persona, rules, and constraints.", bad: "The system prompt sets the persona, role, and behavioral rules that persist for the entire conversation — not a one-time instruction." },
+  q5: { ok: "Correct! Temperature 0.0 produces deterministic, consistent output — essential for classification tasks where you want the same input to always produce the same label.", bad: "For classification, use temperature=0.0. Higher temperatures introduce randomness, causing the same input to be classified differently across runs." }
+};
+
+let answers = {};
+function answer(btn, qId, correct) {
+  if (answers[qId] !== undefined) return;
+  answers[qId] = correct;
+  const allBtns = btn.parentElement.querySelectorAll('.opt-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  if (!correct) {
+    allBtns.forEach(b => { if (b.onclick.toString().includes('true')) b.classList.add('correct'); });
+  }
+  const fb = document.getElementById('fb_' + qId);
+  fb.textContent = correct ? '✓ ' + feedbacks[qId].ok : '✗ ' + feedbacks[qId].bad;
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+  if (Object.keys(answers).length === 5) {
+    const score = Object.values(answers).filter(Boolean).length;
+    document.getElementById('scoreNum').textContent = score + '/5';
+    document.getElementById('scoreBanner').classList.add('show');
+  }
+}
+</script>
+</body>
+</html>

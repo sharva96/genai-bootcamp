@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 5 — Prompt Optimization Lab</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #f59e0b; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Refinement flow */
+  .version-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+  .version-btn {
+    padding: 8px 16px; border-radius: 8px; border: 1.5px solid #334155;
+    background: #1e293b; color: #94a3b8; font-size: 0.84rem; cursor: pointer; transition: all 0.15s;
+  }
+  .version-btn:hover { border-color: #f59e0b; }
+  .version-btn.active { background: #f59e0b; border-color: #f59e0b; color: #0f172a; font-weight: 700; }
+  .arrow { color: #334155; font-size: 1.1rem; }
+
+  .version-panel { display: none; }
+  .version-panel.active { display: block; animation: fadeIn 0.25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .v-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .v-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; margin-bottom: 8px; }
+  .prompt-box { background: #1e293b; border-radius: 10px; padding: 16px; font-family: 'Consolas', monospace; font-size: 0.78rem; color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; border: 1px solid #334155; min-height: 160px; }
+
+  .test-results { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; }
+  .test-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #0f172a; font-size: 0.8rem; }
+  .test-row:last-child { border-bottom: none; }
+  .test-name { color: #94a3b8; flex: 1; }
+  .test-pass { color: #10b981; font-size: 0.9rem; flex-shrink: 0; }
+  .test-fail { color: #ef4444; font-size: 0.9rem; flex-shrink: 0; }
+  .test-note { color: #64748b; font-size: 0.74rem; flex: 1; font-style: italic; }
+
+  .pass-rate { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 14px; background: #0f172a; border-radius: 8px; }
+  .pr-bar-wrap { flex: 1; background: #334155; border-radius: 99px; height: 12px; overflow: hidden; }
+  .pr-bar-fill { height: 100%; border-radius: 99px; transition: width 0.5s; }
+  .pr-label { font-size: 0.9rem; font-weight: 700; min-width: 45px; text-align: right; }
+
+  .improvement-note { margin-top: 12px; padding: 10px 14px; background: rgba(245,158,11,0.08); border-radius: 8px; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; }
+
+  /* Failure mode matcher */
+  .fm-game { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .fm-scenario { background: #0f172a; border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+  .fm-symptom { font-size: 0.9rem; color: #f1f5f9; margin-bottom: 8px; font-style: italic; }
+  .fm-detail  { font-size: 0.8rem; color: #94a3b8; line-height: 1.4; margin-bottom: 12px; }
+  .fm-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .fm-btn { background: #1e293b; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 14px; color: #94a3b8; font-size: 0.82rem; cursor: pointer; text-align: left; transition: all 0.15s; line-height: 1.4; }
+  .fm-btn:hover:not(:disabled) { border-color: #f59e0b; color: #e2e8f0; }
+  .fm-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .fm-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .fm-feedback { display: none; margin-top: 10px; padding: 10px 14px; border-radius: 8px; font-size: 0.82rem; line-height: 1.5; }
+  .fm-feedback.show { display: block; }
+  .fm-feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .fm-feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+  .fm-nav { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+  .fm-nav-btn { background: #334155; border: none; color: #cbd5e1; padding: 8px 16px; border-radius: 7px; cursor: pointer; font-size: 0.84rem; transition: background 0.15s; }
+  .fm-nav-btn:hover { background: #475569; }
+  .fm-progress { font-size: 0.82rem; color: #64748b; }
+
+  /* Evaluation dashboard */
+  .eval-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .eval-card { background: #1e293b; border-radius: 12px; padding: 18px; border: 1.5px solid #334155; }
+  .eval-card.highlight { border-color: rgba(245,158,11,0.5); }
+  .eval-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .eval-name { font-size: 0.9rem; font-weight: 700; color: #f1f5f9; }
+  .eval-score { font-family: 'Consolas', monospace; font-size: 1.2rem; font-weight: 700; }
+  .eval-question { font-size: 0.78rem; color: #64748b; margin-bottom: 8px; font-style: italic; }
+  .eval-bar { background: #0f172a; border-radius: 99px; height: 8px; overflow: hidden; margin-bottom: 8px; }
+  .eval-bar-fill { height: 100%; border-radius: 99px; }
+  .eval-how { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; }
+
+  /* Techniques reference */
+  .technique-list { display: grid; gap: 12px; }
+  .technique-item { background: #1e293b; border-radius: 12px; padding: 18px 20px; border: 1px solid #334155; display: grid; grid-template-columns: 180px 1fr auto; gap: 16px; align-items: start; cursor: pointer; }
+  .technique-item:hover { border-color: #f59e0b; }
+  .tech-name { font-size: 0.9rem; font-weight: 700; color: #fbbf24; }
+  .tech-when { font-size: 0.8rem; color: #94a3b8; line-height: 1.45; }
+  .tech-cost { font-size: 0.74rem; padding: 3px 9px; border-radius: 99px; text-align: center; align-self: start; }
+  .cost-low  { background: rgba(16,185,129,0.12); color: #6ee7b7; }
+  .cost-med  { background: rgba(245,158,11,0.12);  color: #fbbf24; }
+  .cost-high { background: rgba(239,68,68,0.12);   color: #fca5a5; }
+
+  .tech-detail { display: none; grid-column: 1 / -1; border-top: 1px solid #334155; padding-top: 12px; margin-top: 10px; font-size: 0.82rem; color: #94a3b8; line-height: 1.55; }
+  .tech-detail.open { display: block; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #f59e0b; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  .score-banner { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid #f59e0b; border-radius: 14px; padding: 24px; text-align: center; display: none; }
+  .score-banner.show { display: block; }
+  .score-num { font-size: 2.5rem; font-weight: 800; color: #fbbf24; }
+  .score-label { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+
+  @media (max-width: 700px) {
+    .v-grid { grid-template-columns: 1fr; }
+    .fm-options { grid-template-columns: 1fr; }
+    .technique-item { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 3 · Lab 5</div>
+  <h1>Prompt Optimization Lab</h1>
+  <p>Learn systematic techniques to diagnose failures, iterate prompts, and evaluate quality</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Iterative Refinement -->
+  <section>
+    <h2 class="section-title">Iterative Refinement in Action</h2>
+    <p class="section-sub">Follow a real prompt through 4 versions of refinement. Each version fixes a specific failure mode identified in testing.</p>
+
+    <div class="version-nav">
+      <button class="version-btn active" onclick="showVersion(0, this)">v1 — Baseline</button>
+      <span class="arrow">→</span>
+      <button class="version-btn" onclick="showVersion(1, this)">v2 — Add Structure</button>
+      <span class="arrow">→</span>
+      <button class="version-btn" onclick="showVersion(2, this)">v3 — Add Format</button>
+      <span class="arrow">→</span>
+      <button class="version-btn" onclick="showVersion(3, this)">v4 — Production</button>
+    </div>
+
+    <div id="v0" class="version-panel active">
+      <div class="v-grid">
+        <div>
+          <div class="v-label">Prompt (v1 — Vague Baseline)</div>
+          <div class="prompt-box">What are the action items from these meeting notes?
+
+Weekly sync - June 10, 2025
+
+Sarah will update the API documentation by end of week.
+John needs to review the security audit report before the board meeting on June 20.
+The team agreed to migrate to Python 3.12 next sprint.
+Alex should follow up with the vendor about the delayed hardware shipment.
+Budget approval for the new ML cluster is pending - finance team to confirm by June 15.</div>
+        </div>
+        <div>
+          <div class="v-label">Test Results</div>
+          <div class="test-results">
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Items identified</span><span class="test-note">But buried in prose</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Consistent format</span><span class="test-note">Free-form paragraph output</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Owner extraction</span><span class="test-note">Names mixed with descriptions</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Deadline extraction</span><span class="test-note">Dates mentioned inline, not extracted</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Machine-parseable</span><span class="test-note">Prose response — can't parse programmatically</span></div>
+          </div>
+          <div class="pass-rate">
+            <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:20%; background:#ef4444;"></div></div>
+            <div class="pr-label" style="color:#ef4444;">20%</div>
+          </div>
+          <div class="improvement-note"><strong style="color:#fbbf24;">Problem identified:</strong> No structure guidance — model responds with a prose paragraph listing items. Owner, task, and deadline are not separated.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="v1" class="version-panel">
+      <div class="v-grid">
+        <div>
+          <div class="v-label">Prompt (v2 — Add Structure)</div>
+          <div class="prompt-box">Extract all action items from the following meeting notes.
+For each action item, identify: who is responsible, what the task is, and the deadline.
+
+Weekly sync - June 10, 2025
+
+Sarah will update the API documentation by end of week.
+John needs to review the security audit report before the board meeting on June 20.
+The team agreed to migrate to Python 3.12 next sprint.
+Alex should follow up with the vendor about the delayed hardware shipment.
+Budget approval for the new ML cluster is pending - finance team to confirm by June 15.</div>
+        </div>
+        <div>
+          <div class="v-label">Test Results</div>
+          <div class="test-results">
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Items identified</span><span class="test-note">All 5 found correctly</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Owner extraction</span><span class="test-note">Names extracted correctly</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Deadline extraction</span><span class="test-note">Most dates found</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Consistent format</span><span class="test-note">Varies: bullet lists, numbered, table</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Machine-parseable</span><span class="test-note">Still prose — can't parse reliably</span></div>
+          </div>
+          <div class="pass-rate">
+            <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:60%; background:#fbbf24;"></div></div>
+            <div class="pr-label" style="color:#fbbf24;">60%</div>
+          </div>
+          <div class="improvement-note"><strong style="color:#fbbf24;">Progress:</strong> Content quality improved but output format is still inconsistent. Need to specify exact output structure to enable programmatic parsing.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="v2" class="version-panel">
+      <div class="v-grid">
+        <div>
+          <div class="v-label">Prompt (v3 — Add Output Format)</div>
+          <div class="prompt-box">Extract all action items from the meeting notes below.
+
+Return a JSON array where each item has:
+- "owner": person responsible (string)
+- "task": description of the action (string)
+- "deadline": due date or "unspecified" if not mentioned (string)
+
+Return ONLY the JSON array. No explanation.
+
+Meeting notes:
+"""
+Weekly sync - June 10, 2025
+
+Sarah will update the API documentation by end of week.
+John needs to review the security audit report before the board meeting on June 20.
+The team agreed to migrate to Python 3.12 next sprint.
+Alex should follow up with the vendor about the delayed hardware shipment.
+Budget approval for the new ML cluster is pending - finance team to confirm by June 15.
+"""</div>
+        </div>
+        <div>
+          <div class="v-label">Test Results</div>
+          <div class="test-results">
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Items identified</span><span class="test-note">All 5 found</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">JSON format</span><span class="test-note">Valid JSON ~85% of runs</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Owner extraction</span><span class="test-note">Correct including "The team"</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Date format</span><span class="test-note">"June 15" vs "2025-06-15" — inconsistent</span></div>
+            <div class="test-row"><span class="test-fail">✗</span><span class="test-name">Inferred deadlines</span><span class="test-note">"next sprint" kept as text, not flagged</span></div>
+          </div>
+          <div class="pass-rate">
+            <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:75%; background:#fbbf24;"></div></div>
+            <div class="pr-label" style="color:#fbbf24;">75%</div>
+          </div>
+          <div class="improvement-note"><strong style="color:#fbbf24;">Progress:</strong> JSON output now consistent. Remaining issues: date format inconsistency and relative deadlines ("next sprint") not normalized. Need explicit rules for these edge cases.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="v3" class="version-panel">
+      <div class="v-grid">
+        <div>
+          <div class="v-label">Prompt (v4 — Production)</div>
+          <div class="prompt-box">You are a meeting summarizer. Extract action items precisely. Return only valid JSON.
+
+Extract all action items from these meeting notes.
+
+Each action item must include:
+- "owner": exact name of the responsible person
+- "task": clear description of what must be done
+- "deadline": specific date in YYYY-MM-DD format, or "unspecified"
+
+Rules:
+- Include ONLY items with a clear owner and task
+- "The team" is a valid owner
+- Do NOT infer deadlines not explicitly stated
+- Relative dates like "next sprint" → "unspecified"
+- "End of week" from a June 10 meeting → "2025-06-13"
+
+Return a JSON array only.
+
+Meeting notes:
+"""
+Weekly sync - June 10, 2025
+
+Sarah will update the API documentation by end of week.
+John needs to review the security audit report before the board meeting on June 20.
+The team agreed to migrate to Python 3.12 next sprint.
+Alex should follow up with the vendor about the delayed hardware shipment.
+Budget approval for the new ML cluster is pending - finance team to confirm by June 15.
+"""</div>
+        </div>
+        <div>
+          <div class="v-label">Test Results</div>
+          <div class="test-results">
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Items identified</span><span class="test-note">All 5 found</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Valid JSON</span><span class="test-note">100% of runs — system prompt + rules</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Date format</span><span class="test-note">YYYY-MM-DD consistently applied</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">Relative dates</span><span class="test-note">"next sprint" → "unspecified" correctly</span></div>
+            <div class="test-row"><span class="test-pass">✓</span><span class="test-name">"End of week" resolution</span><span class="test-note">Resolved to 2025-06-13 correctly</span></div>
+          </div>
+          <div class="pass-rate">
+            <div class="pr-bar-wrap"><div class="pr-bar-fill" style="width:96%; background:#10b981;"></div></div>
+            <div class="pr-label" style="color:#10b981;">96%</div>
+          </div>
+          <div class="improvement-note" style="border-color:#10b981; background:rgba(16,185,129,0.08);"><strong style="color:#10b981;">Production Ready:</strong> System prompt sets reliable persona. Explicit rules handle every edge case found during testing. Date format is standardized. v1→v4 = 20% → 96% pass rate.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: Failure Mode Matcher -->
+  <section>
+    <h2 class="section-title">Failure Mode Diagnosis Game</h2>
+    <p class="section-sub">Read each symptom and identify the correct failure mode. Then see the fix.</p>
+
+    <div class="fm-game">
+      <div id="fmContent"></div>
+      <div class="fm-nav">
+        <button class="fm-nav-btn" onclick="prevScenario()">← Prev</button>
+        <button class="fm-nav-btn" onclick="nextScenario()">Next →</button>
+        <span class="fm-progress" id="fmProgress"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Evaluation Dimensions -->
+  <section>
+    <h2 class="section-title">Prompt Evaluation Dashboard</h2>
+    <p class="section-sub">Six dimensions to evaluate before declaring a prompt production-ready. A prompt that passes 3 test cases is not necessarily ready to ship.</p>
+
+    <div class="eval-grid">
+      <div class="eval-card highlight">
+        <div class="eval-header"><div class="eval-name">Accuracy</div><div class="eval-score" style="color:#10b981;">94%</div></div>
+        <div class="eval-question">"Is the output factually correct or correctly classified?"</div>
+        <div class="eval-bar"><div class="eval-bar-fill" style="width:94%; background:#10b981;"></div></div>
+        <div class="eval-how">Measure: % correct on a labeled test set of 50+ diverse inputs. Must include hard cases.</div>
+      </div>
+      <div class="eval-card">
+        <div class="eval-header"><div class="eval-name">Format Compliance</div><div class="eval-score" style="color:#10b981;">98%</div></div>
+        <div class="eval-question">"Does output match the required structure?"</div>
+        <div class="eval-bar"><div class="eval-bar-fill" style="width:98%; background:#10b981;"></div></div>
+        <div class="eval-how">Measure: % of responses that are valid JSON / correct table format / correct list structure.</div>
+      </div>
+      <div class="eval-card">
+        <div class="eval-header"><div class="eval-name">Consistency</div><div class="eval-score" style="color:#fbbf24;">82%</div></div>
+        <div class="eval-question">"Does the same input always produce equivalent output?"</div>
+        <div class="eval-bar"><div class="eval-bar-fill" style="width:82%; background:#fbbf24;"></div></div>
+        <div class="eval-how">Measure: Run same input 5x with temperature=0. Track variance in classification or key fields.</div>
+      </div>
+      <div class="eval-card">
+        <div class="eval-header"><div class="eval-name">Robustness</div><div class="eval-score" style="color:#fbbf24;">76%</div></div>
+        <div class="eval-question">"Does it handle edge cases and adversarial inputs?"</div>
+        <div class="eval-bar"><div class="eval-bar-fill" style="width:76%; background:#fbbf24;"></div></div>
+        <div class="eval-how">Measure: Pass rate on adversarial inputs: empty strings, very long text, special chars, other languages.</div>
+      </div>
+      <div class="eval-card">
+        <div class="eval-header"><div class="eval-name">Latency</div><div class="eval-score" style="color:#10b981;">P95: 2.1s</div></div>
+        <div class="eval-question">"How fast does it respond at scale?"</div>
+        <div class="eval-bar"><div class="eval-bar-fill" style="width:85%; background:#10b981;"></div></div>
+        <div class="eval-how">Measure: P50 and P95 response time across 100+ real calls. Track separately per model.</div>
+      </div>
+      <div class="eval-card">
+        <div class="eval-header"><div class="eval-name">Token Efficiency</div><div class="eval-score" style="color:#fbbf24;">420 avg</div></div>
+        <div class="eval-question">"How many tokens consumed per call?"</div>
+        <div class="eval-bar"><div class="eval-bar-fill" style="width:65%; background:#fbbf24;"></div></div>
+        <div class="eval-how">Measure: Average tokens (prompt + completion) per request × expected monthly volume = projected cost.</div>
+      </div>
+    </div>
+
+    <div style="padding: 14px 16px; background: rgba(245,158,11,0.08); border-radius: 10px; border-left: 3px solid #f59e0b; font-size: 0.84rem; color: #cbd5e1; line-height: 1.5;">
+      <strong style="color:#fbbf24;">Deployment threshold recommendation:</strong> Accuracy ≥ 90%, Format compliance ≥ 95%, Consistency ≥ 90% on a test set of 50+ inputs. Robustness and efficiency are secondary but should be tracked from day one.
+    </div>
+  </section>
+
+  <!-- Section 4: Optimization Techniques -->
+  <section>
+    <h2 class="section-title">Optimization Technique Reference</h2>
+    <p class="section-sub">Six key techniques — click any row to expand details.</p>
+
+    <div class="technique-list">
+      <div class="technique-item" onclick="toggleTech(this)">
+        <div><div class="tech-name">Temperature Tuning</div></div>
+        <div class="tech-when">Most impactful for: structured outputs, classification consistency, creative tasks that need variability</div>
+        <div class="tech-cost cost-low">Free</div>
+        <div class="tech-detail">Use 0.0 for classification and extraction. Use 0.3–0.5 for summarization. Use 0.7–1.0 for brainstorming. Never use >0.3 for JSON output — inconsistency rises sharply. Check that temperature is set per-call, not just default-assumed.</div>
+      </div>
+      <div class="technique-item" onclick="toggleTech(this)">
+        <div><div class="tech-name">Prompt Decomposition</div></div>
+        <div class="tech-when">Use when a single prompt requires more than 2–3 sequential operations (extract, classify, summarize, act)</div>
+        <div class="tech-cost cost-med">+Latency</div>
+        <div class="tech-detail">Break a complex task into a pipeline of 2–5 targeted prompts. Each prompt does one thing well. Pass the output of one prompt as the input to the next. This improves accuracy on each step and makes debugging much easier — you can see exactly where the pipeline breaks.</div>
+      </div>
+      <div class="technique-item" onclick="toggleTech(this)">
+        <div><div class="tech-name">Chain-of-Thought (CoT)</div></div>
+        <div class="tech-when">Use for reasoning-heavy tasks: math, logic, multi-step analysis, eligibility decisions</div>
+        <div class="tech-cost cost-med">+Tokens</div>
+        <div class="tech-detail">Add "Think step by step" or "Work through this step by step, then give your final answer." The model "writes out" intermediate reasoning, which becomes context for the final answer. CoT dramatically improves accuracy on arithmetic, logical, and multi-step decision problems. The reasoning tokens add cost but reduce errors significantly.</div>
+      </div>
+      <div class="technique-item" onclick="toggleTech(this)">
+        <div><div class="tech-name">Self-Consistency</div></div>
+        <div class="tech-when">Use for high-stakes reasoning where accuracy is critical and cost/latency tolerance is high</div>
+        <div class="tech-cost cost-high">High cost (Nx)</div>
+        <div class="tech-detail">Generate 5–7 responses to the same question with temperature=0.7, then take the majority vote. This averages out individual model errors. Best for: exam-style reasoning, critical decisions, cases where a single model error is costly. Tradeoff: 5× the cost and latency. Use sparingly in production — only where the accuracy gain justifies the cost.</div>
+      </div>
+      <div class="technique-item" onclick="toggleTech(this)">
+        <div><div class="tech-name">Negative Examples</div></div>
+        <div class="tech-when">Use when zero-shot or standard few-shot produces a specific, reproducible error on a category</div>
+        <div class="tech-cost cost-low">+Tokens</div>
+        <div class="tech-detail">Show the model what BAD output looks like, labeled as incorrect, alongside the correct version. This is especially effective for: classification boundary errors (model confuses two adjacent categories), over-eager classifications (model marks everything as urgent), systematic format errors. Add: "BAD EXAMPLE — do not do this: [wrong output]" followed by "GOOD EXAMPLE: [correct output]".</div>
+      </div>
+      <div class="technique-item" onclick="toggleTech(this)">
+        <div><div class="tech-name">Context Window Optimization</div></div>
+        <div class="tech-when">Use when prompt length is high, costs are a concern, or latency is sensitive to prompt size</div>
+        <div class="tech-cost cost-low">Free</div>
+        <div class="tech-detail">Techniques: (1) Abbreviate labels: "pos/neg/neu" saves 2 tokens per occurrence. (2) Use compact JSON keys: {"s":"pos","c":0.9} vs {"sentiment":"positive","confidence":0.9}. (3) Strip document boilerplate before inserting. (4) Move static instructions to the system prompt (cached). (5) Truncate documents to relevant sections using a fast/cheap model first. Token costs are usage × price/token — optimization compounds over millions of calls.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section>
+    <h2 class="section-title">Self-Check Quiz</h2>
+    <p class="section-sub">5 questions · Select an answer to see immediate feedback</p>
+
+    <div class="quiz-card" id="q1">
+      <div class="question">1. A prompt achieves 94% accuracy on your test suite of 50 inputs. A colleague says "ship it." What should you check FIRST before agreeing?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q1',false)">A. Add more examples to the test suite until you reach 100% before evaluating</button>
+        <button class="opt-btn" onclick="answer(this,'q1',true)">B. Check format compliance, consistency across runs, and robustness on adversarial/edge-case inputs — accuracy alone is insufficient</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">C. The 94% pass rate is sufficient — ship immediately and monitor in production</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">D. Switch to a larger model to push accuracy above 98%</button>
+      </div>
+      <div class="feedback" id="fb_q1"></div>
+    </div>
+
+    <div class="quiz-card" id="q2">
+      <div class="question">2. What is the key difference between Chain-of-Thought prompting and standard prompting?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q2',false)">A. Chain-of-Thought uses multiple API calls, standard prompting uses one</button>
+        <button class="opt-btn" onclick="answer(this,'q2',true)">B. CoT instructs the model to show intermediate reasoning steps before the final answer, reducing errors on logic and math tasks</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">C. CoT is a special API parameter, not a prompting technique</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">D. Standard prompting always works better — CoT just wastes tokens</button>
+      </div>
+      <div class="feedback" id="fb_q2"></div>
+    </div>
+
+    <div class="quiz-card" id="q3">
+      <div class="question">3. Your sentiment classifier gets 90% overall but always fails on the "mixed" category, classifying it as "neutral." What is the MOST targeted optimization?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q3',false)">A. Increase temperature to 0.9 to introduce more variation in borderline cases</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">B. Rewrite the entire prompt from scratch</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">C. Add a few-shot example that demonstrates a "mixed" review (both positive and negative aspects), and optionally a negative example showing the wrong "neutral" classification</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">D. Remove "mixed" as a category to simplify the classification task</button>
+      </div>
+      <div class="feedback" id="fb_q3"></div>
+    </div>
+
+    <div class="quiz-card" id="q4">
+      <div class="question">4. The self-consistency technique generates 5 responses and takes majority vote. When is this justified despite the 5× cost?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. Always — more responses always means more accuracy</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">B. Only for tasks involving more than 100 words of input</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">C. For high-stakes reasoning tasks where a single model error is costly and accuracy gain justifies the 5× cost and latency</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. When the model is known to be biased toward specific outputs</button>
+      </div>
+      <div class="feedback" id="fb_q4"></div>
+    </div>
+
+    <div class="quiz-card" id="q5">
+      <div class="question">5. You have a working prompt and want to reduce API costs without hurting quality. Which technique offers the best cost reduction with lowest risk?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. Switch to self-consistency — more runs per input reduces errors so you need fewer inputs overall</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">B. Increase temperature to reduce output length</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">C. Move static instructions to the system prompt (reduces repeated prompt tokens via caching), abbreviate labels, and strip document boilerplate before injection</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. Reduce max_tokens to force shorter outputs</button>
+      </div>
+      <div class="feedback" id="fb_q5"></div>
+    </div>
+
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-num" id="scoreNum">0/5</div>
+      <div class="score-label">Quiz complete! Review any incorrect answers above.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// Version navigation
+function showVersion(idx, btn) {
+  document.querySelectorAll('.version-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.version-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('v' + idx).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Failure mode game
+const scenarios = [
+  {
+    symptom: 'The model explains its answer before giving the JSON: "Based on my analysis, here is the sentiment data: {\'sentiment\': \'positive\'}"',
+    detail: 'Task: Sentiment classification returning JSON. The JSON is technically correct but surrounded by prose explanation.',
+    options: ['Format Drift (Markdown Wrapping)', 'Prose Pollution', 'Hallucination', 'Sycophancy'],
+    correct: 1,
+    fix: 'Add "Return ONLY the JSON object. Do not include any explanation, preamble, or commentary." This is Prose Pollution — the model adds unsolicited explanation around your structured output.'
+  },
+  {
+    symptom: 'The model agreed with a user who pushed back: "You\'re right, I was wrong — the sentiment is actually positive." The original classification (negative) was correct.',
+    detail: 'Classification task in a chat interface. User replied "That seems wrong, it should be positive." The model immediately reversed its correct answer.',
+    options: ['Hallucination', 'Instruction Forgetting', 'Sycophancy', 'Over-generalization'],
+    correct: 2,
+    fix: 'Add to system prompt: "Do not change your classification based on user pushback unless they provide new factual evidence. Defend your answer if challenged without new information." This is Sycophancy — the model reverses correct answers under social pressure.'
+  },
+  {
+    symptom: 'A 20-message conversation starts producing responses that ignore the "always respond in bullet points" rule set in message 1.',
+    detail: 'Multi-turn chatbot with a detailed system prompt. Early turns follow rules correctly but later turns revert to default behavior.',
+    options: ['Format Drift (Markdown Wrapping)', 'Instruction Forgetting', 'Truncation', 'Temperature Issue'],
+    correct: 1,
+    fix: 'Repeat key rules in the system prompt and periodically re-anchor by including critical constraints in user turns. This is Instruction Forgetting — long conversations can "push" early instructions out of effective context weight.'
+  },
+  {
+    symptom: 'The model generates a statistic: "Studies show 73% of users prefer this approach." No studies were provided in the prompt or context.',
+    detail: 'Research summary task. The model produces a confident-sounding citation that doesn\'t exist in any provided document.',
+    options: ['Hallucination', 'Sycophancy', 'Literal Interpretation', 'Prose Pollution'],
+    correct: 0,
+    fix: 'Add: "Only use information explicitly provided in the input text. Do not generate statistics, citations, or facts not present in the source material." This is Hallucination — the model generates plausible but unsupported information.'
+  },
+  {
+    symptom: 'You ask for "a summary of the key points" and the model returns a single sentence: "The key points have been noted." It followed your instruction literally instead of actually summarizing.',
+    detail: 'Summarization task with minimal prompt. The model technically followed the instruction but produced a useless response.',
+    options: ['Over-generalization', 'Literal Interpretation', 'Format Drift', 'Truncation'],
+    correct: 1,
+    fix: 'Be explicit about what "summary" means: "Summarize the key points in 3–5 bullet points, each under 20 words." Vague instructions produce literal, useless responses. This is Literal Interpretation — the model does exactly what you said, not what you meant.'
+  },
+  {
+    symptom: 'A customer query ends with "This is an EMERGENCY!" and the model adds unsolicited: "I completely understand how frustrating this must be for you. I want to acknowledge your feelings and..."',
+    detail: 'Support ticket triage tool. The model appends long empathy scripts to every ticket, regardless of whether the system prompt requested them.',
+    options: ['Sycophancy', 'Over-generalization', 'Hallucination', 'Prose Pollution'],
+    correct: 1,
+    fix: 'Add explicit constraints: "Return only the triage classification and next steps. Do not add empathy language, acknowledgments, or commentary." This is Over-generalization — the model applies behavior from its training (helpful/empathetic) beyond the scope of your instructions.'
+  }
+];
+
+let currentScenario = 0;
+let scenarioAnswers = {};
+
+function renderScenario() {
+  const s = scenarios[currentScenario];
+  const answered = scenarioAnswers[currentScenario] !== undefined;
+  document.getElementById('fmContent').innerHTML = `
+    <div class="fm-scenario">
+      <div class="fm-symptom">"${escHtml(s.symptom)}"</div>
+      <div class="fm-detail">${escHtml(s.detail)}</div>
+      <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Identify the failure mode:</div>
+      <div class="fm-options">
+        ${s.options.map((o, i) => `
+          <button class="fm-btn ${answered ? (i===s.correct?'correct':(i===scenarioAnswers[currentScenario]?'incorrect':'')) : ''}"
+            onclick="answerScenario(${i})" ${answered?'disabled':''}>
+            ${escHtml(o)}
+          </button>`).join('')}
+      </div>
+      <div class="fm-feedback ${answered?'show':''} ${answered?(scenarioAnswers[currentScenario]===s.correct?'ok':'bad'):''}" id="fmFeedback">
+        ${answered ? (scenarioAnswers[currentScenario]===s.correct ? '✓ ' : '✗ ') + escHtml(s.fix) : ''}
+      </div>
+    </div>`;
+  document.getElementById('fmProgress').textContent = `Scenario ${currentScenario + 1} of ${scenarios.length} · ${Object.values(scenarioAnswers).filter((a,i) => a === scenarios[i]?.correct).length} correct`;
+}
+
+function answerScenario(idx) {
+  if (scenarioAnswers[currentScenario] !== undefined) return;
+  scenarioAnswers[currentScenario] = idx;
+  renderScenario();
+}
+
+function nextScenario() { if (currentScenario < scenarios.length - 1) { currentScenario++; renderScenario(); } }
+function prevScenario() { if (currentScenario > 0) { currentScenario--; renderScenario(); } }
+
+// Technique expand/collapse
+function toggleTech(item) {
+  const detail = item.querySelector('.tech-detail');
+  detail.classList.toggle('open');
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Quiz
+const feedbacks = {
+  q1: { ok: "Correct! Accuracy on a test suite is necessary but not sufficient. Format compliance (does output parse?), consistency (same input → same output?), and robustness (edge cases) must all be checked.", bad: "Accuracy alone doesn't make a prompt production-ready. You also need: format compliance (valid JSON?), consistency across runs, and robustness on adversarial/edge-case inputs." },
+  q2: { ok: "Correct! CoT prompts the model to write out intermediate reasoning steps, which then serve as context for the final answer — dramatically reducing errors on logical and arithmetic tasks.", bad: "Chain-of-Thought is a single-call technique that instructs the model to show its reasoning before giving the final answer. The intermediate reasoning becomes context that improves accuracy on complex tasks." },
+  q3: { ok: "Correct! A targeted fix for a specific category failure is adding a few-shot example that demonstrates the correct classification, optionally paired with a negative example showing the wrong classification.", bad: "The most targeted fix for a specific category failure is adding a few-shot example that demonstrates the correct handling of that category — not a full rewrite or temperature change." },
+  q4: { ok: "Correct! Self-consistency's 5× cost is only justified for high-stakes reasoning tasks where accuracy is critical and the cost of a wrong answer outweighs the API cost.", bad: "Self-consistency is expensive — only justified when accuracy is critical, reasoning errors are costly, and the task is inherently probabilistic (logic/math where the model sometimes errors)." },
+  q5: { ok: "Correct! Moving static instructions to system prompt enables caching (major token savings), abbreviating labels reduces per-call tokens, and stripping boilerplate reduces prompt size — all without touching prompt logic.", bad: "The best cost-reduction techniques are: cache-friendly system prompts (move static content there), abbreviated labels, and document preprocessing to remove boilerplate. These reduce tokens without changing prompt behavior." }
+};
+
+let answers = {};
+function answer(btn, qId, correct) {
+  if (answers[qId] !== undefined) return;
+  answers[qId] = correct;
+  const allBtns = btn.parentElement.querySelectorAll('.opt-btn');
+  allBtns.forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  if (!correct) allBtns.forEach(b => { if (b.onclick.toString().includes('true')) b.classList.add('correct'); });
+  const fb = document.getElementById('fb_' + qId);
+  fb.textContent = correct ? '✓ ' + feedbacks[qId].ok : '✗ ' + feedbacks[qId].bad;
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+  if (Object.keys(answers).length === 5) {
+    const score = Object.values(answers).filter(Boolean).length;
+    document.getElementById('scoreNum').textContent = score + '/5';
+    document.getElementById('scoreBanner').classList.add('show');
+  }
+}
+
+// Init
+renderScenario();
+</script>
+</body>
+</html>

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 2 — Zero-Shot vs Few-Shot Explorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #f59e0b; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Concept cards */
+  .concept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .concept-card { background: #1e293b; border-radius: 14px; padding: 24px; border: 1.5px solid; }
+  .concept-card.zeroshot { border-color: rgba(99,102,241,0.5); }
+  .concept-card.fewshot  { border-color: rgba(245,158,11,0.5); }
+  .concept-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .concept-icon { font-size: 1.8rem; }
+  .concept-title { font-size: 1.1rem; font-weight: 700; }
+  .concept-card.zeroshot .concept-title { color: #818cf8; }
+  .concept-card.fewshot  .concept-title { color: #fbbf24; }
+  .concept-def { font-size: 0.88rem; color: #94a3b8; line-height: 1.55; margin-bottom: 14px; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  .ctag { font-size: 0.74rem; padding: 3px 10px; border-radius: 99px; }
+  .ctag-green { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .ctag-red   { background: rgba(239,68,68,0.12);  color: #fca5a5; }
+
+  /* Comparison explorer */
+  .task-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .task-btn { padding: 8px 16px; border-radius: 8px; border: 1.5px solid #334155; background: #1e293b; color: #94a3b8; font-size: 0.84rem; cursor: pointer; transition: all 0.15s; }
+  .task-btn:hover { border-color: #f59e0b; }
+  .task-btn.active { background: #f59e0b; border-color: #f59e0b; color: #0f172a; font-weight: 700; }
+
+  .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .comp-col { }
+  .comp-col-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; font-weight: 700; }
+  .comp-col.zcol .comp-col-label { color: #818cf8; }
+  .comp-col.fcol .comp-col-label { color: #fbbf24; }
+  .prompt-display { background: #1e293b; border-radius: 12px; padding: 16px; font-family: 'Consolas', monospace; font-size: 0.8rem; color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; min-height: 180px; border: 1px solid #334155; }
+  .prompt-display .task-line { color: #f1f5f9; }
+  .prompt-display .example-line { color: #fbbf24; }
+  .prompt-display .input-line { color: #fb923c; }
+  .prompt-display .label-line { color: #64748b; }
+
+  .output-box { margin-top: 10px; background: #0f172a; border-radius: 8px; padding: 12px 14px; font-size: 0.82rem; border-left: 3px solid; }
+  .zcol .output-box { border-color: #818cf8; }
+  .fcol .output-box { border-color: #fbbf24; }
+  .out-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; color: #64748b; }
+  .out-text { color: #e2e8f0; line-height: 1.5; font-size: 0.82rem; }
+  .out-risk { margin-top: 8px; font-size: 0.75rem; color: #94a3b8; font-style: italic; }
+
+  /* Few-shot builder */
+  .builder-container { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 24px; }
+  .builder-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .builder-header h3 { font-size: 1rem; color: #f1f5f9; }
+  .add-btn { background: rgba(245,158,11,0.15); border: 1px solid #f59e0b; color: #fbbf24; padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 0.82rem; transition: background 0.15s; }
+  .add-btn:hover { background: rgba(245,158,11,0.25); }
+
+  .example-list { margin-bottom: 18px; }
+  .example-item { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 10px; padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+  .ex-input-field { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 8px 10px; color: #e2e8f0; font-size: 0.82rem; width: 100%; }
+  .ex-input-field:focus { outline: none; border-color: #f59e0b; }
+  .delete-btn { background: rgba(239,68,68,0.1); border: 1px solid #ef4444; color: #fca5a5; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  .generated-prompt { background: #0f172a; border-radius: 10px; padding: 16px; font-family: 'Consolas', monospace; font-size: 0.8rem; color: #cbd5e1; line-height: 1.6; white-space: pre-wrap; border-left: 3px solid #f59e0b; }
+
+  /* Guidelines */
+  .guideline-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .gl-card { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; }
+  .gl-icon { font-size: 1.4rem; margin-bottom: 8px; }
+  .gl-title { font-size: 0.88rem; font-weight: 700; color: #fbbf24; margin-bottom: 6px; }
+  .gl-text  { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #f59e0b; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  .score-banner { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid #f59e0b; border-radius: 14px; padding: 24px; text-align: center; display: none; }
+  .score-banner.show { display: block; }
+  .score-num { font-size: 2.5rem; font-weight: 800; color: #fbbf24; }
+  .score-label { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+
+  @media (max-width: 700px) {
+    .concept-grid { grid-template-columns: 1fr; }
+    .comparison-grid { grid-template-columns: 1fr; }
+    .example-item { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 3 · Lab 2</div>
+  <h1>Zero-Shot vs Few-Shot Explorer</h1>
+  <p>Understand when and why to use examples in your prompts — and how to craft them effectively</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Concepts -->
+  <section>
+    <h2 class="section-title">Core Concepts</h2>
+    <p class="section-sub">Two fundamental prompting strategies — each suited to different situations.</p>
+
+    <div class="concept-grid">
+      <div class="concept-card zeroshot">
+        <div class="concept-header">
+          <div class="concept-icon">⚡</div>
+          <div class="concept-title">Zero-Shot Prompting</div>
+        </div>
+        <p class="concept-def">Ask the model to perform a task with <strong style="color:#e2e8f0;">no examples</strong> — relying entirely on the model's pre-trained world knowledge. The model must infer the expected behavior from the task description alone.</p>
+        <div style="margin-bottom: 10px;">
+          <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:6px;">When it works well</div>
+          <div class="tag-row">
+            <span class="ctag ctag-green">Common tasks (translation, summarization)</span>
+            <span class="ctag ctag-green">Exploratory use</span>
+            <span class="ctag ctag-green">Fast iteration</span>
+            <span class="ctag ctag-green">Simple classification</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:6px;">Limitations</div>
+          <div class="tag-row">
+            <span class="ctag ctag-red">Domain-specific formats</span>
+            <span class="ctag ctag-red">Edge cases</span>
+            <span class="ctag ctag-red">Novel task types</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="concept-card fewshot">
+        <div class="concept-header">
+          <div class="concept-icon">📋</div>
+          <div class="concept-title">Few-Shot Prompting</div>
+        </div>
+        <p class="concept-def">Provide the model with <strong style="color:#e2e8f0;">2–10 examples</strong> of the desired input→output behavior before the actual task. The model pattern-matches the structure, format, and style of your demonstrations.</p>
+        <div style="margin-bottom: 10px;">
+          <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:6px;">When it works well</div>
+          <div class="tag-row">
+            <span class="ctag ctag-green">Precise output formats (JSON keys)</span>
+            <span class="ctag ctag-green">Domain-specific labels</span>
+            <span class="ctag ctag-green">Edge case handling</span>
+            <span class="ctag ctag-green">Consistent style</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:6px;">Limitations</div>
+          <div class="tag-row">
+            <span class="ctag ctag-red">Uses more tokens</span>
+            <span class="ctag ctag-red">Wrong examples teach wrong behavior</span>
+            <span class="ctag ctag-red">Diminishing returns after ~8 examples</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 14px 16px; font-size: 0.84rem; color: #cbd5e1; line-height: 1.5;">
+      <strong style="color:#fbbf24;">How few-shot works (mechanically):</strong> The model doesn't "learn" from examples — no weights are updated. Instead, in-context examples shift the probability distribution over output tokens. The model pattern-matches the structure and style of your examples to generate the next output.
+    </div>
+  </section>
+
+  <!-- Section 2: Side-by-Side Comparison -->
+  <section>
+    <h2 class="section-title">Side-by-Side Comparison</h2>
+    <p class="section-sub">Select a task to see how the same goal looks with zero-shot vs few-shot prompting.</p>
+
+    <div class="task-selector">
+      <button class="task-btn active" onclick="showTask(0, this)">Sentiment Classification</button>
+      <button class="task-btn" onclick="showTask(1, this)">Resume Parsing</button>
+      <button class="task-btn" onclick="showTask(2, this)">Support Ticket Routing</button>
+      <button class="task-btn" onclick="showTask(3, this)">Date Extraction</button>
+    </div>
+
+    <div id="task-display"></div>
+  </section>
+
+  <!-- Section 3: Few-Shot Builder -->
+  <section>
+    <h2 class="section-title">Few-Shot Example Builder</h2>
+    <p class="section-sub">Build your own few-shot prompt for a sentiment classification task. Add, edit, or remove examples and watch the prompt update live.</p>
+
+    <div class="builder-container">
+      <div class="builder-header">
+        <h3>Sentiment Classifier — Few-Shot Examples</h3>
+        <button class="add-btn" onclick="addExample()">+ Add Example</button>
+      </div>
+
+      <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.07em; display:grid; grid-template-columns:1fr 1fr auto; gap:10px; padding: 0 12px; margin-bottom:6px;">
+        <span>Input (customer review)</span>
+        <span>Output (label)</span>
+        <span style="width:28px;"></span>
+      </div>
+
+      <div class="example-list" id="exampleList"></div>
+
+      <div style="margin-bottom: 14px;">
+        <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:8px;">Generated Few-Shot Prompt</div>
+        <div class="generated-prompt" id="generatedPrompt"></div>
+      </div>
+
+      <div style="padding: 10px 14px; background: rgba(16,185,129,0.08); border-radius: 8px; border-left: 3px solid #10b981; font-size: 0.8rem; color: #cbd5e1; line-height: 1.5;" id="exampleTip">
+        Add at least 3 examples for reliable few-shot behavior. Aim for diversity — don't just add easy cases.
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4: Example Quality Guidelines -->
+  <section>
+    <h2 class="section-title">Guidelines for Effective Few-Shot Examples</h2>
+    <p class="section-sub">The quality of your examples matters more than the quantity.</p>
+
+    <div class="guideline-grid">
+      <div class="gl-card">
+        <div class="gl-icon">🎯</div>
+        <div class="gl-title">Cover Diverse Cases</div>
+        <div class="gl-text">Don't show only easy or obvious examples. Include edge cases, ambiguous inputs, and the hardest categories. The model will pattern-match to what you provide.</div>
+      </div>
+      <div class="gl-card">
+        <div class="gl-icon">📐</div>
+        <div class="gl-title">Consistent Format</div>
+        <div class="gl-text">Every example must use the exact same input/output structure. If one example uses JSON and another uses plain text, the model will produce inconsistent outputs.</div>
+      </div>
+      <div class="gl-card">
+        <div class="gl-icon">✅</div>
+        <div class="gl-title">Label Quality Matters</div>
+        <div class="gl-text">Incorrect labels in examples teach incorrect behavior. If your "positive" example is actually mixed sentiment, the model learns the wrong boundary. Review every example carefully.</div>
+      </div>
+      <div class="gl-card">
+        <div class="gl-icon">🔢</div>
+        <div class="gl-title">3–5 Examples Usually Sufficient</div>
+        <div class="gl-text">More examples consume context window and API tokens with diminishing returns. Start with 3 covering your most important cases, then add more only if quality is still poor.</div>
+      </div>
+      <div class="gl-card">
+        <div class="gl-icon">⏱️</div>
+        <div class="gl-title">Recency Bias Is Real</div>
+        <div class="gl-text">The most recent examples (closest to the actual input) have the most influence on the output. Put your most representative example last, just before the actual input.</div>
+      </div>
+      <div class="gl-card">
+        <div class="gl-icon">📊</div>
+        <div class="gl-title">Match Your Real Distribution</div>
+        <div class="gl-text">Examples should reflect the actual distribution of inputs you'll encounter in production. If 70% of your real inputs are negative reviews, don't build examples with only positive ones.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section>
+    <h2 class="section-title">Self-Check Quiz</h2>
+    <p class="section-sub">5 questions · Select an answer to see immediate feedback</p>
+
+    <div class="quiz-card" id="q1">
+      <div class="question">1. When does the model "learn" from few-shot examples in a prompt?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q1',false)">A. During each API call — examples update the model's weights temporarily</button>
+        <button class="opt-btn" onclick="answer(this,'q1',true)">B. It doesn't — examples shift the output probability distribution via pattern matching, without any weight updates</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">C. Only if you use the fine-tuning API endpoint</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">D. After 5 or more examples are provided</button>
+      </div>
+      <div class="feedback" id="fb_q1"></div>
+    </div>
+
+    <div class="quiz-card" id="q2">
+      <div class="question">2. Zero-shot prompting works best for which of the following tasks?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q2',false)">A. A proprietary ticket classification system with 20 custom categories</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">B. Extracting data in a specific internal JSON schema with nested keys</button>
+        <button class="opt-btn" onclick="answer(this,'q2',true)">C. Translating a sentence from English to French</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">D. Classifying legal contract clauses into 8 domain-specific risk categories</button>
+      </div>
+      <div class="feedback" id="fb_q2"></div>
+    </div>
+
+    <div class="quiz-card" id="q3">
+      <div class="question">3. You have 3 examples and add 7 more (10 total) for the same classification task. What is the most likely outcome?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q3',false)">A. Accuracy doubles because more examples teach the model better</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">B. Marginal quality improvement with significantly higher token cost — diminishing returns</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">C. The model ignores extra examples beyond 5</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">D. The context window fills up and the model errors</button>
+      </div>
+      <div class="feedback" id="fb_q3"></div>
+    </div>
+
+    <div class="quiz-card" id="q4">
+      <div class="question">4. You notice your few-shot classifier works great on clear reviews but fails on double-negation phrasing ("not bad", "can't complain"). What is the most targeted fix?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. Switch to a larger model — bigger models handle negation automatically</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">B. Remove all examples and use zero-shot instead</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">C. Add 1–2 few-shot examples specifically showing how to handle double-negation inputs</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. Increase the temperature to 1.0 to introduce more variation</button>
+      </div>
+      <div class="feedback" id="fb_q4"></div>
+    </div>
+
+    <div class="quiz-card" id="q5">
+      <div class="question">5. Which placement of few-shot examples has the MOST influence on the model's output?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. The first example — primacy bias is dominant in LLMs</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">B. All examples equally — the model attends uniformly to context</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">C. The most recent (last) example — recency bias means examples closest to the input carry more weight</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. The middle examples — they form the "anchor" of the prompt</button>
+      </div>
+      <div class="feedback" id="fb_q5"></div>
+    </div>
+
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-num" id="scoreNum">0/5</div>
+      <div class="score-label">Quiz complete! Review any incorrect answers above.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// Task data
+const tasks = [
+  {
+    name: "Sentiment Classification",
+    zero: `Classify the sentiment of this review as positive, negative, or neutral.
+
+Review: "Delivery was fast but the packaging was completely destroyed."
+
+Answer with a single word.`,
+    zeroOutput: "negative",
+    zeroRisk: "Risk: 'mixed' isn't offered as an option — the model must shoehorn a nuanced review into 3 simple labels.",
+    few: `Classify customer reviews as: positive / negative / neutral / mixed
+
+Review: "This coffee maker is exactly what I needed, brews perfectly!"
+Classification: positive
+
+Review: "Arrived late and the box was dented, but the product itself is fine."
+Classification: mixed
+
+Review: "It works as described, nothing special."
+Classification: neutral
+
+Review: "Delivery was fast but the packaging was completely destroyed."
+Classification:`,
+    fewOutput: "mixed",
+    fewRisk: "With 'mixed' as an option and an example of a partially positive/negative case, the model correctly identifies the nuance."
+  },
+  {
+    name: "Resume Parsing",
+    zero: `Extract the company name, role, and years of experience from this resume line. Respond as JSON.
+
+Resume line: "Led a team of 12 engineers at Stripe for 4 years as Principal Engineer"`,
+    zeroOutput: `{"company": "Stripe", "role": "Principal Engineer", "years": 4}`,
+    zeroRisk: "Risk: JSON key names and date handling may vary — does 'years' mean total tenure or years in role?",
+    few: `Extract company name, role, and years from resume lines. Respond as JSON.
+
+Resume line: "Senior Data Scientist at Netflix for 3 years"
+{"company": "Netflix", "role": "Senior Data Scientist", "years": 3}
+
+Resume line: "Worked as DevOps Engineer at Shopify from 2019 to 2022"
+{"company": "Shopify", "role": "DevOps Engineer", "years": 3}
+
+Resume line: "Led a team of 12 engineers at Stripe for 4 years as Principal Engineer"`,
+    fewOutput: `{"company": "Stripe", "role": "Principal Engineer", "years": 4}`,
+    fewRisk: "Exact JSON key names, formatting, and how to calculate years from date ranges are now demonstrated."
+  },
+  {
+    name: "Support Ticket Routing",
+    zero: `Classify this support ticket by urgency (low/medium/high) and category.
+
+Ticket: "My account has been locked and I have a demo in 2 hours."`,
+    zeroOutput: "Urgency: high\nCategory: account_access",
+    zeroRisk: "Risk: category label format (snake_case? natural language?) and urgency reasoning may be inconsistent across tickets.",
+    few: `Route support tickets by urgency and category.
+
+Ticket: "Hi, could you update my billing address when you get a chance?"
+Urgency: low | Category: billing | Reason: Non-urgent account update
+
+Ticket: "My account has been hacked and someone is making unauthorized purchases!"
+Urgency: high | Category: security | Reason: Active security incident
+
+Ticket: "The mobile app crashes when I view transaction history."
+Urgency: medium | Category: technical | Reason: Functional issue, not security
+
+Ticket: "My account has been locked and I have a demo in 2 hours."
+Urgency:`,
+    fewOutput: "high | Category: account_access | Reason: Time-sensitive access block with business impact",
+    fewRisk: "Consistent pipe-delimited format, urgency calibration, and reasoning pattern are now anchored by examples."
+  },
+  {
+    name: "Date Extraction",
+    zero: `Extract all dates mentioned in this clause. Return as a comma-separated list in YYYY-MM-DD format.
+
+Clause: "The agreement starts January 15, 2025, with a review on March 1st and final delivery December 31, 2025."`,
+    zeroOutput: "2025-01-15, 2025-03-01, 2025-12-31",
+    zeroRisk: "Risk: format compliance is often good for this task zero-shot — but edge cases (relative dates, ranges) may fail.",
+    few: `Extract all explicit dates as YYYY-MM-DD. Ignore relative dates ("next week", "in 30 days").
+
+Clause: "Payments due every month starting February 1, 2024."
+Dates: 2024-02-01
+
+Clause: "Effective immediately through June 30, 2025, renewable next year."
+Dates: 2025-06-30
+
+Clause: "The agreement starts January 15, 2025, with a review on March 1st and final delivery December 31, 2025."
+Dates:`,
+    fewOutput: "2025-01-15, 2025-03-01, 2025-12-31",
+    fewRisk: "The examples clarify that relative dates are excluded — a critical edge case for legal documents."
+  }
+];
+
+let currentTask = 0;
+function showTask(idx, btn) {
+  currentTask = idx;
+  document.querySelectorAll('.task-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTask();
+}
+
+function renderTask() {
+  const t = tasks[currentTask];
+  document.getElementById('task-display').innerHTML = `
+    <div class="comparison-grid">
+      <div class="comp-col zcol">
+        <div class="comp-col-label">⚡ Zero-Shot Prompt</div>
+        <div class="prompt-display">${escHtml(t.zero)}</div>
+        <div class="output-box">
+          <div class="out-label">Typical Output</div>
+          <div class="out-text">${escHtml(t.zeroOutput)}</div>
+          <div class="out-risk">${escHtml(t.zeroRisk)}</div>
+        </div>
+      </div>
+      <div class="comp-col fcol">
+        <div class="comp-col-label">📋 Few-Shot Prompt</div>
+        <div class="prompt-display">${escHtml(t.few)}</div>
+        <div class="output-box">
+          <div class="out-label">Typical Output</div>
+          <div class="out-text">${escHtml(t.fewOutput)}</div>
+          <div class="out-risk">${escHtml(t.fewRisk)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Few-shot builder
+let examples = [
+  { input: "Absolutely love this product, exceeded my expectations!", output: "positive" },
+  { input: "Broke after one week. Complete waste of money.", output: "negative" },
+  { input: "Good quality but arrived later than expected.", output: "mixed" }
+];
+
+function renderExamples() {
+  const list = document.getElementById('exampleList');
+  list.innerHTML = examples.map((ex, i) => `
+    <div class="example-item">
+      <input class="ex-input-field" value="${escHtml(ex.input)}" placeholder="Input text..." onchange="updateExample(${i},'input',this.value)">
+      <input class="ex-input-field" value="${escHtml(ex.output)}" placeholder="Label/output..." onchange="updateExample(${i},'output',this.value)">
+      <button class="delete-btn" onclick="deleteExample(${i})">×</button>
+    </div>`).join('');
+  renderGeneratedPrompt();
+}
+
+function updateExample(i, field, val) {
+  examples[i][field] = val;
+  renderGeneratedPrompt();
+}
+
+function deleteExample(i) {
+  examples.splice(i, 1);
+  renderExamples();
+}
+
+function addExample() {
+  examples.push({ input: "", output: "" });
+  renderExamples();
+  const inputs = document.querySelectorAll('.ex-input-field');
+  inputs[inputs.length - 2].focus();
+}
+
+function renderGeneratedPrompt() {
+  const count = examples.length;
+  let prompt = `Classify customer reviews as: positive / negative / neutral / mixed\n\n`;
+  examples.forEach(ex => {
+    if (ex.input || ex.output) prompt += `Review: "${ex.input}"\nClassification: ${ex.output}\n\n`;
+  });
+  prompt += `Review: "[your actual input here]"\nClassification:`;
+  document.getElementById('generatedPrompt').textContent = prompt;
+  const tip = document.getElementById('exampleTip');
+  if (count < 3) {
+    tip.style.borderColor = '#ef4444'; tip.style.background = 'rgba(239,68,68,0.08)';
+    tip.textContent = `⚠ Only ${count} example${count===1?'':'s'} — add at least 3 for reliable few-shot behavior. Include edge cases, not just easy examples.`;
+  } else if (count > 8) {
+    tip.style.borderColor = '#fbbf24'; tip.style.background = 'rgba(245,158,11,0.08)';
+    tip.textContent = `⚡ ${count} examples — you may be hitting diminishing returns. Consider whether each example adds a new case the model hasn't seen.`;
+  } else {
+    tip.style.borderColor = '#10b981'; tip.style.background = 'rgba(16,185,129,0.08)';
+    tip.textContent = `✓ ${count} examples — good range. Make sure they cover diverse cases and edge cases.`;
+  }
+}
+
+// Quiz
+const feedbacks = {
+  q1: { ok: "Correct! Few-shot examples don't update any model parameters. They provide context that shifts the probability distribution over the next token — pure in-context learning.", bad: "Few-shot prompting doesn't change model weights. The examples are just context — the model pattern-matches them to generate consistent output." },
+  q2: { ok: "Correct! Translation to a well-known language pair is exactly what zero-shot handles well — the task is universal, well-represented in training data, and doesn't require custom output formats.", bad: "Translation to a common language like French is ideal for zero-shot — it's a standard, well-known task. Custom categories, schemas, or domain-specific labels need few-shot examples." },
+  q3: { ok: "Correct! Few-shot shows clear diminishing returns after about 5–8 examples. You get a modest quality bump at significantly higher token cost.", bad: "Beyond 3–5 examples, quality improvements become marginal. You're mostly paying more tokens for little additional benefit." },
+  q4: { ok: "Correct! Adding targeted examples that demonstrate the correct handling of double-negation inputs is the most precise and efficient fix.", bad: "The most targeted fix is adding a few-shot example that shows the correct label for a double-negation input — it directly teaches the model the correct boundary." },
+  q5: { ok: "Correct! Research shows recency bias in LLMs — examples appearing just before the actual input have the strongest influence. Put your most representative example last.", bad: "Recency bias means the last example (closest to the actual input) has the most influence on the model's output." }
+};
+
+let answers = {};
+function answer(btn, qId, correct) {
+  if (answers[qId] !== undefined) return;
+  answers[qId] = correct;
+  const allBtns = btn.parentElement.querySelectorAll('.opt-btn');
+  allBtns.forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  if (!correct) allBtns.forEach(b => { if (b.onclick.toString().includes('true')) b.classList.add('correct'); });
+  const fb = document.getElementById('fb_' + qId);
+  fb.textContent = correct ? '✓ ' + feedbacks[qId].ok : '✗ ' + feedbacks[qId].bad;
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+  if (Object.keys(answers).length === 5) {
+    const score = Object.values(answers).filter(Boolean).length;
+    document.getElementById('scoreNum').textContent = score + '/5';
+    document.getElementById('scoreBanner').classList.add('show');
+  }
+}
+
+// Init
+renderTask();
+renderExamples();
+</script>
+</body>
+</html>
