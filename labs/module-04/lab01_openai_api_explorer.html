@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 1 — OpenAI API Explorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #06b6d4; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Model cards */
+  .model-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .model-card {
+    background: #1e293b; border: 1.5px solid #334155; border-radius: 14px; padding: 20px;
+    cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .model-card:hover { border-color: #06b6d4; transform: translateY(-2px); }
+  .model-card.selected { border-color: #06b6d4; background: rgba(6,182,212,0.06); }
+  .model-tier { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 8px; }
+  .model-name { font-size: 1.05rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .model-desc { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; margin-bottom: 12px; }
+  .model-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat-pill { font-size: 0.7rem; padding: 3px 9px; border-radius: 99px; background: #0f172a; color: #64748b; border: 1px solid #334155; }
+  .stat-pill.highlight { background: rgba(6,182,212,0.1); color: #22d3ee; border-color: rgba(6,182,212,0.3); }
+
+  /* Request builder */
+  .req-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .req-controls { }
+  .req-preview { }
+
+  .field-group { margin-bottom: 16px; }
+  .field-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 6px; display: block; }
+  .field-sub { font-size: 0.72rem; color: #475569; margin-top: 2px; }
+  select, input[type="text"], input[type="number"], textarea {
+    width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+    color: #e2e8f0; padding: 9px 12px; font-size: 0.85rem; font-family: inherit;
+    outline: none; transition: border-color 0.15s;
+  }
+  select:focus, input:focus, textarea:focus { border-color: #06b6d4; }
+  textarea { resize: vertical; min-height: 80px; font-family: 'Consolas', monospace; }
+
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  input[type="range"] { flex: 1; accent-color: #06b6d4; }
+  .slider-val { font-size: 0.9rem; color: #22d3ee; font-weight: 700; min-width: 36px; text-align: right; }
+
+  .code-preview { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; font-family: 'Consolas', monospace; font-size: 0.78rem; line-height: 1.7; color: #cbd5e1; overflow: auto; min-height: 340px; }
+  .kw { color: #818cf8; } /* keyword */
+  .str { color: #34d399; } /* string */
+  .num { color: #fb923c; } /* number */
+  .key { color: #7dd3fc; } /* json key */
+  .cm { color: #475569; font-style: italic; } /* comment */
+  .fn { color: #fbbf24; } /* function */
+
+  /* Response anatomy */
+  .response-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; }
+  .response-field { padding: 14px 18px; border-bottom: 1px solid #0f172a; cursor: pointer; transition: background 0.15s; display: flex; align-items: flex-start; gap: 14px; }
+  .response-field:last-child { border-bottom: none; }
+  .response-field:hover { background: rgba(6,182,212,0.04); }
+  .response-field.active { background: rgba(6,182,212,0.07); }
+  .rf-key { font-family: 'Consolas', monospace; font-size: 0.82rem; color: #7dd3fc; min-width: 160px; flex-shrink: 0; padding-top: 2px; }
+  .rf-val { font-family: 'Consolas', monospace; font-size: 0.78rem; color: #94a3b8; flex: 1; }
+  .rf-explain { font-size: 0.78rem; color: #64748b; line-height: 1.5; flex: 1; display: none; }
+  .response-field.active .rf-explain { display: block; }
+  .response-field.active .rf-val { display: none; }
+  .rf-tag { font-size: 0.65rem; padding: 2px 7px; border-radius: 99px; margin-left: auto; flex-shrink: 0; }
+  .tag-imp { background: rgba(6,182,212,0.15); color: #22d3ee; }
+  .tag-meta { background: rgba(71,85,105,0.4); color: #94a3b8; }
+
+  /* Auth flow */
+  .auth-steps { display: flex; flex-direction: column; gap: 0; }
+  .auth-step { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid #1e293b; }
+  .auth-step:last-child { border-bottom: none; }
+  .step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(6,182,212,0.15); border: 1.5px solid #06b6d4; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #22d3ee; font-weight: 700; flex-shrink: 0; }
+  .step-content { }
+  .step-title { font-size: 0.92rem; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+  .step-desc { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; }
+  .code-inline { background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 1px 6px; font-family: 'Consolas', monospace; font-size: 0.78rem; color: #22d3ee; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8; font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #06b6d4; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+  .score-banner { background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(6,182,212,0.05)); border: 1px solid #06b6d4; border-radius: 14px; padding: 24px; text-align: center; display: none; }
+  .score-banner.show { display: block; }
+  .score-num { font-size: 2.5rem; font-weight: 800; color: #22d3ee; }
+  .score-label { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+
+  .info-box { background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.2); border-radius: 10px; padding: 14px 16px; font-size: 0.83rem; color: #94a3b8; line-height: 1.6; margin-top: 16px; }
+  .info-box strong { color: #22d3ee; }
+
+  @media (max-width: 700px) { .req-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 4 · Lab 1</div>
+  <h1>OpenAI API Explorer</h1>
+  <p>Understand the OpenAI API — models, authentication, request anatomy, and response structure</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Models -->
+  <section>
+    <h2 class="section-title">Available Models</h2>
+    <p class="section-sub">Click a model card to select it and see its details. Each model has different capability, speed, and cost trade-offs.</p>
+
+    <div class="model-grid">
+      <div class="model-card selected" onclick="selectModel(this, 'gpt4o')">
+        <div class="model-tier" style="color:#22d3ee;">Flagship</div>
+        <div class="model-name">gpt-4o</div>
+        <div class="model-desc">OpenAI's most capable multimodal model. Accepts text, images, audio. Best reasoning and instruction following.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">128K context</span>
+          <span class="stat-pill">Vision</span>
+          <span class="stat-pill">$2.50 / 1M in</span>
+          <span class="stat-pill">$10.00 / 1M out</span>
+        </div>
+      </div>
+
+      <div class="model-card" onclick="selectModel(this, 'gpt4omini')">
+        <div class="model-tier" style="color:#34d399;">Efficient</div>
+        <div class="model-name">gpt-4o-mini</div>
+        <div class="model-desc">Fast and affordable multimodal model. Ideal for high-volume tasks. Best cost-performance ratio for most applications.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">128K context</span>
+          <span class="stat-pill">Vision</span>
+          <span class="stat-pill">$0.15 / 1M in</span>
+          <span class="stat-pill">$0.60 / 1M out</span>
+        </div>
+      </div>
+
+      <div class="model-card" onclick="selectModel(this, 'o1')">
+        <div class="model-tier" style="color:#a78bfa;">Reasoning</div>
+        <div class="model-name">o3 / o4-mini</div>
+        <div class="model-desc">Reasoning models that think before responding. Excellent for math, coding, and multi-step logic problems.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">200K context</span>
+          <span class="stat-pill">Deep reasoning</span>
+          <span class="stat-pill">Higher latency</span>
+        </div>
+      </div>
+
+      <div class="model-card" onclick="selectModel(this, 'gpt35')">
+        <div class="model-tier" style="color:#fb923c;">Legacy</div>
+        <div class="model-name">gpt-3.5-turbo</div>
+        <div class="model-desc">Older, very fast and inexpensive model. Being phased out in favor of gpt-4o-mini for most use cases.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">16K context</span>
+          <span class="stat-pill">Text only</span>
+          <span class="stat-pill">$0.50 / 1M in</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-top: 20px;">
+      <strong>Model selection rule of thumb:</strong> Start with <strong>gpt-4o-mini</strong> for development and most production tasks. Upgrade to <strong>gpt-4o</strong> when quality is insufficient. Use <strong>o3/o4-mini</strong> only for tasks requiring deep, multi-step reasoning.
+    </div>
+  </section>
+
+  <!-- Section 2: Authentication -->
+  <section>
+    <h2 class="section-title">Authentication & Setup</h2>
+    <p class="section-sub">The OpenAI API uses API keys for authentication. Follow these steps to get started with Python using the <code style="color:#22d3ee;background:#1e293b;padding:1px 6px;border-radius:4px;font-size:0.82rem;">openai</code> SDK.</p>
+
+    <div class="auth-steps">
+      <div class="auth-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Create an OpenAI account and API key</div>
+          <div class="step-desc">Visit platform.openai.com → API keys → Create new secret key. Store it immediately — it won't be shown again.</div>
+        </div>
+      </div>
+      <div class="auth-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Set the API key as an environment variable</div>
+          <div class="step-desc">
+            Never hardcode API keys in source code. Use environment variables:<br><br>
+            <span class="code-inline">export OPENAI_API_KEY="sk-proj-..."</span>&nbsp; # Linux / macOS<br>
+            <span class="code-inline">$env:OPENAI_API_KEY="sk-proj-..."</span>&nbsp; # Windows PowerShell<br><br>
+            Or store in a <span class="code-inline">.env</span> file and load with <span class="code-inline">python-dotenv</span>. Add <span class="code-inline">.env</span> to <span class="code-inline">.gitignore</span>.
+          </div>
+        </div>
+      </div>
+      <div class="auth-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Install the SDK and initialize the client</div>
+          <div class="step-desc">
+            <span class="code-inline">uv add openai</span>&nbsp; or &nbsp;<span class="code-inline">pip install openai</span><br><br>
+            The SDK automatically reads <span class="code-inline">OPENAI_API_KEY</span> from the environment:
+          </div>
+        </div>
+      </div>
+      <div class="auth-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Make your first API call</div>
+          <div class="step-desc">The SDK is synchronous by default. For production use, consider the async client: <span class="code-inline">AsyncOpenAI()</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Request Builder -->
+  <section>
+    <h2 class="section-title">Interactive Request Builder</h2>
+    <p class="section-sub">Adjust the parameters on the left. The Python code preview updates in real time.</p>
+
+    <div class="req-layout">
+      <div class="req-controls">
+        <div class="field-group">
+          <label class="field-label">Model</label>
+          <select id="reqModel" onchange="updatePreview()">
+            <option value="gpt-4o-mini">gpt-4o-mini</option>
+            <option value="gpt-4o">gpt-4o</option>
+            <option value="o3-mini">o3-mini</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">System Message</label>
+          <textarea id="reqSystem" rows="2" onchange="updatePreview()" oninput="updatePreview()">You are a helpful assistant.</textarea>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">User Message</label>
+          <textarea id="reqUser" rows="2" onchange="updatePreview()" oninput="updatePreview()">Explain what an API is in one sentence.</textarea>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Temperature &nbsp;<span id="tempLabel" style="color:#22d3ee;font-weight:700;">0.7</span></label>
+          <div class="slider-row">
+            <input type="range" id="reqTemp" min="0" max="2" step="0.1" value="0.7" oninput="updatePreview(); document.getElementById('tempLabel').textContent=this.value;">
+          </div>
+          <div class="field-sub">0 = deterministic &nbsp;·&nbsp; 1 = balanced &nbsp;·&nbsp; 2 = very creative</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Max Tokens &nbsp;<span id="tokLabel" style="color:#22d3ee;font-weight:700;">256</span></label>
+          <div class="slider-row">
+            <input type="range" id="reqTok" min="64" max="4096" step="64" value="256" oninput="updatePreview(); document.getElementById('tokLabel').textContent=this.value;">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Response Format</label>
+          <select id="reqFmt" onchange="updatePreview()">
+            <option value="text">text (default)</option>
+            <option value="json_object">json_object</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="req-preview">
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:10px;">Python Code Preview</div>
+        <div class="code-preview" id="codePreview"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4: Response Anatomy -->
+  <section>
+    <h2 class="section-title">Response Anatomy</h2>
+    <p class="section-sub">Click any field to see what it means and how to use it in your code.</p>
+
+    <div class="response-box">
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"id"</span>
+        <span class="rf-val">"chatcmpl-abc123..."</span>
+        <span class="rf-explain">Unique identifier for this completion. Use for logging and debugging. Format: <code style="color:#22d3ee">chatcmpl-</code> prefix followed by a random string.</span>
+        <span class="rf-tag tag-meta">metadata</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"model"</span>
+        <span class="rf-val">"gpt-4o-mini-2024-07-18"</span>
+        <span class="rf-explain">The specific model version used. OpenAI may return a pinned version (e.g., <code style="color:#22d3ee">-2024-07-18</code>) rather than the alias. Use for reproducibility logging.</span>
+        <span class="rf-tag tag-meta">metadata</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"choices[0].message.content"</span>
+        <span class="rf-val">"An API is a..."</span>
+        <span class="rf-explain">The model's actual text response. This is what you use in your application: <code style="color:#22d3ee">response.choices[0].message.content</code>. Will be <code style="color:#22d3ee">null</code> if the model used a tool call.</span>
+        <span class="rf-tag tag-imp">important</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"choices[0].finish_reason"</span>
+        <span class="rf-val">"stop"</span>
+        <span class="rf-explain">Why generation stopped. <code style="color:#22d3ee">stop</code> = normal completion. <code style="color:#22d3ee">length</code> = hit max_tokens (response was truncated — increase max_tokens). <code style="color:#22d3ee">tool_calls</code> = model called a tool. Always check this in production.</span>
+        <span class="rf-tag tag-imp">important</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"usage.prompt_tokens"</span>
+        <span class="rf-val">42</span>
+        <span class="rf-explain">Number of tokens in your input (system + user messages combined). Used for cost calculation. Billed at the "input tokens" rate.</span>
+        <span class="rf-tag tag-imp">cost</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"usage.completion_tokens"</span>
+        <span class="rf-val">87</span>
+        <span class="rf-explain">Number of tokens in the model's response. Billed at the "output tokens" rate (usually 3–4× more expensive per token than input). <code style="color:#22d3ee">max_tokens</code> caps this value.</span>
+        <span class="rf-tag tag-imp">cost</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"usage.total_tokens"</span>
+        <span class="rf-val">129</span>
+        <span class="rf-explain">prompt_tokens + completion_tokens. Total token consumption for this request. Track this across requests to estimate monthly costs.</span>
+        <span class="rf-tag tag-imp">cost</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"created"</span>
+        <span class="rf-val">1720000000</span>
+        <span class="rf-explain">Unix timestamp (seconds since epoch) when the request was processed. Useful for logging and auditing. Convert with <code style="color:#22d3ee">datetime.fromtimestamp(response.created)</code>.</span>
+        <span class="rf-tag tag-meta">metadata</span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>Accessing the response in Python:</strong><br>
+      <code style="color:#34d399;">text = response.choices[0].message.content</code><br>
+      <code style="color:#34d399;">tokens_used = response.usage.total_tokens</code><br>
+      <code style="color:#34d399;">finish = response.choices[0].finish_reason  # check for "length"!</code>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section>
+    <h2 class="section-title">Self-Check Quiz</h2>
+    <p class="section-sub">5 questions · Select an answer to see immediate feedback</p>
+
+    <div class="quiz-card" id="q1">
+      <div class="question">1. Where should you store your OpenAI API key in a Python project?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q1',false)">A. Hardcoded as a string in the Python source file for simplicity</button>
+        <button class="opt-btn" onclick="answer(this,'q1',true)">B. In an environment variable (or .env file), never in source code</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">C. In a public GitHub repository as a config.json file</button>
+        <button class="opt-btn" onclick="answer(this,'q1',false)">D. As a command-line argument passed at runtime each time</button>
+      </div>
+      <div class="feedback" id="fb_q1"></div>
+    </div>
+
+    <div class="quiz-card" id="q2">
+      <div class="question">2. You set max_tokens=100 and the response's finish_reason is "length". What does this mean?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q2',false)">A. The model responded successfully within the token budget</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">B. The model refused to answer because the question was too long</button>
+        <button class="opt-btn" onclick="answer(this,'q2',true)">C. The response was cut off at 100 tokens — the full answer is truncated</button>
+        <button class="opt-btn" onclick="answer(this,'q2',false)">D. The model ran out of context window capacity</button>
+      </div>
+      <div class="feedback" id="fb_q2"></div>
+    </div>
+
+    <div class="quiz-card" id="q3">
+      <div class="question">3. Which model is the best starting point for most production use cases that balance quality and cost?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q3',false)">A. gpt-3.5-turbo — it's the cheapest option available</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">B. gpt-4o-mini — best cost-performance ratio for most tasks</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">C. gpt-4o — the most capable model should always be used</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">D. o3 — reasoning models are always superior</button>
+      </div>
+      <div class="feedback" id="fb_q3"></div>
+    </div>
+
+    <div class="quiz-card" id="q4">
+      <div class="question">4. Output tokens cost more per token than input tokens. How does this affect prompt design?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. Write longer system prompts to save on output costs</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">B. Use higher temperature to get longer, more valuable responses</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">C. Use max_tokens and specific output format instructions to control response length</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. Output tokens are always free — only input tokens are billed</button>
+      </div>
+      <div class="feedback" id="fb_q4"></div>
+    </div>
+
+    <div class="quiz-card" id="q5">
+      <div class="question">5. What is the correct Python code to extract the text from an OpenAI chat completion response?</div>
+      <div class="options">
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. response.text</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">B. response.message.content</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">C. response.choices[0].message.content</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. response.output[0]</button>
+      </div>
+      <div class="feedback" id="fb_q5"></div>
+    </div>
+
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-num" id="scoreNum">0/5</div>
+      <div class="score-label">Quiz complete! Review any incorrect answers above.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// Model selection
+function selectModel(card, id) {
+  document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+}
+
+// Response field toggle
+function toggleField(el) {
+  el.classList.toggle('active');
+}
+
+// Request builder
+function updatePreview() {
+  const model = document.getElementById('reqModel').value;
+  const system = document.getElementById('reqSystem').value.replace(/"/g, '\\"');
+  const user = document.getElementById('reqUser').value.replace(/"/g, '\\"');
+  const temp = document.getElementById('reqTemp').value;
+  const maxTok = document.getElementById('reqTok').value;
+  const fmt = document.getElementById('reqFmt').value;
+
+  const fmtLine = fmt === 'json_object'
+    ? `\n    <span class="key">response_format</span>=<span class="str">{"type": "json_object"}</span>,`
+    : '';
+
+  document.getElementById('codePreview').innerHTML =
+`<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+<span class="cm"># Client reads OPENAI_API_KEY from environment</span>
+client = <span class="fn">OpenAI</span>()
+
+response = client.chat.completions.<span class="fn">create</span>(
+    <span class="key">model</span>=<span class="str">"${model}"</span>,
+    <span class="key">messages</span>=[
+        {
+            <span class="str">"role"</span>: <span class="str">"system"</span>,
+            <span class="str">"content"</span>: <span class="str">"${system}"</span>
+        },
+        {
+            <span class="str">"role"</span>: <span class="str">"user"</span>,
+            <span class="str">"content"</span>: <span class="str">"${user}"</span>
+        }
+    ],
+    <span class="key">temperature</span>=<span class="num">${temp}</span>,
+    <span class="key">max_tokens</span>=<span class="num">${maxTok}</span>,${fmtLine}
+)
+
+<span class="cm"># Extract the response text</span>
+text = response.choices[<span class="num">0</span>].message.content
+tokens = response.usage.total_tokens
+finish = response.choices[<span class="num">0</span>].finish_reason
+
+<span class="fn">print</span>(<span class="str">f"Response: {text}"</span>)
+<span class="fn">print</span>(<span class="str">f"Tokens used: {tokens}"</span>)
+<span class="fn">print</span>(<span class="str">f"Finish reason: {finish}"</span>)`;
+}
+
+updatePreview();
+
+// Quiz
+const feedbacks = {
+  q1: { ok: "Correct! API keys are credentials — treat them like passwords. Use environment variables or a secrets manager. Never commit them to git.", bad: "API keys must never appear in source code. Use environment variables (os.environ) or a .env file excluded from version control." },
+  q2: { ok: "Correct! finish_reason='length' means the response was cut short. Increase max_tokens if you need the full response.", bad: "finish_reason='length' means the response was truncated at your max_tokens limit. The model had more to say but was cut off." },
+  q3: { ok: "Correct! gpt-4o-mini is the recommended default — 60× cheaper than gpt-4o while handling most tasks well. Upgrade only if quality is insufficient.", bad: "gpt-4o-mini offers the best cost-performance for most tasks. Start there and upgrade only if results are unsatisfactory." },
+  q4: { ok: "Correct! Since output tokens are more expensive, use max_tokens and precise format instructions to prevent unnecessarily long responses.", bad: "Output tokens are billed at a higher rate. Controlling response length with max_tokens and explicit format instructions saves cost." },
+  q5: { ok: "Correct! The response is a list of choices (usually just one). Access it with response.choices[0].message.content.", bad: "The correct accessor is response.choices[0].message.content — choices is a list (index 0 for the first/only result), then message.content." }
+};
+
+let answers = {};
+function answer(btn, qId, correct) {
+  if (answers[qId] !== undefined) return;
+  answers[qId] = correct;
+  const allBtns = btn.parentElement.querySelectorAll('.opt-btn');
+  allBtns.forEach(b => b.disabled = true);
+  btn.classList.add(correct ? 'correct' : 'incorrect');
+  if (!correct) {
+    allBtns.forEach(b => { if (b.onclick.toString().includes('true')) b.classList.add('correct'); });
+  }
+  const fb = document.getElementById('fb_' + qId);
+  fb.textContent = correct ? '✓ ' + feedbacks[qId].ok : '✗ ' + feedbacks[qId].bad;
+  fb.className = 'feedback show ' + (correct ? 'ok' : 'bad');
+  if (Object.keys(answers).length === 5) {
+    const score = Object.values(answers).filter(Boolean).length;
+    document.getElementById('scoreNum').textContent = score + '/5';
+    document.getElementById('scoreBanner').classList.add('show');
+  }
+}
+</script>
+</body>
+</html>
