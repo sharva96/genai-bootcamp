@@ -9,7 +9,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Ensure the API key is set in the
 MODEL_NAME = os.getenv("MODEL_NAME")  # Ensure the model name is set in the environment
 
 
-client = OpenAI(OPENAI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 response = client.responses.create(
     model=MODEL_NAME,
