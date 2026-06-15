@@ -76,14 +76,14 @@ def compare_models() -> None:
     print("=" * 60)
 
     question = "What is the capital of France? Answer with just the city name."
-    models = ["gpt-4o-mini", "gpt-4o"]
+    models = ["gpt-5-nano", "gpt-5-mini"]
 
     for model in models:
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": question}],
-            temperature=0.0,
-            max_tokens=20,
+            # temperature=0.0,
+            # max_tokens=20,
         )
         print(f"{model:20s}: {response.choices[0].message.content.strip()!r:15s} "
               f"| {response.usage.total_tokens} tokens")
