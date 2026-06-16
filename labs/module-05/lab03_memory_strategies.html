@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 3 — Memory Strategies</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #06b6d4; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Strategy picker */
+  .strat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .strat-card { background: #1e293b; border: 1.5px solid #334155; border-radius: 14px; padding: 18px;
+    cursor: pointer; transition: all 0.2s; }
+  .strat-card:hover { border-color: #06b6d4; transform: translateY(-2px); }
+  .strat-card.selected { border-color: #06b6d4; background: rgba(6,182,212,0.06); }
+  .strat-name { font-size: 0.95rem; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .strat-icon { font-size: 1.2rem; }
+  .strat-tag { font-size: 0.74rem; color: #94a3b8; line-height: 1.5; margin-bottom: 10px; }
+  .strat-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat-pill { font-size: 0.68rem; padding: 2px 8px; border-radius: 99px; background: #0f172a; color: #64748b; border: 1px solid #334155; }
+  .stat-pill.good { color: #6ee7b7; border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.08); }
+  .stat-pill.bad  { color: #fca5a5; border-color: rgba(239,68,68,0.25); background: rgba(239,68,68,0.07); }
+
+  /* Simulator layout */
+  .sim-layout { display: grid; grid-template-columns: 1fr 1.3fr; gap: 24px; }
+  .sim-left  { display: flex; flex-direction: column; gap: 14px; }
+  .sim-right { display: flex; flex-direction: column; gap: 14px; }
+
+  .panel-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 18px; }
+  .panel-title { font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .panel-sub { font-size: 0.74rem; color: #64748b; font-weight: 400; }
+
+  /* Controls */
+  .ctrl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ctrl-label { font-size: 0.74rem; color: #94a3b8; min-width: 80px; }
+  input[type="range"] { flex: 1; }
+  .ctrl-val { font-size: 0.82rem; color: #22d3ee; font-weight: 700; min-width: 32px; text-align: right; font-family: 'Consolas', monospace; }
+  .btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.15s; }
+  .btn-primary { background: #06b6d4; color: #0f172a; }
+  .btn-primary:hover { background: #22d3ee; }
+  .btn-secondary { background: #1e293b; border: 1.5px solid #334155; color: #94a3b8; }
+  .btn-secondary:hover { border-color: #06b6d4; color: #e2e8f0; }
+
+  /* Conversation list */
+  .turns { display: flex; flex-direction: column; gap: 6px; max-height: 380px; overflow-y: auto; padding-right: 4px; }
+  .turn { display: grid; grid-template-columns: 36px 1fr; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #0f172a; border: 1px solid #1e293b; font-size: 0.78rem; }
+  .turn.dimmed { opacity: 0.35; }
+  .turn.summarized { background: rgba(129,140,248,0.06); border-color: rgba(129,140,248,0.25); }
+  .turn.kept      { background: rgba(6,182,212,0.06);   border-color: rgba(6,182,212,0.3); }
+  .turn.recalled  { background: rgba(52,211,153,0.06);  border-color: rgba(52,211,153,0.3); }
+  .turn-tag { font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 99px; height: fit-content; text-align: center; }
+  .tag-u { background: rgba(6,182,212,0.15); color: #22d3ee; }
+  .tag-a { background: rgba(52,211,153,0.15); color: #34d399; }
+  .turn-text { color: #cbd5e1; line-height: 1.5; }
+
+  /* Stats bars */
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; }
+  .stat-num { font-size: 1.3rem; font-weight: 800; color: #22d3ee; }
+  .stat-label { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+  /* Token-cost chart */
+  .chart { background: #0f172a; border-radius: 10px; padding: 14px; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 140px; margin-bottom: 8px; }
+  .chart-bar { flex: 1; background: linear-gradient(180deg, #06b6d4, rgba(6,182,212,0.3));
+    border-radius: 3px 3px 0 0; min-width: 4px; position: relative; transition: height 0.3s; }
+  .chart-bar:hover::after { content: attr(data-val); position: absolute; top: -20px; left: 50%;
+    transform: translateX(-50%); background: #1e293b; padding: 2px 6px; border-radius: 4px;
+    font-size: 0.65rem; color: #22d3ee; white-space: nowrap; }
+  .chart-xaxis { display: flex; gap: 4px; }
+  .chart-xtick { flex: 1; text-align: center; font-size: 0.62rem; color: #475569; min-width: 4px; }
+
+  /* Sent prompt preview */
+  pre.prompt-prev { background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+    padding: 12px; font-family: 'Consolas', monospace; font-size: 0.74rem; line-height: 1.6;
+    color: #cbd5e1; max-height: 260px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+  .pp-system { color: #818cf8; }
+  .pp-summary { color: #c4b5fd; }
+  .pp-recall  { color: #34d399; }
+  .pp-user    { color: #22d3ee; }
+  .pp-asst    { color: #94a3b8; }
+
+  .info-box { background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.2); border-radius: 10px;
+    padding: 14px 16px; font-size: 0.83rem; color: #94a3b8; line-height: 1.6; }
+  .info-box strong { color: #22d3ee; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8;
+    font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #06b6d4; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 900px) { .sim-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 5 · Lab 3</div>
+  <h1>Memory Strategies</h1>
+  <p>Compare full history vs. sliding window vs. summary vs. vector recall — on the same 20-turn conversation</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Strategy cards -->
+  <section>
+    <h2 class="section-title">Pick a Strategy</h2>
+    <p class="section-sub">Click to switch. The simulator below redraws with the new strategy applied to the same 20-turn conversation.</p>
+
+    <div class="strat-grid" id="stratGrid"></div>
+  </section>
+
+  <!-- Section 2: Simulator -->
+  <section>
+    <h2 class="section-title">20-Turn Conversation Simulator</h2>
+    <p class="section-sub">Step turn by turn. The left column shows what was said; the right column shows what's actually sent to the model on the current turn.</p>
+
+    <div class="sim-layout">
+      <div class="sim-left">
+        <div class="panel-card">
+          <div class="panel-title">
+            <span>Conversation history</span>
+            <span class="panel-sub">Turn <span id="turnNum">3</span> / 20</span>
+          </div>
+          <div class="ctrl-row" style="margin-bottom:14px;">
+            <span class="ctrl-label">Turn</span>
+            <input type="range" id="turnSlider" min="1" max="20" value="3" />
+            <span class="ctrl-val" id="turnVal">3</span>
+          </div>
+          <div id="strategyCtrls"></div>
+          <div class="turns" id="turnList"></div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Stats this turn</div>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-num" id="s-tokens">0</div>
+              <div class="stat-label">Input tokens sent</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num" id="s-msgs">0</div>
+              <div class="stat-label">Messages in prompt</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num" id="s-recall">0</div>
+              <div class="stat-label">Coverage of past turns</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-num" id="s-cost">$0.00</div>
+              <div class="stat-label">Cost so far</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sim-right">
+        <div class="panel-card">
+          <div class="panel-title">Prompt actually sent</div>
+          <pre class="prompt-prev" id="promptPreview"></pre>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Input-token cost per turn <span class="panel-sub">all 20 turns</span></div>
+          <div class="chart">
+            <div class="chart-bars" id="chartBars"></div>
+            <div class="chart-xaxis" id="chartXaxis"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Quiz -->
+  <section>
+    <h2 class="section-title">Check Your Understanding</h2>
+    <p class="section-sub">Three questions on memory tradeoffs.</p>
+    <div id="quiz"></div>
+
+    <div class="info-box" style="margin-top: 28px;">
+      <strong>Production tip:</strong> Most real chatbots <em>combine</em> these. System prompt + long-term profile + summary of older turns + sliding window of last 6 — and vector recall on demand. No single strategy fits all use cases.
+    </div>
+  </section>
+
+</div>
+
+<script>
+const STRATEGIES = [
+  { key: 'full',    icon: '📜', name: 'Full History',     tag: 'Resend every turn. Simplest, but cost and context grow linearly.',
+    pros: ['perfect recall'], cons: ['cost ↑↑', 'attention dilutes'] },
+  { key: 'sliding', icon: '🪟', name: 'Sliding Window',   tag: 'Keep only the last N user/assistant pairs. Predictable cost, may forget early facts.',
+    pros: ['bounded cost'], cons: ['forgets earlier turns'] },
+  { key: 'summary', icon: '📝', name: 'Running Summary',  tag: 'Replace older turns with a model-generated summary. Coherence over long sessions.',
+    pros: ['flat cost'], cons: ['summary loses detail', 'extra LLM call'] },
+  { key: 'vector',  icon: '🧭', name: 'Vector Recall',    tag: 'Embed each turn; retrieve the most relevant ones per query. Long-term memory.',
+    pros: ['week-long recall'], cons: ['retrieval infra', 'retrieval quality matters'] },
+];
+
+const CONVERSATION = [
+  ['user',     "Hi, my name is Priya and I'm planning a trip to Tokyo."],
+  ['asst',     "Lovely — Tokyo is a great choice. What dates are you thinking?"],
+  ['user',     "April 5 to April 14. We want to see the cherry blossoms."],
+  ['asst',     "Late cherry-blossom season — peak bloom is usually late March. Want me to suggest cooler-weather destinations within Japan?"],
+  ['user',     "Yes, and I'm vegetarian — please remember that."],
+  ['asst',     "Noted. I'll keep that in mind for any restaurant suggestions."],
+  ['user',     "What's a good area to stay in?"],
+  ['asst',     "Shinjuku and Shibuya are popular bases. Shinjuku has more food variety which helps with the vegetarian preference."],
+  ['user',     "Can we do a side trip to Kyoto?"],
+  ['asst',     "Absolutely — Shinkansen makes it a 2h15m trip. Two nights minimum to see the main temples."],
+  ['user',     "We also enjoy hiking, anything nearby?"],
+  ['asst',     "Day-hike: Mt Takao, 1h from Shinjuku. Overnight: Mt Fuji area (Fuji Five Lakes)."],
+  ['user',     "How much yen should I carry?"],
+  ['asst',     "Japan is increasingly card-friendly. About ¥30,000–¥40,000 cash for taxis, temples, and small shops should suffice for a week."],
+  ['user',     "Are there vegetarian options at temples?"],
+  ['asst',     "Shōjin ryōri — traditional Buddhist vegetarian cuisine — is served at many Kyoto temples. I can list 3 good ones."],
+  ['user',     "What was my name again?"],
+  ['asst',     "Priya — and your trip is April 5–14, vegetarian, with Tokyo + a Kyoto side trip."],
+  ['user',     "Yes! Recommend 3 hotels in Shinjuku within walking distance of the station."],
+  ['asst',     "Here are three: Park Hyatt Tokyo, Hotel Gracery Shinjuku, and Citadines Central Shinjuku."],
+  ['user',     "Which of those has the best breakfast for vegetarians?"],
+  ['asst',     "Park Hyatt's Girandole has a strong vegetarian buffet line. Hotel Gracery offers a Japanese-style breakfast that can be adjusted."],
+];
+
+const STATE = { strategy: 'sliding', turn: 3, windowSize: 4, summaryStart: 6 };
+
+function tok(text) { return Math.ceil(text.split(/\s+/).filter(Boolean).length * 1.3); }
+
+const SYSTEM_TOK = 80;
+const COST_PER_1K_INPUT = 0.00015; // gpt-4o-mini input price per 1k tok
+
+function renderStratCards() {
+  const root = document.getElementById('stratGrid');
+  root.innerHTML = '';
+  STRATEGIES.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'strat-card' + (s.key === STATE.strategy ? ' selected' : '');
+    card.innerHTML = `
+      <div class="strat-name"><span class="strat-icon">${s.icon}</span>${s.name}</div>
+      <div class="strat-tag">${s.tag}</div>
+      <div class="strat-stats">
+        ${s.pros.map(p => `<span class="stat-pill good">+ ${p}</span>`).join('')}
+        ${s.cons.map(c => `<span class="stat-pill bad">− ${c}</span>`).join('')}
+      </div>`;
+    card.onclick = () => { STATE.strategy = s.key; renderAll(); };
+    root.appendChild(card);
+  });
+}
+
+function strategyControls() {
+  const c = document.getElementById('strategyCtrls');
+  if (STATE.strategy === 'sliding') {
+    c.innerHTML = `
+      <div class="ctrl-row" style="margin-bottom:10px;">
+        <span class="ctrl-label">Window</span>
+        <input type="range" id="winSlider" min="1" max="10" value="${STATE.windowSize}" />
+        <span class="ctrl-val" id="winVal">${STATE.windowSize} pairs</span>
+      </div>`;
+    document.getElementById('winSlider').oninput = (e) => {
+      STATE.windowSize = +e.target.value;
+      document.getElementById('winVal').textContent = STATE.windowSize + ' pairs';
+      renderSim();
+    };
+  } else if (STATE.strategy === 'summary') {
+    c.innerHTML = `
+      <div class="ctrl-row" style="margin-bottom:10px;">
+        <span class="ctrl-label">Summarize after turn</span>
+        <input type="range" id="sumSlider" min="2" max="14" value="${STATE.summaryStart}" />
+        <span class="ctrl-val" id="sumVal">${STATE.summaryStart}</span>
+      </div>`;
+    document.getElementById('sumSlider').oninput = (e) => {
+      STATE.summaryStart = +e.target.value;
+      document.getElementById('sumVal').textContent = STATE.summaryStart;
+      renderSim();
+    };
+  } else { c.innerHTML = ''; }
+}
+
+/** Returns array of msgs that would be in the prompt at the current turn */
+function buildPromptForTurn(turn, strategy) {
+  // History up to (and including) message index = turn*2-1 (last user msg of that turn)
+  // Each conversation "turn" = user + assistant pair (after first response)
+  // We'll treat 1-indexed: turn k means we've shown k user msgs.
+  const msgsSoFar = CONVERSATION.slice(0, turn * 2 - 1); // ends with the user msg of the current turn
+
+  const system = { role: 'system', content: 'You are Atlas, a friendly travel-planning assistant.' };
+  let included = [];
+  let dimmedFlags = new Array(CONVERSATION.length).fill('out');
+
+  if (strategy === 'full') {
+    included = msgsSoFar.map((m, i) => ({ role: m[0], content: m[1], _i: i }));
+    msgsSoFar.forEach((_, i) => dimmedFlags[i] = 'kept');
+  }
+  else if (strategy === 'sliding') {
+    // Keep last N user/assistant pairs (2N messages) but always keep latest user
+    const keep = STATE.windowSize * 2;
+    const recent = msgsSoFar.slice(Math.max(0, msgsSoFar.length - keep));
+    included = recent.map(m => ({ role: m[0], content: m[1] }));
+    const startIdx = Math.max(0, msgsSoFar.length - keep);
+    msgsSoFar.forEach((_, i) => dimmedFlags[i] = (i >= startIdx) ? 'kept' : 'out');
+  }
+  else if (strategy === 'summary') {
+    // Summarize earlier turns, keep recent 4 messages verbatim
+    const recentN = 4;
+    const recent = msgsSoFar.slice(Math.max(0, msgsSoFar.length - recentN));
+    const middle = msgsSoFar.slice(0, Math.max(0, msgsSoFar.length - recentN));
+    if (middle.length >= STATE.summaryStart) {
+      // Build a fake summary
+      const facts = extractFacts(middle);
+      included = [
+        { role: 'system', content: '[Summary of earlier turns]\n' + facts },
+        ...recent.map(m => ({ role: m[0], content: m[1] })),
+      ];
+      const startIdx = msgsSoFar.length - recent.length;
+      msgsSoFar.forEach((_, i) => dimmedFlags[i] = (i >= startIdx) ? 'kept' : 'summarized');
+    } else {
+      included = msgsSoFar.map(m => ({ role: m[0], content: m[1] }));
+      msgsSoFar.forEach((_, i) => dimmedFlags[i] = 'kept');
+    }
+  }
+  else if (strategy === 'vector') {
+    // Sliding window of last 3 + retrieved 2 prior turns relevant to current user query
+    const recent = msgsSoFar.slice(Math.max(0, msgsSoFar.length - 6));
+    const middle = msgsSoFar.slice(0, Math.max(0, msgsSoFar.length - 6));
+    const currentUserMsg = msgsSoFar[msgsSoFar.length - 1] ? msgsSoFar[msgsSoFar.length - 1][1] : '';
+    const recalled = retrieveRelevant(middle, currentUserMsg, 2);
+
+    included = [
+      ...recalled.map(m => ({ role: 'system', content: `[Recalled prior turn] ${m.text}` })),
+      ...recent.map(m => ({ role: m[0], content: m[1] })),
+    ];
+    const startIdx = msgsSoFar.length - recent.length;
+    msgsSoFar.forEach((_, i) => {
+      if (i >= startIdx) dimmedFlags[i] = 'kept';
+      else if (recalled.some(r => r.idx === i)) dimmedFlags[i] = 'recalled';
+      else dimmedFlags[i] = 'out';
+    });
+  }
+
+  return { system, included, dimmedFlags, msgsSoFar };
+}
+
+/** Very fake "summary" extractor — picks salient facts */
+function extractFacts(msgs) {
+  const text = msgs.map(m => m[1]).join(' ');
+  const lines = [];
+  if (/Priya/.test(text)) lines.push('- User name: Priya');
+  if (/Tokyo/.test(text)) lines.push('- Trip: Tokyo, April 5–14');
+  if (/vegetarian/i.test(text)) lines.push('- Dietary preference: vegetarian');
+  if (/Shinjuku|Shibuya/i.test(text)) lines.push('- Considering Shinjuku/Shibuya as base');
+  if (/Kyoto/.test(text)) lines.push('- Side trip to Kyoto, 2 nights minimum');
+  if (/hike|hiking|Fuji|Takao/i.test(text)) lines.push('- Likes hiking — Mt Takao day trip / Fuji area overnight');
+  if (/cash|yen/i.test(text)) lines.push('- Discussed cash: ¥30–40k for the week');
+  if (/temple|shōjin|shojin/i.test(text)) lines.push('- Interested in shōjin ryōri at Kyoto temples');
+  return lines.join('\n') || '- No salient facts yet.';
+}
+
+/** Fake "vector retrieval" — keyword overlap */
+function retrieveRelevant(middle, query, k) {
+  const q = query.toLowerCase();
+  const scored = middle.map((m, idx) => {
+    const t = m[1].toLowerCase();
+    let score = 0;
+    ['priya','name','tokyo','kyoto','vegetarian','vegan','shinjuku','shibuya','hike','fuji','yen','temple','breakfast','hotel','date','april','blossom']
+      .forEach(kw => { if (q.includes(kw) && t.includes(kw)) score += 1; });
+    return { idx, text: m[1], score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.filter(s => s.score > 0).slice(0, k);
+}
+
+function renderTurns() {
+  const root = document.getElementById('turnList');
+  root.innerHTML = '';
+  const { dimmedFlags } = buildPromptForTurn(STATE.turn, STATE.strategy);
+  const last = STATE.turn * 2 - 1;
+
+  for (let i = 0; i < CONVERSATION.length; i++) {
+    const [role, text] = CONVERSATION[i];
+    const flag = (i <= last) ? dimmedFlags[i] : 'future';
+    const div = document.createElement('div');
+    let cls = 'turn';
+    if (flag === 'kept') cls += ' kept';
+    else if (flag === 'summarized') cls += ' summarized';
+    else if (flag === 'recalled') cls += ' recalled';
+    else if (flag === 'out') cls += ' dimmed';
+    else if (flag === 'future') cls += ' dimmed';
+    div.className = cls;
+    div.innerHTML = `
+      <div class="turn-tag ${role === 'user' ? 'tag-u' : 'tag-a'}">${role === 'user' ? 'USR' : 'AST'}</div>
+      <div class="turn-text">${text}</div>`;
+    root.appendChild(div);
+  }
+}
+
+function renderPromptPreview() {
+  const { system, included } = buildPromptForTurn(STATE.turn, STATE.strategy);
+  const lines = [];
+  lines.push(`<span class="pp-system">[system] ${system.content}</span>`);
+  for (const m of included) {
+    let cls = 'pp-user';
+    let role = m.role;
+    if (m.role === 'system') {
+      if (m.content.startsWith('[Summary')) cls = 'pp-summary';
+      else if (m.content.startsWith('[Recalled')) cls = 'pp-recall';
+      else cls = 'pp-system';
+    } else if (m.role === 'asst') { cls = 'pp-asst'; role = 'asst'; }
+    else if (m.role === 'user') { cls = 'pp-user'; role = 'user'; }
+    lines.push(`<span class="${cls}">[${role}] ${escapeHtml(m.content)}</span>`);
+  }
+  document.getElementById('promptPreview').innerHTML = lines.join('\n');
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function tokensForPrompt(promptObj) {
+  let total = tok(promptObj.system.content) + 4;
+  for (const m of promptObj.included) total += tok(m.content) + 4;
+  return total;
+}
+
+function renderStats() {
+  const prompt = buildPromptForTurn(STATE.turn, STATE.strategy);
+  const tokens = tokensForPrompt(prompt);
+  // Coverage = how many of the prior turns are represented (in window or via summary/recall facts)
+  const past = STATE.turn * 2 - 1;
+  let coveredIdx = new Set();
+  prompt.dimmedFlags.slice(0, past).forEach((f, i) => {
+    if (f === 'kept' || f === 'recalled') coveredIdx.add(i);
+    if (f === 'summarized') coveredIdx.add(i); // summary represents it loosely
+  });
+  const coverage = past > 0 ? Math.round((coveredIdx.size / past) * 100) : 100;
+
+  let cumulativeCost = 0;
+  for (let t = 1; t <= STATE.turn; t++) {
+    cumulativeCost += (tokensForPrompt(buildPromptForTurn(t, STATE.strategy)) / 1000) * COST_PER_1K_INPUT;
+  }
+
+  document.getElementById('s-tokens').textContent = tokens;
+  document.getElementById('s-msgs').textContent = prompt.included.length + 1;
+  document.getElementById('s-recall').textContent = coverage + '%';
+  document.getElementById('s-cost').textContent = '$' + cumulativeCost.toFixed(4);
+}
+
+function renderChart() {
+  const bars = document.getElementById('chartBars');
+  const axis = document.getElementById('chartXaxis');
+  bars.innerHTML = ''; axis.innerHTML = '';
+
+  const perTurnTokens = [];
+  for (let t = 1; t <= 20; t++) {
+    perTurnTokens.push(tokensForPrompt(buildPromptForTurn(t, STATE.strategy)));
+  }
+  const maxTok = Math.max(...perTurnTokens, 100);
+
+  for (let t = 1; t <= 20; t++) {
+    const bar = document.createElement('div');
+    bar.className = 'chart-bar';
+    bar.style.height = `${(perTurnTokens[t-1] / maxTok) * 100}%`;
+    bar.dataset.val = `T${t}: ${perTurnTokens[t-1]} tok`;
+    if (t === STATE.turn) bar.style.background = 'linear-gradient(180deg, #fbbf24, rgba(251,191,36,0.3))';
+    bars.appendChild(bar);
+
+    const tick = document.createElement('div');
+    tick.className = 'chart-xtick';
+    tick.textContent = (t % 5 === 0 || t === 1) ? t : '';
+    axis.appendChild(tick);
+  }
+}
+
+function renderSim() {
+  document.getElementById('turnNum').textContent = STATE.turn;
+  document.getElementById('turnVal').textContent = STATE.turn;
+  renderTurns();
+  renderPromptPreview();
+  renderStats();
+  renderChart();
+}
+
+function renderAll() {
+  renderStratCards();
+  strategyControls();
+  renderSim();
+}
+
+document.getElementById('turnSlider').oninput = (e) => {
+  STATE.turn = +e.target.value;
+  renderSim();
+};
+
+renderAll();
+
+// Quiz
+const QUIZ = [
+  {
+    q: "At turn 15 of a long chat, the user asks: 'What was my name again?' Which strategy is MOST likely to remember it?",
+    options: [
+      "Sliding window with N=4 pairs",
+      "Full history",
+      "Running summary that includes the name",
+      "Vector recall on the keyword 'name'",
+    ],
+    correct: 1,
+    why: "Full history always wins on recall — name will still be in context. Sliding window with N=4 will have dropped turn 1. Summary works only if 'name' was summarized. Vector recall works only if the prior turn is retrievable.",
+  },
+  {
+    q: "Your support bot averages 30 turns per session. Which strategy gives the most PREDICTABLE cost per session?",
+    options: [
+      "Full history",
+      "Sliding window",
+      "Running summary",
+      "Vector recall",
+    ],
+    correct: 1,
+    why: "Sliding window has a hard cap: at most N pairs in context every turn. Cost per turn is bounded.",
+  },
+  {
+    q: "What's the main risk of summarization-based memory?",
+    options: [
+      "Cost grows linearly with conversation length",
+      "Information lost in the summary can't be recovered later",
+      "Requires a separate vector database",
+      "Doesn't work with streaming",
+    ],
+    correct: 1,
+    why: "Once you replace verbatim turns with a summary, the original detail is gone. If the user later asks about something not captured, the bot won't know.",
+  },
+];
+
+(function renderQuiz() {
+  const root = document.getElementById('quiz');
+  QUIZ.forEach((item, qi) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.innerHTML = `
+      <div class="question">${qi + 1}. ${item.q}</div>
+      <div class="options">${item.options.map((o, i) =>
+        `<button class="opt-btn" data-q="${qi}" data-i="${i}">${o}</button>`).join('')}</div>
+      <div class="feedback" id="fb-${qi}"></div>`;
+    root.appendChild(card);
+  });
+
+  document.querySelectorAll('.opt-btn').forEach(btn => {
+    btn.onclick = () => {
+      const qi = +btn.dataset.q, i = +btn.dataset.i;
+      const item = QUIZ[qi];
+      const card = btn.closest('.quiz-card');
+      if (card.dataset.done) return;
+      card.dataset.done = '1';
+      const ok = i === item.correct;
+      btn.classList.add(ok ? 'correct' : 'incorrect');
+      if (!ok) card.querySelector(`.opt-btn[data-i="${item.correct}"]`).classList.add('correct');
+      const fb = document.getElementById(`fb-${qi}`);
+      fb.className = `feedback show ${ok ? 'ok' : 'bad'}`;
+      fb.textContent = (ok ? '✓ ' : '✗ ') + item.why;
+      card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+    };
+  });
+})();
+</script>
+</body>
+</html>

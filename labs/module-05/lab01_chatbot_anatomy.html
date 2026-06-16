@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 1 — Anatomy of a Chatbot</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #06b6d4; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Layer stack */
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+  .layer {
+    background: #1e293b; border: 1.5px solid #334155; border-radius: 12px;
+    padding: 16px 20px; cursor: pointer; transition: all 0.2s;
+    display: grid; grid-template-columns: 50px 1fr auto; gap: 16px; align-items: center;
+  }
+  .layer:hover { border-color: #06b6d4; transform: translateX(4px); }
+  .layer.active { border-color: #06b6d4; background: rgba(6,182,212,0.06); }
+  .layer-num { width: 44px; height: 44px; border-radius: 50%; background: #0f172a; border: 2px solid #334155;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.05rem; color: #94a3b8; }
+  .layer.active .layer-num { background: #06b6d4; border-color: #06b6d4; color: #0f172a; }
+  .layer-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .layer-name { font-size: 1rem; font-weight: 700; color: #f1f5f9; }
+  .layer-tag { font-size: 0.78rem; color: #94a3b8; }
+  .layer-arrow { color: #475569; font-size: 0.9rem; transition: transform 0.2s; }
+  .layer.active .layer-arrow { transform: rotate(90deg); color: #22d3ee; }
+
+  .panel { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px;
+    margin-top: 16px; display: none; }
+  .panel.show { display: block; animation: fadeIn 0.25s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .panel h3 { font-size: 0.95rem; color: #22d3ee; margin-bottom: 12px; }
+  .panel p { font-size: 0.86rem; color: #cbd5e1; line-height: 1.65; margin-bottom: 14px; }
+  .panel ul { font-size: 0.85rem; color: #cbd5e1; line-height: 1.7; padding-left: 20px; margin-bottom: 14px; }
+  .panel code { background: #1e293b; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 0.8rem; color: #fbbf24; }
+  .panel pre { background: #1e293b; border-radius: 8px; padding: 14px; font-family: 'Consolas', monospace;
+    font-size: 0.78rem; color: #cbd5e1; line-height: 1.65; overflow-x: auto; margin-bottom: 14px; white-space: pre; }
+  .kw { color: #818cf8; } .str { color: #34d399; } .num { color: #fb923c; }
+  .key { color: #7dd3fc; } .cm { color: #475569; font-style: italic; } .fn { color: #fbbf24; }
+
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pill { font-size: 0.72rem; padding: 4px 10px; border-radius: 99px; background: rgba(6,182,212,0.1);
+    color: #22d3ee; border: 1px solid rgba(6,182,212,0.25); }
+  .pill.warn { background: rgba(251,146,60,0.1); color: #fdba74; border-color: rgba(251,146,60,0.25); }
+
+  /* Live request walkthrough */
+  .walk-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .walk-input { flex: 1; min-width: 260px; background: #1e293b; border: 1.5px solid #334155; border-radius: 8px;
+    padding: 10px 14px; color: #e2e8f0; font-size: 0.88rem; font-family: inherit; }
+  .walk-input:focus { border-color: #06b6d4; outline: none; }
+  .btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    transition: all 0.15s; }
+  .btn-primary { background: #06b6d4; color: #0f172a; }
+  .btn-primary:hover { background: #22d3ee; }
+  .btn-secondary { background: #1e293b; border: 1.5px solid #334155; color: #94a3b8; }
+  .btn-secondary:hover { border-color: #06b6d4; color: #e2e8f0; }
+
+  .walk-timeline { display: flex; flex-direction: column; gap: 0; position: relative; }
+  .walk-step { display: grid; grid-template-columns: 36px 1fr; gap: 14px; opacity: 0.4; transition: opacity 0.3s; padding-bottom: 14px; }
+  .walk-step.lit { opacity: 1; }
+  .walk-step-dot { width: 14px; height: 14px; border-radius: 50%; background: #1e293b; border: 2px solid #334155;
+    margin-top: 6px; margin-left: 11px; position: relative; }
+  .walk-step.lit .walk-step-dot { background: #06b6d4; border-color: #06b6d4; box-shadow: 0 0 0 4px rgba(6,182,212,0.15); }
+  .walk-step:not(:last-child) .walk-step-dot::after { content: ''; position: absolute; left: 50%; top: 14px;
+    width: 2px; height: calc(100% + 20px); background: #334155; transform: translateX(-50%); }
+  .walk-step.lit:not(:last-child) .walk-step-dot::after { background: #06b6d4; }
+  .walk-step-body { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px 16px; }
+  .walk-step-name { font-size: 0.85rem; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+  .walk-step-text { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; font-family: 'Consolas', monospace; word-break: break-word; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8;
+    font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #06b6d4; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+  .score-banner { background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(6,182,212,0.05)); border: 1px solid #06b6d4;
+    border-radius: 14px; padding: 24px; text-align: center; display: none; }
+  .score-banner.show { display: block; }
+  .score-num { font-size: 2.5rem; font-weight: 800; color: #22d3ee; }
+  .score-label { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+
+  .info-box { background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.2); border-radius: 10px;
+    padding: 14px 16px; font-size: 0.83rem; color: #94a3b8; line-height: 1.6; }
+  .info-box strong { color: #22d3ee; }
+
+  @media (max-width: 700px) { .layer { grid-template-columns: 44px 1fr auto; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 5 · Lab 1</div>
+  <h1>Anatomy of a Chatbot</h1>
+  <p>The seven layers that turn an LLM into a production chatbot</p>
+</div>
+
+<div class="main">
+
+  <!-- Section 1: Click-through layer stack -->
+  <section>
+    <h2 class="section-title">The Seven Layers</h2>
+    <p class="section-sub">Click each layer to expand. Every production chatbot — no matter how simple it looks — decomposes into these seven layers.</p>
+
+    <div class="stack" id="stack">
+      <!-- Layer 1 -->
+      <div class="layer" data-layer="1" onclick="toggleLayer(1)">
+        <div class="layer-num">1</div>
+        <div class="layer-main">
+          <div class="layer-name">Frontend / Channel</div>
+          <div class="layer-tag">Web widget · Slack · CLI · Voice · SMS</div>
+        </div>
+        <div class="layer-arrow">▸</div>
+      </div>
+      <div class="panel" id="panel-1">
+        <h3>What it does</h3>
+        <p>Where the user types. Determines latency expectations, UI affordances (streaming vs. all-at-once, markdown vs. plain text), and what non-text signals you have access to (button clicks, file uploads, voice).</p>
+        <div class="pill-row">
+          <div class="pill">Web · streaming + markdown</div>
+          <div class="pill">Slack · threads + 4k char limit</div>
+          <div class="pill">Voice · short utterances, no UI</div>
+          <div class="pill">CLI · power users, no rendering</div>
+        </div>
+        <h3>Design rule</h3>
+        <p>The same backend may need to fan out to multiple channels with different policies per channel. Keep the channel adapter thin — protocol translation only. All logic lives below.</p>
+      </div>
+
+      <!-- Layer 2 -->
+      <div class="layer" data-layer="2" onclick="toggleLayer(2)">
+        <div class="layer-num">2</div>
+        <div class="layer-main">
+          <div class="layer-name">Session &amp; State Store</div>
+          <div class="layer-tag">Conversation history · user profile · long-term memory</div>
+        </div>
+        <div class="layer-arrow">▸</div>
+      </div>
+      <div class="panel" id="panel-2">
+        <h3>What it does</h3>
+        <p>The conversation is a sequence of (user, assistant) pairs scoped to a <code>session_id</code>. Without this layer the bot is amnesic — the LLM itself has no built-in memory.</p>
+        <ul>
+          <li><b>In-memory dict</b> — toy demos only; lost on restart.</li>
+          <li><b>Redis</b> — fast, scoped to a session TTL.</li>
+          <li><b>Postgres / Firestore</b> — durable, auditable, supports analytics.</li>
+          <li><b>Vector store</b> — long-term per-user recall across sessions.</li>
+        </ul>
+        <h3>Design rule</h3>
+        <p>Keep <em>session</em> state (this conversation) separate from <em>user</em> state (preferences, prior sessions). They have different retention and access patterns.</p>
+      </div>
+
+      <!-- Layer 3 -->
+      <div class="layer" data-layer="3" onclick="toggleLayer(3)">
+        <div class="layer-num">3</div>
+        <div class="layer-main">
+          <div class="layer-name">Input Guardrails</div>
+          <div class="layer-tag">Moderation · PII filter · scope check · rate limit</div>
+        </div>
+        <div class="layer-arrow">▸</div>
+      </div>
+      <div class="panel" id="panel-3">
+        <h3>What it does</h3>
+        <p>Cheap checks <em>before</em> you spend tokens on a request you do not want to serve.</p>
+<pre><span class="kw">if</span> moderation.check(user_msg).flagged:
+    <span class="kw">return</span> safe_decline()
+
+<span class="kw">if</span> pii_detector.has_secrets(user_msg):
+    user_msg = redact(user_msg)
+
+<span class="kw">if</span> rate_limiter.exceeded(user_id):
+    <span class="kw">return</span> too_many_requests()</pre>
+        <div class="pill-row">
+          <div class="pill warn">Moderation API ≈ free</div>
+          <div class="pill warn">Saves ~$0.01 per blocked turn</div>
+        </div>
+      </div>
+
+      <!-- Layer 4 -->
+      <div class="layer" data-layer="4" onclick="toggleLayer(4)">
+        <div class="layer-num">4</div>
+        <div class="layer-main">
+          <div class="layer-name">Context Builder</div>
+          <div class="layer-tag">system prompt + retrieval + memory + new turn</div>
+        </div>
+        <div class="layer-arrow">▸</div>
+      </div>
+      <div class="panel" id="panel-4">
+        <h3>What it does</h3>
+        <p>The most application-specific layer. Assembles the <code>messages</code> array by combining the persistent system prompt, retrieved documents (RAG), a windowed slice of history, optional tool definitions, and the new user message.</p>
+<pre>messages = [
+    {<span class="key">"role"</span>: <span class="str">"system"</span>, <span class="key">"content"</span>: SYSTEM_PROMPT},
+    {<span class="key">"role"</span>: <span class="str">"system"</span>, <span class="key">"content"</span>: <span class="fn">format_retrieved</span>(passages)},
+    *<span class="fn">sliding_window</span>(history, n=<span class="num">6</span>),
+    {<span class="key">"role"</span>: <span class="str">"user"</span>, <span class="key">"content"</span>: user_msg},
+]</pre>
+        <h3>Design rule</h3>
+        <p>Critical instructions and the most recent turns belong at the <em>edges</em> of the prompt — the model attends to them more reliably. Avoid burying rules in the middle.</p>
+      </div>
+
+      <!-- Layer 5 -->
+      <div class="layer" data-layer="5" onclick="toggleLayer(5)">
+        <div class="layer-num">5</div>
+        <div class="layer-main">
+          <div class="layer-name">LLM Call</div>
+          <div class="layer-tag">model + params + tools + streaming</div>
+        </div>
+        <div class="layer-arrow">▸</div>
+      </div>
+      <div class="panel" id="panel-5">
+        <h3>What it does</h3>
+        <p>The actual model invocation. Pick a model family (GPT-5, GPT-4.1, GPT-4o-mini), set parameters (temperature, max_tokens), wire up tools, and stream or buffer.</p>
+        <div class="pill-row">
+          <div class="pill">gpt-4o-mini — chat default</div>
+          <div class="pill">gpt-4o — quality</div>
+          <div class="pill">gpt-5-mini — reasoning</div>
+          <div class="pill">stream=True — TTFT &lt; 800ms</div>
+        </div>
+        <h3>Cost rule</h3>
+        <p>Multi-turn chat is dominated by <em>input</em> cost (history re-sent each turn). Reducing history is the highest-leverage cost optimization. <code>max_tokens</code> caps worst-case output spend.</p>
+      </div>
+
+      <!-- Layer 6 -->
+      <div class="layer" data-layer="6" onclick="toggleLayer(6)">
+        <div class="layer-num">6</div>
+        <div class="layer-main">
+          <div class="layer-name">Output Guardrails</div>
+          <div class="layer-tag">moderation · format check · hallucination filter</div>
+        </div>
+        <div class="layer-arrow">▸</div>
+      </div>
+      <div class="panel" id="panel-6">
+        <h3>What it does</h3>
+        <p>Post-generation checks. Did the model output something unsafe, off-format, or in violation of policy? Did it leak the system prompt or hallucinate?</p>
+        <ul>
+          <li>Run moderation on the output — same API as input.</li>
+          <li>Validate structured outputs against schema; retry on parse failure.</li>
+          <li>Strip system-prompt content if it leaks.</li>
+          <li>Fact-check claims against retrieved sources.</li>
+        </ul>
+      </div>
+
+      <!-- Layer 7 -->
+      <div class="layer" data-layer="7" onclick="toggleLayer(7)">
+        <div class="layer-num">7</div>
+        <div class="layer-main">
+          <div class="layer-name">Telemetry</div>
+          <div class="layer-tag">logs · traces · evals · user feedback</div>
+        </div>
+        <div class="layer-arrow">▸</div>
+      </div>
+      <div class="panel" id="panel-7">
+        <h3>What it does</h3>
+        <p>Log every turn — inputs, outputs, tokens, latency, tool calls, errors. Without telemetry you cannot diagnose regressions, run evaluations, or improve the bot.</p>
+        <div class="pill-row">
+          <div class="pill">session_id · turn_id</div>
+          <div class="pill">prompt + response (redacted)</div>
+          <div class="pill">tokens · cost · latency</div>
+          <div class="pill">👍 / 👎 user feedback</div>
+        </div>
+        <h3>Design rule</h3>
+        <p>Treat conversation logs as a product asset, not just debug output. Tomorrow's eval set and fine-tuning data live in today's logs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: Live request walkthrough -->
+  <section>
+    <h2 class="section-title">Walk a Request Through the Stack</h2>
+    <p class="section-sub">Type a message and step through the seven layers. Watch how each layer transforms or enriches the request.</p>
+
+    <div class="walk-controls">
+      <input id="walkInput" class="walk-input" value="What time does flight DL412 land tomorrow?" />
+      <button class="btn btn-primary" onclick="runWalk()">Run</button>
+      <button class="btn btn-secondary" onclick="resetWalk()">Reset</button>
+    </div>
+
+    <div class="walk-timeline" id="walkTimeline">
+      <div class="walk-step" data-step="1">
+        <div class="walk-step-dot"></div>
+        <div class="walk-step-body">
+          <div class="walk-step-name">1. Frontend</div>
+          <div class="walk-step-text" id="ws-1">Click "Run" to begin…</div>
+        </div>
+      </div>
+      <div class="walk-step" data-step="2">
+        <div class="walk-step-dot"></div>
+        <div class="walk-step-body">
+          <div class="walk-step-name">2. Session lookup</div>
+          <div class="walk-step-text" id="ws-2">—</div>
+        </div>
+      </div>
+      <div class="walk-step" data-step="3">
+        <div class="walk-step-dot"></div>
+        <div class="walk-step-body">
+          <div class="walk-step-name">3. Input guardrails</div>
+          <div class="walk-step-text" id="ws-3">—</div>
+        </div>
+      </div>
+      <div class="walk-step" data-step="4">
+        <div class="walk-step-dot"></div>
+        <div class="walk-step-body">
+          <div class="walk-step-name">4. Context builder</div>
+          <div class="walk-step-text" id="ws-4">—</div>
+        </div>
+      </div>
+      <div class="walk-step" data-step="5">
+        <div class="walk-step-dot"></div>
+        <div class="walk-step-body">
+          <div class="walk-step-name">5. LLM call</div>
+          <div class="walk-step-text" id="ws-5">—</div>
+        </div>
+      </div>
+      <div class="walk-step" data-step="6">
+        <div class="walk-step-dot"></div>
+        <div class="walk-step-body">
+          <div class="walk-step-name">6. Output guardrails</div>
+          <div class="walk-step-text" id="ws-6">—</div>
+        </div>
+      </div>
+      <div class="walk-step" data-step="7">
+        <div class="walk-step-dot"></div>
+        <div class="walk-step-body">
+          <div class="walk-step-name">7. Telemetry</div>
+          <div class="walk-step-text" id="ws-7">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Quiz -->
+  <section>
+    <h2 class="section-title">Check Your Understanding</h2>
+    <p class="section-sub">Three questions on the seven-layer stack.</p>
+
+    <div id="quiz"></div>
+    <div class="score-banner" id="scoreBanner">
+      <div class="score-num" id="scoreNum">0 / 3</div>
+      <div class="score-label">Refresh the page to retry.</div>
+    </div>
+
+    <div class="info-box" style="margin-top: 28px;">
+      <strong>Next up:</strong> Lab 2 — Conversation Designer. Build a system prompt section by section and watch how it shapes the chatbot's behavior.
+    </div>
+  </section>
+
+</div>
+
+<script>
+function toggleLayer(n) {
+  const layer = document.querySelector(`.layer[data-layer="${n}"]`);
+  const panel = document.getElementById(`panel-${n}`);
+  const wasOpen = panel.classList.contains('show');
+  document.querySelectorAll('.layer').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('show'));
+  if (!wasOpen) {
+    layer.classList.add('active');
+    panel.classList.add('show');
+  }
+}
+
+// Walk through
+function resetWalk() {
+  for (let i = 1; i <= 7; i++) {
+    document.querySelector(`.walk-step[data-step="${i}"]`).classList.remove('lit');
+    document.getElementById(`ws-${i}`).textContent = '—';
+  }
+  document.getElementById('ws-1').textContent = 'Click "Run" to begin…';
+}
+
+function runWalk() {
+  resetWalk();
+  const msg = document.getElementById('walkInput').value.trim() || 'Hello';
+  const steps = [
+    { id: 1, text: `POST /api/chat   body={ "session": "s_42", "msg": "${msg}" }` },
+    { id: 2, text: `redis.GET session:s_42 → history of 4 prior turns + user_id="u_77"` },
+    { id: 3, text: `moderation: ok · pii: none detected · scope: airline ✓ · rate: 3/min ok` },
+    { id: 4, text: `messages=[ system(persona+rules), system(retrieved policy), …history(6), user("${msg}") ]   (~1.4k tok)` },
+    { id: 5, text: `client.chat.completions.create(model="gpt-4o-mini", stream=true) → TTFT 640ms` },
+    { id: 6, text: `output moderation: ok · no system-prompt leakage · length=58 tok ✓` },
+    { id: 7, text: `log{turn_id, latency_ms=1420, in_tok=1418, out_tok=58, cost=$0.00031}` },
+  ];
+
+  steps.forEach((s, i) => {
+    setTimeout(() => {
+      const step = document.querySelector(`.walk-step[data-step="${s.id}"]`);
+      step.classList.add('lit');
+      document.getElementById(`ws-${s.id}`).textContent = s.text;
+    }, 350 + i * 550);
+  });
+}
+
+// Quiz
+const QUIZ = [
+  {
+    q: "A user's request 'How do I file my taxes?' arrives at your airline-support chatbot. Where should it be caught?",
+    options: [
+      "Layer 1 — Frontend",
+      "Layer 3 — Input guardrails (scope check)",
+      "Layer 5 — LLM call (the model will figure it out)",
+      "Layer 7 — Telemetry",
+    ],
+    correct: 1,
+    why: "Scope checks belong at Layer 3, before you spend tokens. The model can refuse but it's slower and more expensive than rejecting up front.",
+  },
+  {
+    q: "Where is the chatbot's persona, scope, and refusal style primarily encoded?",
+    options: [
+      "Layer 2 — Session store",
+      "Layer 4 — Context builder (system prompt)",
+      "Layer 5 — Model parameters (temperature)",
+      "Layer 6 — Output guardrails",
+    ],
+    correct: 1,
+    why: "The persistent system prompt is assembled by the context builder (Layer 4) on every turn. Parameters don't shape persona; that's a prompt-engineering job.",
+  },
+  {
+    q: "What's the single highest-leverage cost optimization for a multi-turn chatbot?",
+    options: [
+      "Lower temperature",
+      "Disable streaming",
+      "Trim conversation history (sliding window or summary)",
+      "Use a longer system prompt",
+    ],
+    correct: 2,
+    why: "Multi-turn cost is dominated by input tokens (history is re-sent every turn). A sliding window or running summary bounds input cost linearly.",
+  },
+];
+
+(function renderQuiz() {
+  const root = document.getElementById('quiz');
+  QUIZ.forEach((item, qi) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.innerHTML = `
+      <div class="question">${qi + 1}. ${item.q}</div>
+      <div class="options">${item.options.map((o, i) =>
+        `<button class="opt-btn" data-q="${qi}" data-i="${i}">${o}</button>`).join('')}</div>
+      <div class="feedback" id="fb-${qi}"></div>`;
+    root.appendChild(card);
+  });
+
+  let answered = 0, correct = 0;
+  document.querySelectorAll('.opt-btn').forEach(btn => {
+    btn.onclick = () => {
+      const qi = +btn.dataset.q, i = +btn.dataset.i;
+      const item = QUIZ[qi];
+      const card = btn.closest('.quiz-card');
+      if (card.dataset.done) return;
+      card.dataset.done = '1';
+      const ok = i === item.correct;
+      btn.classList.add(ok ? 'correct' : 'incorrect');
+      if (!ok) card.querySelector(`.opt-btn[data-i="${item.correct}"]`).classList.add('correct');
+      const fb = document.getElementById(`fb-${qi}`);
+      fb.className = `feedback show ${ok ? 'ok' : 'bad'}`;
+      fb.textContent = (ok ? '✓ Correct. ' : '✗ Not quite. ') + item.why;
+      card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+      answered++;
+      if (ok) correct++;
+      if (answered === QUIZ.length) {
+        const sb = document.getElementById('scoreBanner');
+        document.getElementById('scoreNum').textContent = `${correct} / ${QUIZ.length}`;
+        sb.classList.add('show');
+      }
+    };
+  });
+})();
+</script>
+</body>
+</html>

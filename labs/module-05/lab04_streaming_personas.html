@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 4 — Streaming &amp; Personas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  .header { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 32px; text-align: center; border-bottom: 1px solid #334155; }
+  .header h1 { font-size: 1.8rem; color: #f8fafc; margin-bottom: 8px; }
+  .header p  { color: #94a3b8; font-size: 1rem; }
+  .badge { display: inline-block; background: #06b6d4; color: #0f172a; font-size: 0.75rem; padding: 3px 10px; border-radius: 99px; margin-bottom: 12px; font-weight: 700; }
+
+  .main { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
+  section { margin-bottom: 56px; }
+  h2.section-title { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 8px; }
+  p.section-sub { color: #64748b; font-size: 0.88rem; margin-bottom: 24px; }
+
+  /* Persona switch */
+  .persona-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .persona-btn { padding: 10px 16px; border-radius: 12px; border: 1.5px solid #334155; background: #1e293b;
+    color: #94a3b8; font-size: 0.82rem; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
+  .persona-btn:hover { border-color: #06b6d4; color: #e2e8f0; }
+  .persona-btn.active { background: rgba(6,182,212,0.1); border-color: #06b6d4; color: #22d3ee; }
+  .persona-icon { font-size: 1.15rem; }
+
+  /* Split: stream vs. non-stream */
+  .stream-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .stream-panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; overflow: hidden; }
+  .sp-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
+    border-bottom: 1px solid #334155; }
+  .sp-title { font-size: 0.86rem; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 8px; }
+  .sp-tag   { font-size: 0.7rem; padding: 3px 8px; border-radius: 99px; }
+  .sp-tag.stream { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+  .sp-tag.batch  { background: rgba(251,146,60,0.12); color: #fdba74; border: 1px solid rgba(251,146,60,0.25); }
+  .sp-body { padding: 16px; min-height: 280px; display: flex; flex-direction: column; gap: 12px; }
+  .sp-status { font-size: 0.74rem; color: #64748b; font-family: 'Consolas', monospace; }
+  .sp-output { font-size: 0.88rem; line-height: 1.7; color: #cbd5e1; min-height: 180px; }
+  .sp-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.74rem; color: #64748b; padding-top: 12px;
+    border-top: 1px solid #334155; }
+  .sp-meta-item b { color: #22d3ee; font-family: 'Consolas', monospace; font-weight: 700; }
+  .spinner { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #06b6d4;
+    margin-right: 8px; animation: pulse 1s infinite ease-in-out; }
+  @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
+  .cursor { display: inline-block; width: 7px; height: 14px; background: #22d3ee; vertical-align: text-bottom;
+    animation: blink 0.8s infinite; margin-left: 2px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Controls */
+  .ctrl-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .ctrl-input { flex: 1; min-width: 220px; background: #1e293b; border: 1.5px solid #334155; border-radius: 8px;
+    padding: 10px 14px; color: #e2e8f0; font-size: 0.88rem; font-family: inherit; }
+  .ctrl-input:focus { border-color: #06b6d4; outline: none; }
+  .btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    transition: all 0.15s; }
+  .btn-primary { background: #06b6d4; color: #0f172a; }
+  .btn-primary:hover { background: #22d3ee; }
+  .btn-secondary { background: #1e293b; border: 1.5px solid #334155; color: #94a3b8; }
+  .btn-secondary:hover { border-color: #06b6d4; color: #e2e8f0; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+
+  select { background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+    color: #e2e8f0; padding: 8px 12px; font-size: 0.82rem; font-family: inherit; cursor: pointer; }
+  select:focus { border-color: #06b6d4; outline: none; }
+
+  /* Latency comparison meter */
+  .lat-meter { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; margin-top: 20px; }
+  .lat-row { display: grid; grid-template-columns: 110px 1fr 80px; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .lat-label { font-size: 0.82rem; color: #94a3b8; }
+  .lat-bar-wrap { height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden; }
+  .lat-bar { height: 100%; border-radius: 5px; transition: width 0.5s; }
+  .lat-val { font-size: 0.78rem; color: #22d3ee; font-family: 'Consolas', monospace; text-align: right; }
+
+  /* Code preview */
+  .code-section { background: #1e293b; border: 1px solid #334155; border-radius: 14px; overflow: hidden; }
+  .code-tabs { display: flex; border-bottom: 1px solid #334155; }
+  .code-tab { padding: 11px 18px; cursor: pointer; font-size: 0.82rem; color: #94a3b8; border-bottom: 2px solid transparent; }
+  .code-tab.active { color: #22d3ee; border-bottom-color: #22d3ee; background: rgba(6,182,212,0.04); }
+  pre.code { padding: 18px; font-family: 'Consolas', monospace; font-size: 0.78rem; line-height: 1.7;
+    color: #cbd5e1; overflow-x: auto; white-space: pre; margin: 0; }
+  .kw { color: #818cf8; } .str { color: #34d399; } .num { color: #fb923c; }
+  .key { color: #7dd3fc; } .cm { color: #475569; font-style: italic; } .fn { color: #fbbf24; }
+
+  .info-box { background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.2); border-radius: 10px;
+    padding: 14px 16px; font-size: 0.83rem; color: #94a3b8; line-height: 1.6; }
+  .info-box strong { color: #22d3ee; }
+
+  /* Quiz */
+  .quiz-card { background: #1e293b; border-radius: 14px; padding: 24px; margin-bottom: 16px; border: 1px solid #334155; }
+  .quiz-card .question { font-size: 1rem; color: #f1f5f9; margin-bottom: 16px; font-weight: 500; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt-btn { background: #0f172a; border: 1.5px solid #334155; border-radius: 8px; padding: 10px 16px; color: #94a3b8;
+    font-size: 0.88rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+  .opt-btn:hover:not(:disabled) { border-color: #06b6d4; color: #e2e8f0; }
+  .opt-btn.correct   { border-color: #10b981 !important; background: rgba(16,185,129,0.1); color: #6ee7b7; }
+  .opt-btn.incorrect { border-color: #ef4444 !important; background: rgba(239,68,68,0.1);  color: #fca5a5; }
+  .feedback { margin-top: 12px; font-size: 0.85rem; padding: 12px 14px; border-radius: 8px; display: none; line-height: 1.5; }
+  .feedback.show { display: block; }
+  .feedback.ok  { background: rgba(16,185,129,0.1); color: #6ee7b7; border-left: 3px solid #10b981; }
+  .feedback.bad { background: rgba(239,68,68,0.1);  color: #fca5a5; border-left: 3px solid #ef4444; }
+
+  @media (max-width: 880px) { .stream-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">Module 5 · Lab 4</div>
+  <h1>Streaming &amp; Personas</h1>
+  <p>Side-by-side: streamed tokens vs. batched response — and how persona changes the voice but not the latency</p>
+</div>
+
+<div class="main">
+
+  <!-- Persona switch -->
+  <section>
+    <h2 class="section-title">Pick a Persona</h2>
+    <p class="section-sub">The same prompt, different system prompt. Watch how tone and content shift.</p>
+    <div class="persona-bar" id="personaBar"></div>
+
+    <div class="ctrl-row">
+      <input class="ctrl-input" id="promptInput" value="Tell me about Saturn." />
+      <select id="netSelect">
+        <option value="fast">Fast network · ~30 tok/s</option>
+        <option value="med" selected>Average · ~18 tok/s</option>
+        <option value="slow">Slow · ~8 tok/s</option>
+      </select>
+      <button class="btn btn-primary" id="goBtn" onclick="runBoth()">Generate</button>
+      <button class="btn btn-danger" id="cancelBtn" onclick="cancelBoth()" disabled>Cancel</button>
+    </div>
+  </section>
+
+  <!-- Stream comparison -->
+  <section>
+    <h2 class="section-title">Streamed vs. Batched</h2>
+    <p class="section-sub">Total token count is the same. Perceived latency is dramatically different.</p>
+
+    <div class="stream-layout">
+      <div class="stream-panel">
+        <div class="sp-head">
+          <div class="sp-title">📡 Streaming (stream=true)</div>
+          <div class="sp-tag stream">Server-Sent Events</div>
+        </div>
+        <div class="sp-body">
+          <div class="sp-status" id="streamStatus">idle</div>
+          <div class="sp-output" id="streamOut"></div>
+          <div class="sp-meta" style="margin-top:auto;">
+            <div class="sp-meta-item">TTFT: <b id="streamTTFT">—</b></div>
+            <div class="sp-meta-item">Done: <b id="streamDone">—</b></div>
+            <div class="sp-meta-item">Tokens: <b id="streamTok">—</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stream-panel">
+        <div class="sp-head">
+          <div class="sp-title">📦 Batched (stream=false)</div>
+          <div class="sp-tag batch">One big response</div>
+        </div>
+        <div class="sp-body">
+          <div class="sp-status" id="batchStatus">idle</div>
+          <div class="sp-output" id="batchOut"></div>
+          <div class="sp-meta" style="margin-top:auto;">
+            <div class="sp-meta-item">TTFT: <b id="batchTTFT">—</b></div>
+            <div class="sp-meta-item">Done: <b id="batchDone">—</b></div>
+            <div class="sp-meta-item">Tokens: <b id="batchTok">—</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lat-meter">
+      <div class="lat-row">
+        <div class="lat-label">Streaming TTFT</div>
+        <div class="lat-bar-wrap"><div class="lat-bar" id="lat-s" style="background:#22d3ee; width:0%;"></div></div>
+        <div class="lat-val" id="lat-s-val">— ms</div>
+      </div>
+      <div class="lat-row">
+        <div class="lat-label">Batched TTFT</div>
+        <div class="lat-bar-wrap"><div class="lat-bar" id="lat-b" style="background:#fdba74; width:0%;"></div></div>
+        <div class="lat-val" id="lat-b-val">— ms</div>
+      </div>
+      <div class="info-box" style="margin-top:14px;">
+        <strong>Why streaming wins:</strong> Streaming's <em>perceived</em> latency is the time-to-first-token. The user starts reading after ~300–800 ms instead of waiting for the full response. Total wall-clock time is similar in both modes — but the chat feels alive.
+      </div>
+    </div>
+  </section>
+
+  <!-- Code comparison -->
+  <section>
+    <h2 class="section-title">The Code Behind It</h2>
+    <p class="section-sub">A real backend implementation. Click between Python (SDK) and JavaScript (browser reader).</p>
+
+    <div class="code-section">
+      <div class="code-tabs">
+        <div class="code-tab active" data-tab="py-stream" onclick="setCodeTab('py-stream')">Python · streaming</div>
+        <div class="code-tab" data-tab="py-batch" onclick="setCodeTab('py-batch')">Python · batched</div>
+        <div class="code-tab" data-tab="fastapi" onclick="setCodeTab('fastapi')">FastAPI · SSE</div>
+        <div class="code-tab" data-tab="js" onclick="setCodeTab('js')">Browser · reader</div>
+      </div>
+      <pre class="code" id="codeBlock"></pre>
+    </div>
+  </section>
+
+  <!-- Quiz -->
+  <section>
+    <h2 class="section-title">Check Your Understanding</h2>
+    <p class="section-sub">Three questions on streaming UX.</p>
+    <div id="quiz"></div>
+
+    <div class="info-box" style="margin-top: 28px;">
+      <strong>Try this:</strong> Click <em>Generate</em>, then immediately click <em>Cancel</em>. The streaming panel stops mid-sentence — that's the correct UX for the cancel button. Without streaming, cancel is meaningless: the response is either there or not.
+    </div>
+  </section>
+
+</div>
+
+<script>
+const PERSONAS = {
+  scientist: {
+    icon: '🔭', name: 'Astrophysicist',
+    prompt: 'You are a precise astrophysics professor. Use SI units. No fluff.',
+    text: 'Saturn is the sixth planet from the Sun and the second-largest in the Solar System. Its mass is 5.683 × 10²⁶ kg, roughly 95 Earth masses. The atmosphere is mostly hydrogen and helium. Its iconic ring system spans about 282,000 km and is mostly water ice. Saturn has 145+ confirmed moons; Titan is the largest, with a dense nitrogen atmosphere and surface lakes of liquid methane.',
+  },
+  kids: {
+    icon: '🧒', name: 'Kids Tutor',
+    prompt: 'You are a friendly tutor for 8-year-olds. Use playful language and analogies.',
+    text: 'Saturn is a HUGE planet with beautiful rings around it — like a giant cosmic frisbee! 🌟 The rings are made of millions of icy chunks, some as small as snowflakes and some as big as a house. Saturn has more than 145 moons; its biggest one, Titan, even has lakes — but they\'re lakes of liquid gas, not water! And Saturn is so light that if you could put it in a giant bathtub, it would float! 🛁',
+  },
+  ceo: {
+    icon: '💼', name: 'Pitch Deck',
+    prompt: 'You are writing a pitch deck. Bullet points, three lines max each. Investor tone.',
+    text: '• Saturn — flagship product of the outer Solar System; #2 by market cap (mass) after Jupiter.\n• Differentiator: signature ring system, 282,000 km wide, the most visible asset in the gas-giant category.\n• Moon portfolio: 145+ confirmed, including Titan — only moon with a dense atmosphere and proven hydrocarbon lakes.',
+  },
+  pirate: {
+    icon: '🏴‍☠️', name: 'Pirate Captain',
+    prompt: 'You are a pirate captain. Use pirate slang. Stay nautical.',
+    text: 'Arrr, hoist the sails, matey! Saturn be a mighty gas giant, sixth from the blazin\' sun — almost as big as ten Earths stacked broadside! She wears a fine necklace of icy rings, sparklin\' like Spanish silver. And she sails with a crew of 145 moons — chief among \'em Titan, with seas o\' liquid methane on which no honest sailor dare dock. Yarrr!',
+  },
+};
+
+const NETWORK_TPS = { fast: 30, med: 18, slow: 8 };
+const STATE = { persona: 'scientist', running: false, abortFlag: false };
+
+function renderPersonaBar() {
+  const bar = document.getElementById('personaBar');
+  bar.innerHTML = '';
+  for (const [k, p] of Object.entries(PERSONAS)) {
+    const b = document.createElement('button');
+    b.className = 'persona-btn' + (STATE.persona === k ? ' active' : '');
+    b.innerHTML = `<span class="persona-icon">${p.icon}</span>${p.name}`;
+    b.onclick = () => { STATE.persona = k; renderPersonaBar(); };
+    bar.appendChild(b);
+  }
+}
+renderPersonaBar();
+
+function resetPanels() {
+  document.getElementById('streamStatus').textContent = 'idle';
+  document.getElementById('streamOut').innerHTML = '';
+  document.getElementById('streamTTFT').textContent = '—';
+  document.getElementById('streamDone').textContent = '—';
+  document.getElementById('streamTok').textContent = '—';
+  document.getElementById('batchStatus').textContent = 'idle';
+  document.getElementById('batchOut').innerHTML = '';
+  document.getElementById('batchTTFT').textContent = '—';
+  document.getElementById('batchDone').textContent = '—';
+  document.getElementById('batchTok').textContent = '—';
+  document.getElementById('lat-s').style.width = '0%';
+  document.getElementById('lat-b').style.width = '0%';
+  document.getElementById('lat-s-val').textContent = '— ms';
+  document.getElementById('lat-b-val').textContent = '— ms';
+}
+
+function tokenize(text) {
+  // pseudo-tokens: split by whitespace + punctuation, keep punctuation glued to prev token
+  const parts = text.match(/\S+/g) || [];
+  // emit roughly 1.3 tokens per word; we'll just emit word-by-word for the visual
+  return parts;
+}
+
+async function runBoth() {
+  if (STATE.running) return;
+  STATE.running = true;
+  STATE.abortFlag = false;
+  document.getElementById('goBtn').disabled = true;
+  document.getElementById('cancelBtn').disabled = false;
+  resetPanels();
+
+  const persona = PERSONAS[STATE.persona];
+  const tps = NETWORK_TPS[document.getElementById('netSelect').value];
+  const fullText = persona.text;
+  const tokens = tokenize(fullText);
+  const baseFirstTokenMs = 600 + Math.random() * 200;
+  const perTokMs = 1000 / tps;
+  const totalMs = baseFirstTokenMs + tokens.length * perTokMs;
+  const batchedFirstByteMs = totalMs - 80; // batched only shows after near-complete
+
+  // Spinner shows
+  document.getElementById('streamStatus').innerHTML = '<span class="spinner"></span>waiting for first token…';
+  document.getElementById('batchStatus').innerHTML  = '<span class="spinner"></span>waiting for response…';
+
+  const t0 = performance.now();
+
+  // STREAMING — start emitting tokens after baseFirstTokenMs
+  await sleep(baseFirstTokenMs);
+  if (STATE.abortFlag) { onCancel(); return; }
+
+  const sTTFT = Math.round(performance.now() - t0);
+  document.getElementById('streamTTFT').textContent = sTTFT + ' ms';
+  document.getElementById('streamStatus').textContent = 'streaming…';
+  document.getElementById('streamOut').innerHTML = '<span class="cursor"></span>';
+  document.getElementById('lat-s').style.width = pct(sTTFT, totalMs) + '%';
+  document.getElementById('lat-s-val').textContent = sTTFT + ' ms';
+
+  for (let i = 0; i < tokens.length; i++) {
+    if (STATE.abortFlag) { onCancel(); return; }
+    await sleep(perTokMs);
+    const out = document.getElementById('streamOut');
+    out.innerHTML = tokens.slice(0, i + 1).join(' ').replace(/\n/g, '<br>') + '<span class="cursor"></span>';
+  }
+  document.getElementById('streamStatus').textContent = 'done';
+  document.getElementById('streamOut').innerHTML = fullText.replace(/\n/g, '<br>');
+  document.getElementById('streamDone').textContent = Math.round(performance.now() - t0) + ' ms';
+  document.getElementById('streamTok').textContent = tokens.length;
+
+  // BATCHED — shows the whole thing at the end of the wait
+  // Will complete approximately at total time
+  // (we already burned that wall-time above by streaming tokens; show batch finish now)
+  document.getElementById('batchTTFT').textContent = Math.round(batchedFirstByteMs) + ' ms';
+  document.getElementById('lat-b').style.width = pct(batchedFirstByteMs, totalMs) + '%';
+  document.getElementById('lat-b-val').textContent = Math.round(batchedFirstByteMs) + ' ms';
+  document.getElementById('batchStatus').textContent = 'done';
+  document.getElementById('batchOut').innerHTML = fullText.replace(/\n/g, '<br>');
+  document.getElementById('batchDone').textContent = Math.round(performance.now() - t0 + 30) + ' ms';
+  document.getElementById('batchTok').textContent = tokens.length;
+
+  STATE.running = false;
+  document.getElementById('goBtn').disabled = false;
+  document.getElementById('cancelBtn').disabled = true;
+}
+
+function pct(value, total) { return Math.min(100, Math.round((value / total) * 100)); }
+
+function onCancel() {
+  document.getElementById('streamStatus').textContent = 'cancelled';
+  document.getElementById('batchStatus').textContent  = 'cancelled (no partial output)';
+  STATE.running = false;
+  document.getElementById('goBtn').disabled = false;
+  document.getElementById('cancelBtn').disabled = true;
+}
+
+function cancelBoth() { STATE.abortFlag = true; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Code blocks
+const CODE = {
+  'py-stream':
+`<span class="cm"># Streaming with the OpenAI SDK</span>
+stream = client.chat.completions.<span class="fn">create</span>(
+    <span class="key">model</span>=<span class="str">"gpt-4o-mini"</span>,
+    <span class="key">messages</span>=messages,
+    <span class="key">stream</span>=<span class="kw">True</span>,
+)
+
+<span class="kw">for</span> chunk <span class="kw">in</span> stream:
+    delta = chunk.choices[<span class="num">0</span>].delta.content
+    <span class="kw">if</span> delta:
+        <span class="fn">print</span>(delta, <span class="key">end</span>=<span class="str">""</span>, <span class="key">flush</span>=<span class="kw">True</span>)`,
+  'py-batch':
+`<span class="cm"># Batched — wait for the whole reply</span>
+response = client.chat.completions.<span class="fn">create</span>(
+    <span class="key">model</span>=<span class="str">"gpt-4o-mini"</span>,
+    <span class="key">messages</span>=messages,
+)
+
+reply = response.choices[<span class="num">0</span>].message.content
+<span class="fn">print</span>(reply)`,
+  'fastapi':
+`<span class="cm"># FastAPI streaming endpoint with SSE</span>
+<span class="kw">from</span> fastapi.responses <span class="kw">import</span> StreamingResponse
+<span class="kw">import</span> json
+
+<span class="key">@app.post</span>(<span class="str">"/api/chat"</span>)
+<span class="kw">def</span> <span class="fn">chat</span>(req: ChatRequest):
+    <span class="kw">def</span> <span class="fn">events</span>():
+        stream = client.chat.completions.<span class="fn">create</span>(
+            <span class="key">model</span>=<span class="str">"gpt-4o-mini"</span>,
+            <span class="key">messages</span>=req.messages,
+            <span class="key">stream</span>=<span class="kw">True</span>,
+        )
+        <span class="kw">for</span> chunk <span class="kw">in</span> stream:
+            delta = chunk.choices[<span class="num">0</span>].delta.content <span class="kw">or</span> <span class="str">""</span>
+            <span class="kw">if</span> delta:
+                <span class="kw">yield</span> <span class="str">f"data: {json.dumps({'delta': delta})}\\n\\n"</span>
+        <span class="kw">yield</span> <span class="str">"data: [DONE]\\n\\n"</span>
+
+    <span class="kw">return</span> <span class="fn">StreamingResponse</span>(<span class="fn">events</span>(), <span class="key">media_type</span>=<span class="str">"text/event-stream"</span>)`,
+  'js':
+`<span class="cm">// Browser-side stream reader</span>
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">"/api/chat"</span>, {
+  <span class="key">method</span>: <span class="str">"POST"</span>,
+  <span class="key">headers</span>: { <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span> },
+  <span class="key">body</span>: <span class="fn">JSON.stringify</span>({ messages }),
+});
+
+<span class="kw">const</span> reader  = res.body.<span class="fn">getReader</span>();
+<span class="kw">const</span> decoder = <span class="kw">new</span> <span class="fn">TextDecoder</span>();
+<span class="kw">let</span> buf = <span class="str">""</span>;
+
+<span class="kw">while</span> (<span class="kw">true</span>) {
+  <span class="kw">const</span> { value, done } = <span class="kw">await</span> reader.<span class="fn">read</span>();
+  <span class="kw">if</span> (done) <span class="kw">break</span>;
+  buf += decoder.<span class="fn">decode</span>(value);
+  <span class="kw">for</span> (<span class="kw">const</span> line <span class="kw">of</span> buf.<span class="fn">split</span>(<span class="str">"\\n\\n"</span>)) {
+    <span class="kw">if</span> (!line.<span class="fn">startsWith</span>(<span class="str">"data: "</span>)) <span class="kw">continue</span>;
+    <span class="kw">const</span> payload = line.<span class="fn">slice</span>(<span class="num">6</span>);
+    <span class="kw">if</span> (payload === <span class="str">"[DONE]"</span>) <span class="kw">return</span>;
+    <span class="kw">const</span> { delta } = <span class="fn">JSON.parse</span>(payload);
+    <span class="fn">appendToUI</span>(delta);
+  }
+}`,
+};
+
+function setCodeTab(t) {
+  document.querySelectorAll('.code-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.getElementById('codeBlock').innerHTML = CODE[t];
+}
+setCodeTab('py-stream');
+
+// Quiz
+const QUIZ = [
+  {
+    q: "Which metric most affects a user's *perceived* latency in a chatbot?",
+    options: [
+      "Total tokens generated",
+      "Time-to-first-token (TTFT)",
+      "Number of API parameters",
+      "Model temperature",
+    ],
+    correct: 1,
+    why: "Users read tokens as they arrive. Once the first word shows up, the conversation 'feels alive' even if total generation takes 8 more seconds.",
+  },
+  {
+    q: "Streaming is a poor fit for which scenario?",
+    options: [
+      "A live chat UI",
+      "A voice assistant (you can speak partial sentences)",
+      "Returning JSON for a downstream parser",
+      "A 'thinking...' typing indicator",
+    ],
+    correct: 2,
+    why: "If you're parsing structured output, you usually want the whole thing before acting on it (or use Structured Outputs). Streaming half-baked JSON to a parser is a mess.",
+  },
+  {
+    q: "A user clicks Cancel mid-generation. What should your backend do?",
+    options: [
+      "Let the stream complete in the background to use the tokens you paid for",
+      "Abort the SDK call so no further tokens are generated",
+      "Show 'cancellation not supported'",
+      "Buffer the response and discard it",
+    ],
+    correct: 1,
+    why: "Aborting the SDK call (e.g. closing the connection / using an abort signal) stops further token generation, saving cost. Letting it run wastes user money.",
+  },
+];
+
+(function renderQuiz() {
+  const root = document.getElementById('quiz');
+  QUIZ.forEach((item, qi) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.innerHTML = `
+      <div class="question">${qi + 1}. ${item.q}</div>
+      <div class="options">${item.options.map((o, i) =>
+        `<button class="opt-btn" data-q="${qi}" data-i="${i}">${o}</button>`).join('')}</div>
+      <div class="feedback" id="fb-${qi}"></div>`;
+    root.appendChild(card);
+  });
+  document.querySelectorAll('.opt-btn').forEach(btn => {
+    btn.onclick = () => {
+      const qi = +btn.dataset.q, i = +btn.dataset.i;
+      const item = QUIZ[qi];
+      const card = btn.closest('.quiz-card');
+      if (card.dataset.done) return;
+      card.dataset.done = '1';
+      const ok = i === item.correct;
+      btn.classList.add(ok ? 'correct' : 'incorrect');
+      if (!ok) card.querySelector(`.opt-btn[data-i="${item.correct}"]`).classList.add('correct');
+      const fb = document.getElementById(`fb-${qi}`);
+      fb.className = `feedback show ${ok ? 'ok' : 'bad'}`;
+      fb.textContent = (ok ? '✓ ' : '✗ ') + item.why;
+      card.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+    };
+  });
+})();
+</script>
+</body>
+</html>
