@@ -100,7 +100,7 @@
 <div class="header">
   <div class="badge">Module 4 · Lab 5</div>
   <h1>Building API Applications</h1>
-  <p>Error handling, retry logic, rate limits, and production-ready pipeline patterns</p>
+  <p>Error handling, retry logic, rate limits, production pipelines — and Responses API hosted tools (web_search, file_search, code_interpreter)</p>
 </div>
 
 <div class="main">
@@ -141,8 +141,11 @@
           <div class="pipe-code">
 <span class="kw">import</span> tiktoken
 
-<span class="kw">def</span> <span class="fn">count_tokens</span>(messages: <span class="fn">list</span>[<span class="fn">dict</span>], model: <span class="fn">str</span> = <span class="str">"gpt-4o-mini"</span>) -> <span class="fn">int</span>:
-    enc = tiktoken.<span class="fn">encoding_for_model</span>(model)
+<span class="kw">def</span> <span class="fn">count_tokens</span>(messages: <span class="fn">list</span>[<span class="fn">dict</span>], model: <span class="fn">str</span> = <span class="str">"gpt-4.1-mini"</span>) -> <span class="fn">int</span>:
+    <span class="kw">try</span>:
+        enc = tiktoken.<span class="fn">encoding_for_model</span>(model)
+    <span class="kw">except</span> <span class="cls">KeyError</span>:
+        enc = tiktoken.<span class="fn">get_encoding</span>(<span class="str">"o200k_base"</span>)  <span class="cm"># newer models</span>
     total = <span class="num">0</span>
     <span class="kw">for</span> msg <span class="kw">in</span> messages:
         total += <span class="num">4</span>  <span class="cm"># per-message overhead</span>
@@ -150,7 +153,7 @@
     <span class="kw">return</span> total + <span class="num">3</span>  <span class="cm"># reply priming</span>
 
 <span class="cm"># Block requests that would exceed the context window</span>
-MAX_INPUT_TOKENS = <span class="num">120_000</span>
+MAX_INPUT_TOKENS = <span class="num">900_000</span>  <span class="cm"># gpt-4.1 fits ~1M; leave headroom</span>
 <span class="kw">if</span> <span class="fn">count_tokens</span>(messages) > MAX_INPUT_TOKENS:
     <span class="kw">raise</span> <span class="cls">ValueError</span>(<span class="str">"Messages exceed context window limit"</span>)</div>
         </div>
@@ -174,10 +177,10 @@ client = <span class="fn">OpenAI</span>()
     <span class="kw">for</span> attempt <span class="kw">in</span> <span class="fn">range</span>(max_retries):
         <span class="kw">try</span>:
             response = client.chat.completions.<span class="fn">create</span>(
-                model=<span class="str">"gpt-4o-mini"</span>,
+                model=<span class="str">"gpt-4.1-mini"</span>,
                 messages=messages,
                 temperature=<span class="num">0.0</span>,
-                max_tokens=<span class="num">1024</span>
+                max_completion_tokens=<span class="num">1024</span>
             )
             <span class="kw">return</span> response.choices[<span class="num">0</span>].message.content
 
@@ -361,7 +364,7 @@ client = <span class="fn">OpenAI</span>(timeout=<span class="num">30.0</span>)
     <span class="kw">for</span> attempt <span class="kw">in</span> <span class="fn">range</span>(retries):
         <span class="kw">try</span>:
             resp = client.chat.completions.<span class="fn">create</span>(
-                model=<span class="str">"gpt-4o-mini"</span>, messages=messages
+                model=<span class="str">"gpt-4.1-mini"</span>, messages=messages
             )
             <span class="kw">return</span> resp.choices[<span class="num">0</span>].message.content
 
@@ -410,6 +413,105 @@ client = <span class="fn">OpenAI</span>(timeout=<span class="num">30.0</span>)
         <div class="arch-desc">Generate output with one call, then validate it with a second call (or schema check). Retry if validation fails. High quality at 2× cost.</div>
         <div class="arch-when"><strong>Use when:</strong> Output quality is critical, structured output format must be guaranteed, or self-correction is needed.</div>
       </div>
+      <div class="arch-card">
+        <div class="arch-title"><span class="arch-icon">🧠</span> Agentic Loop (Responses)</div>
+        <div class="arch-desc">Use the Responses API with <code style="color:#22d3ee;font-size:0.75rem;">previous_response_id</code> + tools. The model plans, calls tools (custom or hosted), observes results, and continues — all within one chain.</div>
+        <div class="arch-when"><strong>Use when:</strong> Tasks need iterative tool use — researching, computing, comparing — and you want OpenAI to thread state and reasoning items for you.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3b: Built-in tools -->
+  <section>
+    <h2 class="section-title">Built-in Tools (Responses API)</h2>
+    <p class="section-sub">The Responses API ships with hosted tools. You enable them with one line — no executor code, no infrastructure. The model decides when to call them; OpenAI runs them in a sandbox and feeds results back into the same response.</p>
+
+    <div class="arch-grid">
+      <div class="arch-card">
+        <div class="arch-title"><span class="arch-icon">🔎</span> web_search</div>
+        <div class="arch-desc">Live web search with citations. Best for fresh-data Q&A — news, prices, schedules — anything that's changed since training.</div>
+        <div class="arch-when"><strong>Add it:</strong> <code style="color:#22d3ee;font-size:0.75rem;">tools=[{"type": "web_search"}]</code></div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-title"><span class="arch-icon">📁</span> file_search</div>
+        <div class="arch-desc">Hosted vector store + retrieval. Upload PDFs/docs once, get a <code style="color:#22d3ee;font-size:0.75rem;">vs_*</code> ID, pass it in. Replaces a basic RAG stack for many use cases.</div>
+        <div class="arch-when"><strong>Add it:</strong> <code style="color:#22d3ee;font-size:0.75rem;">tools=[{"type": "file_search", "vector_store_ids": ["vs_abc"]}]</code></div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-title"><span class="arch-icon">📊</span> code_interpreter</div>
+        <div class="arch-desc">Sandbox Python execution with NumPy/Pandas/Matplotlib. The model writes and runs code, returns plots and results inline.</div>
+        <div class="arch-when"><strong>Add it:</strong> <code style="color:#22d3ee;font-size:0.75rem;">tools=[{"type": "code_interpreter", "container": {"type": "auto"}}]</code></div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-title"><span class="arch-icon">🎨</span> image_generation</div>
+        <div class="arch-desc">Generate images mid-response using gpt-image-1. The model decides when an image helps and embeds the generated image item in <code style="color:#22d3ee;font-size:0.75rem;">response.output</code>.</div>
+        <div class="arch-when"><strong>Add it:</strong> <code style="color:#22d3ee;font-size:0.75rem;">tools=[{"type": "image_generation"}]</code></div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-title"><span class="arch-icon">🖱️</span> computer_use</div>
+        <div class="arch-desc">Preview: drive a browser/desktop sandbox via screenshots and clicks. Restricted access, but powerful for end-to-end automation.</div>
+        <div class="arch-when"><strong>Add it:</strong> <code style="color:#22d3ee;font-size:0.75rem;">tools=[{"type": "computer_use_preview", ...}]</code></div>
+      </div>
+      <div class="arch-card" style="border-color:#06b6d4;">
+        <div class="arch-title"><span class="arch-icon">🛠️</span> Custom functions</div>
+        <div class="arch-desc">Your own Python (or any language) tools — same idea as Chat Completions, but with a flatter schema and easier multi-turn chaining via <code style="color:#22d3ee;font-size:0.75rem;">previous_response_id</code>.</div>
+        <div class="arch-when"><strong>Mix freely:</strong> hosted + custom tools in the same call, in any combination.</div>
+      </div>
+    </div>
+
+    <div class="err-grid" style="margin-top:20px;">
+      <div class="err-card">
+        <div class="err-card-label" style="color:#22d3ee;">Example: research agent (web + code)</div>
+        <div class="code-box">
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+client = <span class="fn">OpenAI</span>()
+
+response = client.responses.<span class="fn">create</span>(
+    <span class="key">model</span>=<span class="str">"gpt-5-mini"</span>,
+    <span class="key">instructions</span>=<span class="str">"You are a markets research agent."</span>,
+    <span class="key">tools</span>=[
+        {<span class="str">"type"</span>: <span class="str">"web_search"</span>},
+        {<span class="str">"type"</span>: <span class="str">"code_interpreter"</span>,
+         <span class="str">"container"</span>: {<span class="str">"type"</span>: <span class="str">"auto"</span>}}
+    ],
+    <span class="key">input</span>=<span class="str">"Pull the last 5 closes of SPY, "</span>
+          <span class="str">"compute the 5-day return, and explain."</span>
+)
+
+<span class="fn">print</span>(response.output_text)
+
+<span class="cm"># Inspect tool calls in the output</span>
+<span class="kw">for</span> item <span class="kw">in</span> response.output:
+    <span class="fn">print</span>(item.type, <span class="fn">getattr</span>(item, <span class="str">"name"</span>, <span class="str">""</span>))</div>
+      </div>
+      <div class="err-card">
+        <div class="err-card-label" style="color:#a78bfa;">Example: file_search over a vector store</div>
+        <div class="code-box">
+<span class="cm"># One-time: upload files and build a vector store</span>
+vs = client.vector_stores.<span class="fn">create</span>(name=<span class="str">"q4-board-deck"</span>)
+client.vector_stores.files.<span class="fn">upload_and_poll</span>(
+    vector_store_id=vs.id,
+    file=<span class="fn">open</span>(<span class="str">"deck.pdf"</span>, <span class="str">"rb"</span>)
+)
+
+<span class="cm"># Use file_search in a Response</span>
+response = client.responses.<span class="fn">create</span>(
+    <span class="key">model</span>=<span class="str">"gpt-4.1-mini"</span>,
+    <span class="key">tools</span>=[{
+        <span class="str">"type"</span>: <span class="str">"file_search"</span>,
+        <span class="str">"vector_store_ids"</span>: [vs.id]
+    }],
+    <span class="key">input</span>=<span class="str">"Summarize the Q4 revenue outlook "</span>
+          <span class="str">"and list every risk mentioned."</span>
+)
+
+<span class="fn">print</span>(response.output_text)</div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-top:20px;">
+      <strong>Pricing reminder:</strong> hosted tools have per-call surcharges on top of model token cost (e.g., web_search is billed per search query, file_search per 1K queries + per GB stored). Check platform.openai.com/pricing before relying on them in high-volume flows.
     </div>
   </section>
 
@@ -467,18 +569,15 @@ client = <span class="fn">OpenAI</span>(timeout=<span class="num">30.0</span>)
 
     <span class="kw">for</span> attempt <span class="kw">in</span> <span class="fn">range</span>(retries):
         <span class="kw">try</span>:
-            resp = client.beta.chat.completions.<span class="fn">parse</span>(
-                model=<span class="str">"gpt-4o-mini"</span>,
-                messages=[
-                    {<span class="str">"role"</span>:<span class="str">"system"</span>, <span class="str">"content"</span>:
-                     <span class="str">"Classify support tickets accurately."</span>},
-                    {<span class="str">"role"</span>:<span class="str">"user"</span>, <span class="str">"content"</span>: ticket}
-                ],
-                response_format=<span class="cls">TicketResult</span>,
-                temperature=<span class="num">0.0</span>
+            resp = client.responses.<span class="fn">parse</span>(
+                model=<span class="str">"gpt-4.1-mini"</span>,
+                instructions=<span class="str">"Classify support tickets accurately."</span>,
+                input=ticket,
+                text_format=<span class="cls">TicketResult</span>,
+                temperature=<span class="num">0.0</span>,
             )
             logging.<span class="fn">info</span>(<span class="str">f"tokens={resp.usage.total_tokens}"</span>)
-            <span class="kw">return</span> resp.choices[<span class="num">0</span>].message.parsed
+            <span class="kw">return</span> resp.output_parsed
 
         <span class="kw">except</span> <span class="cls">RateLimitError</span>:
             <span class="kw">if</span> attempt == retries - <span class="num">1</span>: <span class="kw">raise</span>
@@ -492,7 +591,7 @@ result = <span class="fn">classify_ticket</span>(<span class="str">"Can't login 
     </div>
 
     <div class="info-box" style="margin-top:20px;">
-      <strong>What this example demonstrates:</strong> Secure client init · Pydantic schema with Literal constraints · .parse() for guaranteed schema compliance · Retry loop with exponential backoff · Token usage logging · Input validation before API call
+      <strong>What this example demonstrates:</strong> Secure client init · Pydantic schema with Literal constraints · <code style="color:#22d3ee;font-size:0.78rem;">client.responses.parse()</code> for guaranteed schema compliance · Retry loop with exponential backoff · Token usage logging · Input validation before API call. On the Responses API the typed result lives at <code style="color:#22d3ee;font-size:0.78rem;">response.output_parsed</code> (vs <code style="color:#22d3ee;font-size:0.78rem;">choices[0].message.parsed</code> on Chat Completions).
     </div>
   </section>
 

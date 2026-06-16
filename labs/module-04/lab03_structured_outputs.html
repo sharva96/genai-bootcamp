@@ -161,7 +161,7 @@
         <div class="recommended-badge">Recommended</div>
         <div class="approach-num">Approach 3</div>
         <div class="approach-name">Structured Outputs (Pydantic)</div>
-        <div class="approach-desc">Use <code style="color:#22d3ee;font-size:0.75rem;">.parse()</code> with a Pydantic model. API guarantees output matches your schema exactly.</div>
+        <div class="approach-desc">Use <code style="color:#22d3ee;font-size:0.75rem;">.parse()</code> with a Pydantic model. API guarantees output matches your schema exactly. Available on both Chat Completions and the Responses API.</div>
         <div class="approach-pros">
           <div class="pro-item">✓ Schema is fully enforced</div>
           <div class="pro-item">✓ Types validated automatically</div>
@@ -169,16 +169,25 @@
         </div>
         <div class="approach-cons">
           <div class="con-item">✗ Requires pydantic library</div>
-          <div class="con-item">✗ Limited to supported models</div>
+          <div class="con-item">✗ Works on GPT-4o, GPT-4.1, GPT-5, o3, o4-mini</div>
         </div>
       </div>
+    </div>
+
+    <div class="info-box" style="margin-top:20px;">
+      <strong>Note on the SDK:</strong> The <code style="color:#22d3ee">.parse()</code> helper has been promoted out of <code style="color:#22d3ee">client.beta.*</code>. Use <code style="color:#22d3ee">client.chat.completions.parse()</code> or <code style="color:#22d3ee">client.responses.parse()</code> directly. The <code>beta</code> alias still works for backward compatibility.
     </div>
   </section>
 
   <!-- Section 2: Schema Builder -->
   <section>
     <h2 class="section-title">Pydantic Schema Builder</h2>
-    <p class="section-sub">Define your output schema fields. The Pydantic class and API call code generate automatically.</p>
+    <p class="section-sub">Define your output schema fields. The Pydantic class and API call code generate automatically. Toggle between Chat Completions and Responses to see both call shapes.</p>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button id="schApiChat" class="btn btn-primary" onclick="setSchemaApi('chat')" style="background:#22d3ee;">Chat Completions .parse()</button>
+      <button id="schApiResp" class="btn btn-secondary" onclick="setSchemaApi('responses')">Responses .parse()</button>
+    </div>
 
     <div class="schema-layout">
       <div class="schema-fields">
@@ -398,10 +407,10 @@
     </div>
 
     <div class="quiz-card" id="q3">
-      <div class="question">3. What does client.beta.chat.completions.parse() return compared to .create()?</div>
+      <div class="question">3. What does client.chat.completions.parse() return compared to .create()?</div>
       <div class="options">
         <button class="opt-btn" onclick="answer(this,'q3',false)">A. The same response object — .parse() is just an alias</button>
-        <button class="opt-btn" onclick="answer(this,'q3',true)">B. A typed Python object matching your Pydantic schema, accessible via .message.parsed</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">B. A typed Python object matching your Pydantic schema, accessible via .message.parsed (or .output_parsed on the Responses API)</button>
         <button class="opt-btn" onclick="answer(this,'q3',false)">C. Raw JSON text that you must parse with json.loads()</button>
         <button class="opt-btn" onclick="answer(this,'q3',false)">D. A dictionary with schema validation errors if any</button>
       </div>
@@ -470,6 +479,22 @@ function addField() {
   renderAll();
 }
 
+let schemaApi = 'chat';
+
+function setSchemaApi(which) {
+  schemaApi = which;
+  const c = document.getElementById('schApiChat');
+  const r = document.getElementById('schApiResp');
+  if (which === 'chat') {
+    c.className = 'btn btn-primary'; c.style.background = '#22d3ee';
+    r.className = 'btn btn-secondary'; r.style.background = '';
+  } else {
+    r.className = 'btn btn-primary'; r.style.background = '#a78bfa';
+    c.className = 'btn btn-secondary'; c.style.background = '';
+  }
+  renderSchema();
+}
+
 function renderSchema() {
   const cls = document.getElementById('className').value || 'OutputSchema';
   const fieldLines = fields.map(f => {
@@ -477,7 +502,38 @@ function renderSchema() {
     return `    <span class="key">${f.name}</span>: <span class="fn">${f.type}</span>${optional}`;
   }).join('\n');
 
-  const reqFields = fields.filter(f => f.required).map(f => `"${f.name}"`).join(', ');
+  let apiCall;
+  if (schemaApi === 'chat') {
+    apiCall =
+`<span class="cm"># Use .parse() for guaranteed schema compliance</span>
+response = client.chat.completions.<span class="fn">parse</span>(
+    <span class="key">model</span>=<span class="str">"gpt-4.1-mini"</span>,
+    <span class="key">messages</span>=[
+        {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"Extract structured data."</span>},
+        {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: your_text}
+    ],
+    <span class="key">response_format</span>=<span class="cls">${cls}</span>,
+    <span class="key">temperature</span>=<span class="num">0.0</span>,
+)
+
+<span class="cm"># Typed Python object — no json.loads() needed</span>
+result: <span class="cls">${cls}</span> = response.choices[<span class="num">0</span>].message.parsed
+<span class="fn">print</span>(result.model_dump())`;
+  } else {
+    apiCall =
+`<span class="cm"># Responses API: .parse() with a Pydantic model — same idea, different shape</span>
+response = client.responses.<span class="fn">parse</span>(
+    <span class="key">model</span>=<span class="str">"gpt-4.1-mini"</span>,
+    <span class="key">instructions</span>=<span class="str">"Extract structured data."</span>,
+    <span class="key">input</span>=your_text,
+    <span class="key">text_format</span>=<span class="cls">${cls}</span>,
+    <span class="key">temperature</span>=<span class="num">0.0</span>,
+)
+
+<span class="cm"># Typed Python object — exposed as response.output_parsed</span>
+result: <span class="cls">${cls}</span> = response.output_parsed
+<span class="fn">print</span>(result.model_dump())`;
+  }
 
   document.getElementById('schemaCode').innerHTML =
 `<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel
@@ -488,20 +544,7 @@ client = <span class="fn">OpenAI</span>()
 <span class="kw">class</span> <span class="cls">${cls}</span>(<span class="cls">BaseModel</span>):
 ${fieldLines}
 
-<span class="cm"># Use .parse() for guaranteed schema compliance</span>
-response = client.beta.chat.completions.<span class="fn">parse</span>(
-    <span class="key">model</span>=<span class="str">"gpt-4o-mini"</span>,
-    <span class="key">messages</span>=[
-        {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"Extract structured data."</span>},
-        {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: your_text}
-    ],
-    <span class="key">response_format</span>=<span class="cls">${cls}</span>,
-    <span class="key">temperature</span>=<span class="num">0.0</span>
-)
-
-<span class="cm"># Typed Python object — no json.loads() needed</span>
-result: <span class="cls">${cls}</span> = response.choices[<span class="num">0</span>].message.parsed
-<span class="fn">print</span>(result.model_dump())`;
+${apiCall}`;
 }
 
 function renderAll() {
@@ -523,7 +566,7 @@ function showPattern(idx, btn) {
 const feedbacks = {
   q1: { ok: "Correct! Literal['low','medium','high'] enforces that the value must be exactly one of these strings — the schema will reject any other value.", bad: "Use Literal['low','medium','high'] from Python's typing module. This constrains the field at the schema level, not just as documentation." },
   q2: { ok: "Correct! JSON mode requires you to mention the word 'JSON' somewhere in your prompt (system or user message). Without it, the API returns a validation error.", bad: "JSON mode requires the word 'JSON' to appear in your prompt. This is an API requirement — it fails if the prompt doesn't mention JSON." },
-  q3: { ok: "Correct! .parse() returns a response where .choices[0].message.parsed is a typed instance of your Pydantic class — no manual JSON parsing needed.", bad: ".parse() returns a typed Pydantic object in response.choices[0].message.parsed. It eliminates the need for json.loads() and schema validation." },
+  q3: { ok: "Correct! On Chat Completions, .parse() exposes the typed object at .choices[0].message.parsed. On the Responses API, the equivalent is .output_parsed. Either way, no manual json.loads() needed.", bad: ".parse() returns a typed Pydantic object. Access via .choices[0].message.parsed (Chat Completions) or .output_parsed (Responses). No json.loads() or schema validation needed." },
   q4: { ok: "Correct! temperature=0.0 makes output deterministic. For extraction tasks, the same input should always produce the same structured output.", bad: "temperature=0.0 ensures deterministic, consistent output. Higher temperatures introduce randomness that can change field values or structure across runs." },
   q5: { ok: "Correct! int | None means the field accepts either an integer or null — useful when a value may or may not be present in the source text.", bad: "int | None allows the field to be an integer OR null (Python None / JSON null). This handles cases where the value is absent from the input." }
 };

@@ -12,12 +12,12 @@
 
 By the end of this module, you will be able to:
 - Set up and authenticate with the OpenAI API
-- Understand the Chat Completions API request/response structure
-- Select the right model for a given use case and budget
-- Tune key parameters (temperature, max_tokens, top_p) for different tasks
+- Understand both the Chat Completions API and the Responses API — when to use each
+- Select the right model from the current lineup (GPT-5, GPT-4.1, o-series, GPT-4o) for a given use case and budget
+- Tune key parameters (temperature, max_tokens, top_p, reasoning_effort, verbosity) for different tasks
 - Handle API errors, rate limits, and retries correctly
-- Build multi-turn conversations with message history
-- Use function calling to integrate LLMs with external tools
+- Build multi-turn conversations — manually (Chat Completions) and via stateful chaining (Responses)
+- Use function calling and built-in tools (web_search, file_search) to integrate LLMs with external data
 - Stream responses for real-time user experiences
 - Estimate and control costs in production applications
 
@@ -31,14 +31,39 @@ The OpenAI API gives developers programmatic access to the same models that powe
 
 | Capability | API Endpoint | Examples |
 |-----------|-------------|---------|
-| Text generation & chat | `/chat/completions` | Chatbots, copilots, content generation |
-| Structured data extraction | `/chat/completions` + JSON mode | Data pipelines, form parsing |
-| Image understanding | `/chat/completions` (vision) | Receipt scanning, UI accessibility |
-| Image generation | `/images/generations` | Creative tools, product visuals |
+| Text generation & chat (stateless) | `/chat/completions` | Chatbots, copilots, content generation |
+| Text generation & agents (stateful) | `/responses` | Agentic apps, multi-turn assistants, reasoning workflows |
+| Structured data extraction | `/chat/completions` or `/responses` + schema | Data pipelines, form parsing |
+| Image understanding (vision) | `/chat/completions` or `/responses` | Receipt scanning, UI accessibility |
+| Image generation | `/images/generations` or `/responses` (image tool) | Creative tools, product visuals |
+| Web search built-in | `/responses` (web_search tool) | Fresh-data Q&A, research agents |
+| File / knowledge search | `/responses` (file_search tool) | Internal-knowledge agents, RAG without infra |
+| Code execution | `/responses` (code_interpreter tool) | Data analysis, math, plotting |
 | Text-to-speech | `/audio/speech` | Voice assistants, accessibility |
 | Speech-to-text | `/audio/transcriptions` | Meeting transcription, voice input |
 | Text embeddings | `/embeddings` | Search, recommendation, clustering |
 | Fine-tuned models | `/fine_tuning/jobs` | Domain-specific customization |
+
+### Two Text APIs — Chat Completions vs Responses
+
+OpenAI offers **two** text-generation endpoints. Both are first-class and supported, but they target different use cases.
+
+| Dimension | Chat Completions (`/chat/completions`) | Responses (`/responses`) |
+|---|---|---|
+| Released | March 2023 — the original chat endpoint | March 2025 — successor designed for agents |
+| State | **Stateless** — you resend full message history every call | **Stateful (optional)** — chain calls with `previous_response_id` |
+| Input shape | `messages=[{role, content}, ...]` | `input="..."` (string) or `input=[...]` (item list) |
+| Persona | First `system` message | `instructions="..."` parameter |
+| Output shape | `response.choices[0].message.content` | `response.output_text` (convenience) or iterate `response.output` |
+| Built-in tools | None — you bring your own functions | `web_search`, `file_search`, `code_interpreter`, `image_generation`, `computer_use` |
+| Reasoning models (o3/o4/GPT-5) | Supported, but reasoning items are dropped between turns | Preserves reasoning items across turns — recommended |
+| Structured output | `response_format=` (JSON mode or schema) | `text={"format": ...}` |
+| Streaming | `stream=True` → token deltas | `stream=True` → typed event stream (`response.output_text.delta`, etc.) |
+
+**Rule of thumb:**
+- **New code** — start with the Responses API, especially for agents, reasoning models, or anything multi-turn.
+- **Existing code, simple stateless calls, third-party-compatible clients** — Chat Completions remains fully supported.
+- The two APIs are not wire-compatible; treat them as siblings, not versions of each other.
 
 ### API vs ChatGPT
 
@@ -122,7 +147,7 @@ print(response.choices[0].message.content)
 
 ## 3. The Chat Completions API
 
-The `/chat/completions` endpoint is the foundation of almost every OpenAI integration. It accepts a conversation (a list of messages) and returns the model's next message.
+The `/chat/completions` endpoint is the original chat interface. It is stateless: every call accepts a complete conversation (a list of messages) and returns the model's next message. The application is responsible for storing and resending history.
 
 ### Request Structure
 
@@ -133,13 +158,15 @@ response = client.chat.completions.create(
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "What is the capital of France?"}
     ],
-    temperature=0.7,               # randomness (0.0–2.0)
-    max_tokens=256,                # max tokens in the response
+    temperature=0.7,               # randomness (0.0–2.0) — GPT-4/4o/4.1; ignored on GPT-5/o-series
+    max_completion_tokens=256,     # cap on output tokens (renamed from max_tokens)
     top_p=1.0,                     # nucleus sampling
     frequency_penalty=0.0,         # penalize repeated tokens
     presence_penalty=0.0,          # penalize tokens already used
 )
 ```
+
+> **Note:** `max_tokens` is the legacy field. The current name is `max_completion_tokens`. The SDK still accepts `max_tokens` for backward compatibility on non-reasoning models, but reasoning models (GPT-5, o3, o4-mini) require `max_completion_tokens`. Reasoning models also do not accept custom `temperature` or `top_p` — those parameters are ignored or rejected.
 
 ### Response Structure
 
@@ -200,34 +227,218 @@ print(response.choices[0].message.content)
 
 ---
 
-## 4. Model Selection
+## 4. The Responses API
 
-OpenAI offers several models with different capability/cost tradeoffs. Choosing the right model is one of the highest-leverage engineering decisions in an AI application.
+The `/responses` endpoint (released March 2025) is OpenAI's recommended interface for new applications, especially anything agentic, reasoning-heavy, or multi-turn. It accepts a simpler input shape, supports server-side state, and exposes built-in tools (web search, file search, code execution, image generation, computer use) without you wiring them up yourself.
 
-### Current Model Lineup (as of mid-2025)
+### Minimal Call
 
-| Model | Speed | Intelligence | Best For | Relative Cost |
-|-------|-------|-------------|----------|--------------|
-| `gpt-4o` | Fast | Highest | Complex reasoning, multimodal tasks | $$$ |
-| `gpt-4o-mini` | Very Fast | High | Most production tasks, cost-sensitive apps | $ |
-| `gpt-4-turbo` | Moderate | Very High | Deep analysis, long documents | $$ |
-| `o1` | Slow | Best (reasoning) | Math, code, logic-heavy tasks | $$$$ |
-| `o1-mini` | Moderate | High (reasoning) | STEM tasks, structured thinking | $$ |
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.responses.create(
+    model="gpt-4.1-mini",
+    input="What is the capital of France?"
+)
+
+print(response.output_text)   # "Paris"
+```
+
+That's the smallest possible Responses call. No message list, no roles — just `input`.
+
+### Adding a Persona
+
+Use `instructions` instead of a system message:
+
+```python
+response = client.responses.create(
+    model="gpt-4.1-mini",
+    instructions="You are a concise financial analyst. Respond with data-driven insights only.",
+    input="What factors affect a company's P/E ratio?"
+)
+print(response.output_text)
+```
+
+### Multi-Turn — Stateful Chaining
+
+The Responses API can store turns on the server. Pass `previous_response_id` on each follow-up and OpenAI threads the conversation for you — no need to resend history.
+
+```python
+# Turn 1
+r1 = client.responses.create(
+    model="gpt-4.1-mini",
+    instructions="You are a concise financial analyst.",
+    input="What factors affect a company's P/E ratio?"
+)
+print(r1.output_text)
+
+# Turn 2 — refers to the previous response by ID
+r2 = client.responses.create(
+    model="gpt-4.1-mini",
+    previous_response_id=r1.id,
+    input="How does an interest rate rise affect it specifically?"
+)
+print(r2.output_text)
+```
+
+Set `store=False` if you don't want OpenAI to persist the conversation (default is `True`). When `store=False`, you must pass the full history as an `input` list, like Chat Completions.
+
+### Input as a List
+
+For multimodal input, tool results, or explicit conversation history, pass `input` as a list:
+
+```python
+response = client.responses.create(
+    model="gpt-4.1",
+    input=[
+        {"role": "user", "content": [
+            {"type": "input_text", "text": "What is in this picture?"},
+            {"type": "input_image", "image_url": "https://example.com/cat.jpg"}
+        ]}
+    ]
+)
+print(response.output_text)
+```
+
+### Response Structure
+
+```python
+# Convenience: concatenated text from all message outputs
+print(response.output_text)
+
+# Full structured output — a list of items (messages, tool calls, reasoning)
+for item in response.output:
+    print(item.type, item)
+
+# Token usage (note: input_tokens / output_tokens, not prompt_tokens / completion_tokens)
+print(response.usage.input_tokens)
+print(response.usage.output_tokens)
+print(response.usage.total_tokens)
+
+# Reasoning tokens (for GPT-5 / o-series) are counted separately
+print(response.usage.output_tokens_details.reasoning_tokens)
+```
+
+### Built-in Tools
+
+The Responses API ships with hosted tools you can enable without writing executors:
+
+```python
+# Live web search
+response = client.responses.create(
+    model="gpt-4.1",
+    tools=[{"type": "web_search"}],
+    input="What are the top 3 AI announcements this week?"
+)
+print(response.output_text)
+
+# File search over your uploaded vector store
+response = client.responses.create(
+    model="gpt-4.1-mini",
+    tools=[{"type": "file_search", "vector_store_ids": ["vs_abc123"]}],
+    input="Summarize our Q4 board deck"
+)
+
+# Code execution sandbox
+response = client.responses.create(
+    model="gpt-4.1",
+    tools=[{"type": "code_interpreter", "container": {"type": "auto"}}],
+    input="Compute the variance of [3, 7, 2, 9, 1] and plot it"
+)
+```
+
+### When to Pick Which API
+
+| You want to... | Use |
+|---|---|
+| Run a single stateless completion | Either; Chat Completions is fine |
+| Build a multi-turn assistant without managing history | **Responses** (`previous_response_id`) |
+| Use a reasoning model (GPT-5, o3, o4-mini) for multi-turn | **Responses** — preserves reasoning items across turns |
+| Add web search or code execution without external infra | **Responses** (built-in tools) |
+| Maintain wire compatibility with non-OpenAI providers | **Chat Completions** (industry standard shape) |
+| Migrate an existing Chat Completions app | Stay on Chat Completions until you need a Responses-only feature |
+
+---
+
+## 5. Model Selection
+
+OpenAI offers several model families with different capability/cost tradeoffs. Choosing the right model is one of the highest-leverage engineering decisions in an AI application.
+
+### Current Model Lineup (Q2 2026)
+
+The current text-generation lineup falls into three families: **GPT-5** (the flagship reasoning family), **GPT-4.1** (general-purpose with 1M-token context), and **GPT-4o** (the older flagship, still widely used). The standalone **o-series** reasoning models (`o3`, `o4-mini`) remain available for specialized agentic and STEM workloads.
+
+| Model | Family | Context | Best For | Pricing (per 1M, in/out) |
+|---|---|---|---|---|
+| `gpt-5` | GPT-5 reasoning | 400K | Hardest tasks — agents, complex code, deep reasoning | $1.25 / $10.00 |
+| `gpt-5-mini` | GPT-5 reasoning | 400K | Most production tasks needing reasoning | $0.25 / $2.00 |
+| `gpt-5-nano` | GPT-5 reasoning | 400K | High-volume reasoning at lowest cost | $0.05 / $0.40 |
+| `gpt-5-chat-latest` | GPT-5 non-reasoning | 400K | Fast chat — no internal reasoning step | $1.25 / $10.00 |
+| `gpt-4.1` | GPT-4.1 | 1,047,576 | Long-document work, code refactors over big repos | $2.00 / $8.00 |
+| `gpt-4.1-mini` | GPT-4.1 | 1,047,576 | Cost-effective long-context tasks | $0.40 / $1.60 |
+| `gpt-4.1-nano` | GPT-4.1 | 1,047,576 | Cheapest 1M-context option | $0.10 / $0.40 |
+| `gpt-4o` | GPT-4o | 128K | General-purpose multimodal (text + vision + audio) | $2.50 / $10.00 |
+| `gpt-4o-mini` | GPT-4o | 128K | The classic cheap-and-fast multimodal workhorse | $0.15 / $0.60 |
+| `o3` | o-series reasoning | 200K | Heavy STEM, multi-step proofs, agent planning | $2.00 / $8.00 |
+| `o4-mini` | o-series reasoning | 200K | Cost-efficient reasoning for tool-using agents | $1.10 / $4.40 |
+
+> Pricing is approximate and subject to change. Always confirm at platform.openai.com/pricing before estimating production costs. Prompt caching can reduce input pricing by ~50–90% on repeated context.
+
+**Other model categories:**
+
+| Category | Models | Use |
+|---|---|---|
+| Embeddings | `text-embedding-3-large`, `text-embedding-3-small` | Vectors for search, clustering, RAG |
+| Image generation | `gpt-image-1`, `dall-e-3` | Generate or edit images from prompts |
+| Speech-to-text | `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1` | Transcription, voice input |
+| Text-to-speech | `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd` | Voice output |
+
+### Reasoning vs Non-Reasoning Models — the Critical Distinction
+
+GPT-5 and the o-series spend hidden "reasoning tokens" thinking before answering. This changes what parameters do:
+
+- **No `temperature` / `top_p`** — reasoning models use fixed sampling internally; passing custom values is silently ignored (or rejected on some endpoints).
+- **`max_completion_tokens`, not `max_tokens`** — and you must budget for *both* reasoning tokens and visible output tokens within this cap.
+- **`reasoning_effort` parameter** — `"minimal"`, `"low"`, `"medium"` (default), `"high"`. Higher effort → more reasoning tokens → better quality, longer latency, more cost.
+- **`verbosity` parameter (GPT-5 only)** — `"low"`, `"medium"` (default), `"high"`. Controls the length of the visible answer.
+- **Use the Responses API** so reasoning state is preserved across turns. On Chat Completions, the model re-derives reasoning every turn — slower and more expensive.
+
+```python
+# GPT-5 example — note: no temperature
+response = client.responses.create(
+    model="gpt-5-mini",
+    input="Prove that the square root of 2 is irrational.",
+    reasoning={"effort": "high"},
+    text={"verbosity": "medium"}
+)
+print(response.output_text)
+print("reasoning tokens:", response.usage.output_tokens_details.reasoning_tokens)
+```
 
 ### Model Selection Decision Tree
 
 ```
-Is the task reasoning-heavy? (math, logic, multi-step planning)
-├─ Yes → o1 or o1-mini
+Does the task need fresh data from the web?
+├─ Yes → Responses API + web_search tool on gpt-4.1 or gpt-5
 └─ No → Continue
 
-Does the task involve images/vision?
-├─ Yes → gpt-4o
+Is the task reasoning-heavy? (math, logic, multi-step planning, agentic loops)
+├─ Yes → gpt-5-mini for most; gpt-5 for the hardest; o4-mini for cost
+└─ No → Continue
+
+Do you need long context (> 200K tokens)?
+├─ Yes → gpt-4.1 or gpt-4.1-mini (1M token window)
+└─ No → Continue
+
+Does the task involve images, audio, or vision?
+├─ Yes → gpt-4o or gpt-4.1 (both multimodal)
 └─ No → Continue
 
 Is cost/speed the top priority?
-├─ Yes → gpt-4o-mini
-└─ No → gpt-4o
+├─ Yes → gpt-4o-mini, gpt-4.1-nano, or gpt-5-nano
+└─ No → gpt-4.1-mini or gpt-5-mini (good defaults)
 ```
 
 ### Cost Estimation
@@ -235,33 +446,51 @@ Is cost/speed the top priority?
 Tokens ≈ 0.75 words (English). Roughly:
 - 1 page of text ≈ 500 tokens
 - 1 book chapter ≈ 3,000–5,000 tokens
-- Full context window (128k) ≈ ~90,000 words
+- 128K context ≈ ~90,000 words; 1M context (GPT-4.1) ≈ ~750,000 words
 
 ```python
-def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str = "gpt-4o-mini") -> float:
-    pricing = {
-        "gpt-4o":       {"input": 0.0025, "output": 0.010},   # per 1K tokens
-        "gpt-4o-mini":  {"input": 0.00015, "output": 0.0006},
-        "gpt-4-turbo":  {"input": 0.010,  "output": 0.030},
-    }
-    rates = pricing.get(model, pricing["gpt-4o-mini"])
-    cost = (prompt_tokens / 1000 * rates["input"]) + (completion_tokens / 1000 * rates["output"])
-    return round(cost, 6)
+PRICING = {                                       # USD per 1M tokens
+    "gpt-5":             {"input": 1.25, "output": 10.00},
+    "gpt-5-mini":        {"input": 0.25, "output":  2.00},
+    "gpt-5-nano":        {"input": 0.05, "output":  0.40},
+    "gpt-4.1":           {"input": 2.00, "output":  8.00},
+    "gpt-4.1-mini":      {"input": 0.40, "output":  1.60},
+    "gpt-4.1-nano":      {"input": 0.10, "output":  0.40},
+    "gpt-4o":            {"input": 2.50, "output": 10.00},
+    "gpt-4o-mini":       {"input": 0.15, "output":  0.60},
+    "o3":                {"input": 2.00, "output":  8.00},
+    "o4-mini":           {"input": 1.10, "output":  4.40},
+}
 
-# After an API call
-cost = estimate_cost(
-    response.usage.prompt_tokens,
-    response.usage.completion_tokens,
-    model="gpt-4o-mini"
-)
-print(f"This call cost approximately ${cost:.4f}")
+def estimate_cost(input_tokens: int, output_tokens: int, model: str = "gpt-4.1-mini") -> float:
+    rates = PRICING[model]
+    return round(
+        (input_tokens  / 1_000_000) * rates["input"] +
+        (output_tokens / 1_000_000) * rates["output"],
+        6
+    )
+
+# After a Responses API call
+cost = estimate_cost(response.usage.input_tokens, response.usage.output_tokens, "gpt-4.1-mini")
+print(f"This call cost approximately ${cost:.6f}")
 ```
 
 ---
 
-## 5. Key Parameters
+## 6. Key Parameters
 
-Understanding the core parameters lets you tune model behavior for your specific use case.
+Understanding the core parameters lets you tune model behavior for your specific use case. The applicable set depends on the model family.
+
+| Parameter | GPT-4o / GPT-4.1 | GPT-5 / o-series (reasoning) |
+|---|---|---|
+| `temperature` | ✓ tunable | ✗ ignored (fixed internally) |
+| `top_p` | ✓ tunable | ✗ ignored |
+| `max_tokens` / `max_completion_tokens` | ✓ caps output | ✓ caps reasoning + output combined |
+| `frequency_penalty`, `presence_penalty` | ✓ | ✗ |
+| `reasoning_effort` | n/a | ✓ `minimal` / `low` / `medium` / `high` |
+| `verbosity` (GPT-5 only) | n/a | ✓ `low` / `medium` / `high` |
+| `stop` | ✓ | ✓ |
+| `seed` | ✓ (best-effort) | ✓ (best-effort) |
 
 ### Temperature
 
@@ -356,9 +585,29 @@ response = client.chat.completions.create(
 | Chatbot | 0.7 | 1.0 | 0.3 |
 | Creative writing | 0.9–1.0 | 0.9 | 0.5 |
 
+### Reasoning Parameters (GPT-5 / o-series)
+
+```python
+response = client.responses.create(
+    model="gpt-5-mini",
+    input="Find the largest prime factor of 600851475143.",
+    reasoning={"effort": "medium"},   # minimal | low | medium | high
+    text={"verbosity": "low"},         # low | medium | high  (GPT-5 only)
+    max_output_tokens=2048             # budget for reasoning + visible answer
+)
+print(response.output_text)
+```
+
+| Goal | reasoning_effort | verbosity |
+|------|------------------|-----------|
+| Classification, simple extraction | `minimal` | `low` |
+| Standard Q&A, light analysis | `low` | `medium` |
+| Multi-step coding, planning | `medium` | `medium` |
+| Math proofs, agent loops, hard logic | `high` | `medium`–`high` |
+
 ---
 
-## 6. Error Handling and Resilience
+## 7. Error Handling and Resilience
 
 Production applications must handle API errors gracefully. The OpenAI SDK raises typed exceptions you can catch and handle.
 
@@ -473,9 +722,16 @@ match finish_reason:
 
 ---
 
-## 7. Building Multi-Turn Conversations
+## 8. Building Multi-Turn Conversations
 
-ChatGPT-style interactions require you to maintain and send the **full conversation history** on every request. The API itself is stateless — it has no memory of prior calls.
+You have two options for multi-turn:
+
+1. **Chat Completions** — fully stateless. You maintain history client-side and resend it every call. Works with any model. Most portable.
+2. **Responses API** — pass `previous_response_id` and let OpenAI thread the conversation server-side. Required to preserve reasoning items across turns on GPT-5 / o-series.
+
+### Approach 1 — Chat Completions (Stateless)
+
+This is the classic ChatGPT-style pattern. You maintain and send the **full conversation history** on every request.
 
 ### Conversation Manager
 
@@ -568,9 +824,59 @@ def smart_trim(history: list[dict], max_turns: int = 10) -> list[dict]:
     return [summary_message] + recent_history
 ```
 
+### Approach 2 — Responses API (Stateful Chaining)
+
+The Responses API stores conversation turns server-side. You only send the *new* user message each turn, with `previous_response_id` pointing at the last response.
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+class StatefulBot:
+    def __init__(self, model: str = "gpt-4.1-mini", instructions: str = "You are a helpful cooking assistant."):
+        self.model = model
+        self.instructions = instructions
+        self.last_response_id: str | None = None
+
+    def chat(self, user_message: str) -> str:
+        kwargs = {
+            "model": self.model,
+            "instructions": self.instructions,
+            "input": user_message,
+        }
+        if self.last_response_id:
+            kwargs["previous_response_id"] = self.last_response_id
+
+        response = client.responses.create(**kwargs)
+        self.last_response_id = response.id
+        return response.output_text
+
+    def reset(self):
+        self.last_response_id = None
+
+
+bot = StatefulBot()
+print(bot.chat("I have chicken, garlic, and lemon. What can I make?"))
+print(bot.chat("How long should I marinate it?"))   # follow-up — no need to resend history
+print(bot.chat("What temperature for the oven?"))
+```
+
+**Trade-offs:**
+
+| | Stateless (Chat Completions) | Stateful (Responses) |
+|---|---|---|
+| Where state lives | Your application | OpenAI server (30-day retention) |
+| Per-turn payload size | Grows with history | Just the new turn |
+| Easy to inspect / modify | Yes — it's local | Harder — need to fetch by ID |
+| Reasoning preservation (GPT-5/o-series) | Lost between turns | Preserved |
+| Privacy / data residency | Full control | Subject to OpenAI's storage policy |
+
+Pick stateful for agent loops, reasoning-model conversations, or fast prototyping. Pick stateless when you need full control over history (e.g. you compress or redact older turns).
+
 ---
 
-## 8. Streaming Responses
+## 9. Streaming Responses
 
 By default, the API waits until the full response is ready before returning it. **Streaming** sends tokens as they are generated — enabling real-time output in chat UIs.
 
@@ -619,6 +925,24 @@ def stream_to_string(messages: list, model: str = "gpt-4o-mini") -> str:
     return "".join(full_response)
 ```
 
+### Streaming the Responses API
+
+The Responses API emits typed events instead of raw deltas — easier to filter for text vs tool calls vs reasoning steps.
+
+```python
+with client.responses.stream(
+    model="gpt-4.1-mini",
+    input="Write a haiku about Python."
+) as stream:
+    for event in stream:
+        if event.type == "response.output_text.delta":
+            print(event.delta, end="", flush=True)
+
+    final = stream.get_final_response()   # full Response object after stream completes
+print()
+print(f"Total tokens: {final.usage.total_tokens}")
+```
+
 ### When to Use Streaming
 
 | Use Case | Stream? | Reason |
@@ -628,12 +952,18 @@ def stream_to_string(messages: list, model: str = "gpt-4o-mini") -> str:
 | Structured JSON extraction | No | Streaming partial JSON is hard to parse |
 | Batch processing | No | Simpler code; throughput more important than latency |
 | Voice applications | Yes | Stream → TTS pipeline for low-latency audio |
+| Reasoning model output | Yes | Reasoning takes time — show partial reasoning summary if exposed |
 
 ---
 
-## 9. Function Calling (Tool Use)
+## 10. Function Calling (Tool Use)
 
 **Function calling** lets the model decide when to invoke external functions/tools, and provides structured arguments to call them. This is the foundation of AI agents.
+
+Both APIs support custom function calls. The schema shape differs slightly:
+
+- **Chat Completions:** `tools=[{"type": "function", "function": {"name": ..., "description": ..., "parameters": ...}}]`
+- **Responses:** `tools=[{"type": "function", "name": ..., "description": ..., "parameters": ...}]` — flatter, no inner `"function"` wrapper.
 
 ### How It Works
 
@@ -646,7 +976,7 @@ def stream_to_string(messages: list, model: str = "gpt-4o-mini") -> str:
 6. Model generates a final response incorporating the result
 ```
 
-### Defining Tools
+### Defining Tools (Chat Completions Format)
 
 ```python
 tools = [
@@ -769,11 +1099,90 @@ print(run_agent("Compare the weather in London and Paris"))
 | `"auto"` | Model decides whether to call a tool |
 | `"none"` | Model must not call any tool |
 | `"required"` | Model must call at least one tool |
-| `{"type": "function", "function": {"name": "fn"}}` | Force a specific function call |
+| `{"type": "function", "function": {"name": "fn"}}` | Force a specific function call (Chat Completions) |
+| `{"type": "function", "name": "fn"}` | Force a specific function call (Responses) |
+
+### Same Agent on the Responses API
+
+The same agent is significantly shorter on Responses — the API handles message bookkeeping for you.
+
+```python
+tools_resp = [
+    {
+        "type": "function",
+        "name": "get_weather",
+        "description": "Get the current weather for a given city.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string"},
+                "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+            },
+            "required": ["city"]
+        }
+    }
+]
+
+def run_responses_agent(user_message: str) -> str:
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        instructions="You are a helpful assistant with access to a weather tool.",
+        input=user_message,
+        tools=tools_resp,
+    )
+
+    while True:
+        # Find any function_call items the model emitted
+        calls = [item for item in response.output if item.type == "function_call"]
+        if not calls:
+            return response.output_text
+
+        # Execute each call and feed results back
+        tool_outputs = []
+        for call in calls:
+            args = json.loads(call.arguments)
+            result = AVAILABLE_FUNCTIONS[call.name](**args)
+            tool_outputs.append({
+                "type": "function_call_output",
+                "call_id": call.call_id,
+                "output": json.dumps(result)
+            })
+
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            previous_response_id=response.id,
+            input=tool_outputs,
+            tools=tools_resp,
+        )
+```
+
+### Built-in (Hosted) Tools — Responses API Only
+
+The Responses API exposes hosted tools you do not need to implement yourself. The model decides when to invoke them and OpenAI runs them in a sandbox.
+
+| Tool | What it does |
+|---|---|
+| `web_search` | Live internet search, with citations |
+| `file_search` | Vector search over your uploaded vector store(s) |
+| `code_interpreter` | Sandbox Python execution for data analysis & plotting |
+| `image_generation` | Generate images inline within a response |
+| `computer_use` | Drive a browser/desktop (preview, restricted access) |
+
+```python
+response = client.responses.create(
+    model="gpt-4.1",
+    tools=[
+        {"type": "web_search"},
+        {"type": "code_interpreter", "container": {"type": "auto"}}
+    ],
+    input="Look up the current S&P 500 close, then compute its 30-day return."
+)
+print(response.output_text)
+```
 
 ---
 
-## 10. JSON Mode and Structured Outputs
+## 11. JSON Mode and Structured Outputs
 
 For applications that parse model responses programmatically, use JSON mode or structured outputs to guarantee valid JSON.
 
@@ -813,7 +1222,9 @@ info = extract_company_info(text)
 print(json.dumps(info, indent=2))
 ```
 
-### Structured Outputs with Pydantic
+### Structured Outputs with Pydantic — Chat Completions
+
+The `.parse()` helper used to live under `client.beta`; it has been promoted to `client.chat.completions.parse()` (the `beta` alias still works for backward compatibility).
 
 ```python
 from pydantic import BaseModel
@@ -831,8 +1242,8 @@ class CompanyInfo(BaseModel):
     is_public: Optional[bool]
 
 def extract_structured(text: str) -> CompanyInfo:
-    response = client.beta.chat.completions.parse(
-        model="gpt-4o-mini",
+    response = client.chat.completions.parse(
+        model="gpt-4.1-mini",
         messages=[
             {"role": "system", "content": "Extract company information accurately."},
             {"role": "user", "content": text}
@@ -852,9 +1263,26 @@ print(f"Founded: {result.founding_year}")
 print(f"CEO: {result.ceo}")
 ```
 
+### Structured Outputs — Responses API
+
+On the Responses API, use `client.responses.parse()` with the same Pydantic model. The result is exposed as `response.output_parsed`.
+
+```python
+response = client.responses.parse(
+    model="gpt-4.1-mini",
+    instructions="Extract company information accurately.",
+    input=text,
+    text_format=CompanyInfo,
+)
+result: CompanyInfo = response.output_parsed
+print(result.model_dump())
+```
+
+For a raw JSON-schema flow without Pydantic, pass `text={"format": {"type": "json_schema", "name": "...", "schema": {...}, "strict": True}}` to `client.responses.create()`.
+
 ---
 
-## 11. Embeddings API
+## 12. Embeddings API
 
 **Embeddings** convert text into numerical vectors that capture semantic meaning. Texts with similar meanings have similar vectors — enabling semantic search, clustering, and classification without prompting.
 
@@ -926,38 +1354,44 @@ for r in results:
 
 | Embedding Model | Dimensions | Best For |
 |----------------|-----------|---------|
-| `text-embedding-3-small` | 1536 | Cost-sensitive applications |
-| `text-embedding-3-large` | 3072 | High-accuracy search |
-| `text-embedding-ada-002` | 1536 | Legacy, still widely supported |
+| `text-embedding-3-small` | 1536 | Cost-sensitive applications ($0.02 / 1M tokens) |
+| `text-embedding-3-large` | 3072 | High-accuracy search ($0.13 / 1M tokens) |
+| `text-embedding-ada-002` | 1536 | Legacy — prefer `-3-small` for new code |
 
 ---
 
-## 12. Image Generation and Vision
+## 13. Image Generation and Vision
 
-### Image Generation (DALL·E)
+### Image Generation (`gpt-image-1` and `dall-e-3`)
+
+The current image model is `gpt-image-1` — better prompt adherence, inline editing, and transparent backgrounds than DALL·E 3. DALL·E 3 is still available.
 
 ```python
 from openai import OpenAI
+import base64
 
 client = OpenAI()
 
 response = client.images.generate(
-    model="dall-e-3",
+    model="gpt-image-1",
     prompt="A serene Japanese garden at sunset, watercolor painting style, highly detailed",
-    size="1024x1024",    # 1024x1024, 1024x1792, 1792x1024
-    quality="standard",  # "standard" or "hd"
-    n=1                  # dall-e-3 only supports n=1
+    size="1024x1024",     # 1024x1024, 1024x1536, 1536x1024, "auto"
+    quality="high",        # "low", "medium", "high", "auto"
+    n=1,
+    background="auto",     # "auto", "transparent", "opaque"
 )
 
-image_url = response.data[0].url
-print(f"Image URL: {image_url}")
-
-# Optional: save to file
-import urllib.request
-urllib.request.urlretrieve(image_url, "generated_image.png")
+# gpt-image-1 returns base64, not a URL
+image_b64 = response.data[0].b64_json
+with open("generated.png", "wb") as f:
+    f.write(base64.b64decode(image_b64))
 ```
 
-### Vision — Analyzing Images with GPT-4o
+You can also call `image_generation` as a built-in tool inside `client.responses.create(...)` so the model can decide to render images mid-response.
+
+### Vision — Analyzing Images
+
+All current multimodal models (`gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-5`) accept image input. Chat Completions example:
 
 ```python
 from openai import OpenAI
@@ -967,7 +1401,7 @@ client = OpenAI()
 
 def analyze_image_url(image_url: str, question: str) -> str:
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4.1-mini",
         messages=[
             {
                 "role": "user",
@@ -977,7 +1411,7 @@ def analyze_image_url(image_url: str, question: str) -> str:
                 ]
             }
         ],
-        max_tokens=500
+        max_completion_tokens=500
     )
     return response.choices[0].message.content
 
@@ -989,7 +1423,7 @@ def analyze_local_image(image_path: str, question: str) -> str:
     mime = f"image/{ext}" if ext != "jpg" else "image/jpeg"
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4.1-mini",
         messages=[
             {
                 "role": "user",
@@ -999,7 +1433,7 @@ def analyze_local_image(image_path: str, question: str) -> str:
                 ]
             }
         ],
-        max_tokens=500
+        max_completion_tokens=500
     )
     return response.choices[0].message.content
 
@@ -1011,11 +1445,28 @@ result = analyze_image_url(
 print(result)
 ```
 
+The Responses API uses `input_image` items instead of `image_url`:
+
+```python
+response = client.responses.create(
+    model="gpt-4.1-mini",
+    input=[
+        {"role": "user", "content": [
+            {"type": "input_text", "text": "What is in this image?"},
+            {"type": "input_image", "image_url": "https://example.com/photo.jpg"}
+        ]}
+    ]
+)
+print(response.output_text)
+```
+
 ---
 
-## 13. Audio: Speech-to-Text and Text-to-Speech
+## 14. Audio: Speech-to-Text and Text-to-Speech
 
-### Speech-to-Text (Whisper)
+### Speech-to-Text (`gpt-4o-transcribe` and Whisper)
+
+`gpt-4o-transcribe` and `gpt-4o-mini-transcribe` are the current transcription models. `whisper-1` is still available.
 
 ```python
 from openai import OpenAI
@@ -1025,10 +1476,10 @@ client = OpenAI()
 def transcribe_audio(file_path: str, language: str = "en") -> str:
     with open(file_path, "rb") as audio_file:
         transcript = client.audio.transcriptions.create(
-            model="whisper-1",
+            model="gpt-4o-mini-transcribe",   # or "gpt-4o-transcribe", "whisper-1"
             file=audio_file,
-            language=language,        # optional; auto-detects if omitted
-            response_format="text"    # "text", "json", "srt", "vtt"
+            language=language,                 # optional; auto-detects if omitted
+            response_format="text"             # "text", "json", "verbose_json", "srt", "vtt"
         )
     return transcript
 
@@ -1036,22 +1487,25 @@ text = transcribe_audio("meeting_recording.mp3")
 print(text)
 ```
 
-### Text-to-Speech
+### Text-to-Speech (`gpt-4o-mini-tts`)
+
+`gpt-4o-mini-tts` is the current TTS model — it accepts an `instructions` parameter so you can steer tone, accent, and pacing.
 
 ```python
 from openai import OpenAI
-from pathlib import Path
 
 client = OpenAI()
 
 def text_to_speech(text: str, output_path: str = "output.mp3", voice: str = "alloy") -> str:
     response = client.audio.speech.create(
-        model="tts-1",         # "tts-1" (faster) or "tts-1-hd" (higher quality)
-        voice=voice,           # alloy, echo, fable, onyx, nova, shimmer
+        model="gpt-4o-mini-tts",   # or "tts-1", "tts-1-hd"
+        voice=voice,                # alloy, echo, fable, onyx, nova, shimmer, ash, coral, sage, verse
         input=text,
-        speed=1.0              # 0.25 to 4.0
+        instructions="Speak in a warm, conversational tone. Pause briefly at commas.",
+        response_format="mp3"
     )
-    response.stream_to_file(output_path)
+    with open(output_path, "wb") as f:
+        f.write(response.read())
     return output_path
 
 path = text_to_speech(
@@ -1063,7 +1517,7 @@ print(f"Audio saved to {path}")
 
 ---
 
-## 14. Complete Application: AI-Powered Customer Support Bot
+## 15. Complete Application: AI-Powered Customer Support Bot
 
 Putting it all together — a complete, production-ready customer support chatbot with streaming, conversation management, function calling, and error handling:
 
@@ -1188,7 +1642,7 @@ if __name__ == "__main__":
 
 ---
 
-## 15. Hands-On Exercises
+## 16. Hands-On Exercises
 
 ### Exercise 1: API Explorer
 
@@ -1394,15 +1848,18 @@ for q in queries:
 
 ---
 
-## 16. Cost Management Best Practices
+## 17. Cost Management Best Practices
 
 | Practice | Implementation | Savings |
 |----------|---------------|---------|
-| Use `gpt-4o-mini` for most tasks | Default to mini; escalate to `gpt-4o` only when needed | 10–20x |
-| Cache identical prompt+response pairs | Store in Redis or dict with prompt hash as key | Proportional to repeat rate |
+| Pick the right tier — `-nano` / `-mini` defaults | Escalate to flagship only when quality is insufficient | 5–25× |
+| **Prompt caching** | Reuse the same long prefix across calls — OpenAI auto-caches | ~50–90% on cached input tokens |
+| **Batch API** for non-interactive jobs | `/v1/batches` — 50% discount, 24-hour SLA | 50% |
+| Cache identical prompt+response pairs client-side | Store in Redis or dict with prompt hash as key | Proportional to repeat rate |
 | Compress documents before injecting | Strip whitespace, remove boilerplate | 10–40% |
-| Set tight `max_tokens` | Know your expected output length | 20–50% |
-| Batch similar requests | Process multiple inputs per prompt | Reduces overhead |
+| Set tight `max_completion_tokens` | Know your expected output length | 20–50% |
+| Tune `reasoning_effort` down | `"minimal"` or `"low"` for simple tasks on GPT-5/o-series | 50–80% on reasoning tokens |
+| Batch similar requests in a single prompt | Process multiple inputs per call | Reduces fixed overhead |
 | Use streaming for interactive apps | Better UX without extra cost | — |
 | Monitor usage via dashboard | Set hard spending limits | Prevents surprises |
 | Log every API call | Token usage, cost, latency | Enables optimization |
@@ -1432,48 +1889,60 @@ print(f"Estimated prompt tokens: {count_tokens(messages)}")
 
 ---
 
-## 17. Key Concepts Summary
+## 18. Key Concepts Summary
 
 | Concept | Definition |
 |---------|-----------|
-| **Chat Completions API** | Core endpoint for text generation; accepts a list of messages, returns the model's next message |
-| **system message** | Sets model persona and behavior for the entire conversation |
-| **temperature** | Controls randomness; 0.0 = deterministic, 1.0+ = creative |
-| **max_tokens** | Upper bound on tokens in the model's response |
+| **Chat Completions API** | Stateless text-generation endpoint; accepts a list of messages, returns the model's next message |
+| **Responses API** | Newer endpoint with optional server-side state, built-in tools, and reasoning-item preservation |
+| **system message** / **instructions** | Sets persona and behavior — first `system` message in Chat Completions; `instructions=` in Responses |
+| **previous_response_id** | Chain Responses API calls to maintain conversation state without resending history |
+| **temperature** | Controls randomness; 0.0 = deterministic, 1.0+ = creative. **Ignored on GPT-5 / o-series.** |
+| **max_completion_tokens** | Upper bound on output tokens; replaces the older `max_tokens` name |
+| **reasoning_effort** | GPT-5 / o-series only — controls how much hidden reasoning the model does (`minimal`–`high`) |
+| **verbosity** | GPT-5 only — controls how long the visible answer is (`low` / `medium` / `high`) |
 | **finish_reason** | Why the model stopped: `stop` (complete), `length` (truncated), `tool_calls`, `content_filter` |
-| **streaming** | Returns tokens progressively as generated instead of waiting for the full response |
-| **function calling** | Allows the model to request execution of predefined functions with structured arguments |
+| **streaming** | Returns tokens (or typed events on Responses) progressively as they are generated |
+| **function calling** | Custom tools — model requests execution with structured arguments |
+| **built-in tools** | Hosted Responses-API-only tools: `web_search`, `file_search`, `code_interpreter`, `image_generation`, `computer_use` |
 | **tool_choice** | Controls whether/which function the model must call |
-| **JSON mode** | `response_format={"type": "json_object"}` — guarantees valid JSON output |
+| **structured outputs** | `response_format=` (Chat Completions) or `text={"format": ...}` (Responses); use `.parse()` with Pydantic for typed results |
 | **embeddings** | Dense vector representations of text; enable semantic search and similarity |
-| **context window** | Maximum tokens the model can see in a single call (input + output) |
+| **context window** | Maximum tokens the model can see — 128K (GPT-4o), 200K (o3/o4), 400K (GPT-5), 1M (GPT-4.1) |
+| **prompt caching** | Automatic ~50–90% discount on repeated input prefixes (no code change needed) |
 | **exponential backoff** | Retry strategy where wait time doubles on each failure — essential for rate limit handling |
-| **stateless API** | The API has no memory; you must send full conversation history every request |
-| **Pydantic parsing** | Use `.parse()` with a Pydantic model for schema-guaranteed structured outputs |
+| **stateless API** | Sends full conversation history every request (Chat Completions); Responses is stateful when `previous_response_id` is set |
 
 ---
 
-## 18. Module Review Questions
+## 19. Module Review Questions
 
-1. Why must you send the full conversation history on every API call? What are the implications for context window management?
-2. A user reports that your chatbot sometimes gives wildly different answers to the same question. What parameter would you check first, and what would you change?
-3. Your API call returns `finish_reason: "length"`. What does this mean and what should you do?
-4. What is the difference between `temperature` and `top_p`? Should you tune both simultaneously?
-5. Describe the complete flow of a function calling interaction — from user message to final response.
-6. You need to build a feature that searches 10,000 documents for the most relevant answer to a user query. Which API capability would you use? How would it work?
-7. A junior engineer commits the OpenAI API key to a public GitHub repo. What are the immediate steps to take?
-8. Your application processes 50,000 text classification requests per day. What model and techniques would you use to minimize cost while maintaining quality?
-9. What is the difference between `response_format={"type": "json_object"}` and using Pydantic `.parse()`? When would you choose one over the other?
-10. Your streaming implementation works in development but users complain of broken output in production. What `finish_reason` value should you check for and what does it indicate?
+1. When is the Chat Completions API still the right choice over the Responses API? Name two scenarios.
+2. Why must you send the full conversation history on every Chat Completions call? How does `previous_response_id` change this on the Responses API?
+3. A user reports that your chatbot (running on `gpt-4o-mini`) sometimes gives wildly different answers to the same question. What parameter would you check first? Now answer the same question for a chatbot running on `gpt-5-mini`.
+4. Your API call returns `finish_reason: "length"`. What does this mean and what should you do?
+5. What is the difference between `temperature` and `top_p`? Should you tune both simultaneously?
+6. Describe the complete flow of a function calling interaction on the Responses API — from user message to final response — and where it differs from the Chat Completions equivalent.
+7. You need to answer user questions using fresh information from the web. Which API and which tool would you reach for, and why?
+8. You need to build a feature that searches 10,000 documents for the most relevant answer to a user query. Compare two solutions: (a) the Responses API `file_search` built-in tool, and (b) embeddings + your own vector store. What are the trade-offs?
+9. A junior engineer commits the OpenAI API key to a public GitHub repo. What are the immediate steps to take?
+10. Your application processes 50,000 text classification requests per day. What model, parameters (including `reasoning_effort`), and infrastructure (Batch API, prompt caching) would you use to minimize cost while maintaining quality?
+11. What is the difference between `response_format={"type": "json_object"}`, `response_format=MyModel` with `.parse()`, and Responses-API `text={"format": {"type": "json_schema", ...}}`? When would you choose each?
+12. On a GPT-5 model, you set `reasoning_effort="high"` and `max_completion_tokens=500`. The response comes back empty with `finish_reason="length"`. What went wrong?
 
 ---
 
-## 19. Further Reading & Resources
+## 20. Further Reading & Resources
 
 | Resource | Type | Source |
 |----------|------|--------|
 | OpenAI API Reference | Official docs | platform.openai.com/docs/api-reference |
+| Responses API Guide | Official docs | platform.openai.com/docs/guides/responses-vs-chat-completions |
+| Reasoning models guide (GPT-5 / o-series) | Official docs | platform.openai.com/docs/guides/reasoning |
+| Built-in tools (web_search, file_search, etc.) | Official docs | platform.openai.com/docs/guides/tools |
+| Prompt caching guide | Official docs | platform.openai.com/docs/guides/prompt-caching |
 | OpenAI Cookbook | Practical examples | github.com/openai/openai-cookbook |
+| Agents SDK (Python) | Open-source framework | github.com/openai/openai-agents-python |
 | Tiktoken (token counter) | Python library | github.com/openai/tiktoken |
 | OpenAI Python SDK | SDK source | github.com/openai/openai-python |
 | Rate Limits Guide | Official docs | platform.openai.com/docs/guides/rate-limits |

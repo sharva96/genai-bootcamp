@@ -114,33 +114,82 @@
 <div class="header">
   <div class="badge">Module 4 · Lab 1</div>
   <h1>OpenAI API Explorer</h1>
-  <p>Understand the OpenAI API — models, authentication, request anatomy, and response structure</p>
+  <p>Understand the OpenAI API — current model lineup, Chat Completions vs Responses, request anatomy, and response structure</p>
 </div>
 
 <div class="main">
 
   <!-- Section 1: Models -->
   <section>
-    <h2 class="section-title">Available Models</h2>
-    <p class="section-sub">Click a model card to select it and see its details. Each model has different capability, speed, and cost trade-offs.</p>
+    <h2 class="section-title">Current Model Lineup (Q2 2026)</h2>
+    <p class="section-sub">Three current text families: GPT-5 (reasoning flagship), GPT-4.1 (1M-token context), GPT-4o (multimodal workhorse). Plus the standalone o-series reasoners. Click any card.</p>
 
     <div class="model-grid">
-      <div class="model-card selected" onclick="selectModel(this, 'gpt4o')">
-        <div class="model-tier" style="color:#22d3ee;">Flagship</div>
+      <div class="model-card selected" onclick="selectModel(this, 'gpt5')">
+        <div class="model-tier" style="color:#a78bfa;">GPT-5 · Reasoning</div>
+        <div class="model-name">gpt-5</div>
+        <div class="model-desc">Flagship reasoning model. Thinks internally before responding. Best for agents, complex code, and hard logic. Comes in mini and nano variants.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">400K context</span>
+          <span class="stat-pill">Vision</span>
+          <span class="stat-pill">reasoning_effort</span>
+          <span class="stat-pill">$1.25 / 1M in</span>
+          <span class="stat-pill">$10.00 / 1M out</span>
+        </div>
+      </div>
+
+      <div class="model-card" onclick="selectModel(this, 'gpt5mini')">
+        <div class="model-tier" style="color:#a78bfa;">GPT-5 · Reasoning</div>
+        <div class="model-name">gpt-5-mini</div>
+        <div class="model-desc">Cost-efficient reasoning model. Strong default for production agents and structured workflows. Also available: gpt-5-nano for extreme volume.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">400K context</span>
+          <span class="stat-pill">Vision</span>
+          <span class="stat-pill">$0.25 / 1M in</span>
+          <span class="stat-pill">$2.00 / 1M out</span>
+        </div>
+      </div>
+
+      <div class="model-card" onclick="selectModel(this, 'gpt41')">
+        <div class="model-tier" style="color:#22d3ee;">GPT-4.1 · Long Context</div>
+        <div class="model-name">gpt-4.1</div>
+        <div class="model-desc">Non-reasoning flagship with 1M-token context. Excellent for long-document work and repo-scale code refactors. Mini and nano variants share the 1M window.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">1M context</span>
+          <span class="stat-pill">Vision</span>
+          <span class="stat-pill">$2.00 / 1M in</span>
+          <span class="stat-pill">$8.00 / 1M out</span>
+        </div>
+      </div>
+
+      <div class="model-card" onclick="selectModel(this, 'gpt41mini')">
+        <div class="model-tier" style="color:#22d3ee;">GPT-4.1 · Long Context</div>
+        <div class="model-name">gpt-4.1-mini</div>
+        <div class="model-desc">Best default for general production work — long context, multimodal, and a great cost-quality balance. gpt-4.1-nano is the cheapest 1M-context option.</div>
+        <div class="model-stats">
+          <span class="stat-pill highlight">1M context</span>
+          <span class="stat-pill">Vision</span>
+          <span class="stat-pill">$0.40 / 1M in</span>
+          <span class="stat-pill">$1.60 / 1M out</span>
+        </div>
+      </div>
+
+      <div class="model-card" onclick="selectModel(this, 'gpt4o')">
+        <div class="model-tier" style="color:#34d399;">GPT-4o · Multimodal</div>
         <div class="model-name">gpt-4o</div>
-        <div class="model-desc">OpenAI's most capable multimodal model. Accepts text, images, audio. Best reasoning and instruction following.</div>
+        <div class="model-desc">The previous flagship — strong multimodal (text + vision + audio). Still widely deployed and supported.</div>
         <div class="model-stats">
           <span class="stat-pill highlight">128K context</span>
-          <span class="stat-pill">Vision</span>
+          <span class="stat-pill">Vision · Audio</span>
           <span class="stat-pill">$2.50 / 1M in</span>
           <span class="stat-pill">$10.00 / 1M out</span>
         </div>
       </div>
 
       <div class="model-card" onclick="selectModel(this, 'gpt4omini')">
-        <div class="model-tier" style="color:#34d399;">Efficient</div>
+        <div class="model-tier" style="color:#34d399;">GPT-4o · Multimodal</div>
         <div class="model-name">gpt-4o-mini</div>
-        <div class="model-desc">Fast and affordable multimodal model. Ideal for high-volume tasks. Best cost-performance ratio for most applications.</div>
+        <div class="model-desc">The classic cheap-and-fast workhorse. Still excellent for high-volume non-reasoning tasks and the safe default for tutorials.</div>
         <div class="model-stats">
           <span class="stat-pill highlight">128K context</span>
           <span class="stat-pill">Vision</span>
@@ -149,10 +198,10 @@
         </div>
       </div>
 
-      <div class="model-card" onclick="selectModel(this, 'o1')">
-        <div class="model-tier" style="color:#a78bfa;">Reasoning</div>
+      <div class="model-card" onclick="selectModel(this, 'o3')">
+        <div class="model-tier" style="color:#f472b6;">o-series · Reasoning</div>
         <div class="model-name">o3 / o4-mini</div>
-        <div class="model-desc">Reasoning models that think before responding. Excellent for math, coding, and multi-step logic problems.</div>
+        <div class="model-desc">Standalone reasoning models. Heavy STEM, multi-step proofs, agent planning. o4-mini is the lower-cost option.</div>
         <div class="model-stats">
           <span class="stat-pill highlight">200K context</span>
           <span class="stat-pill">Deep reasoning</span>
@@ -160,20 +209,21 @@
         </div>
       </div>
 
-      <div class="model-card" onclick="selectModel(this, 'gpt35')">
-        <div class="model-tier" style="color:#fb923c;">Legacy</div>
-        <div class="model-name">gpt-3.5-turbo</div>
-        <div class="model-desc">Older, very fast and inexpensive model. Being phased out in favor of gpt-4o-mini for most use cases.</div>
+      <div class="model-card" onclick="selectModel(this, 'gpt5chat')">
+        <div class="model-tier" style="color:#fbbf24;">GPT-5 · Non-Reasoning</div>
+        <div class="model-name">gpt-5-chat-latest</div>
+        <div class="model-desc">GPT-5 quality without the internal reasoning step. Lower latency, accepts <code>temperature</code>. Best for fast user-facing chat.</div>
         <div class="model-stats">
-          <span class="stat-pill highlight">16K context</span>
-          <span class="stat-pill">Text only</span>
-          <span class="stat-pill">$0.50 / 1M in</span>
+          <span class="stat-pill highlight">400K context</span>
+          <span class="stat-pill">Low latency</span>
+          <span class="stat-pill">No reasoning_effort</span>
         </div>
       </div>
     </div>
 
     <div class="info-box" style="margin-top: 20px;">
-      <strong>Model selection rule of thumb:</strong> Start with <strong>gpt-4o-mini</strong> for development and most production tasks. Upgrade to <strong>gpt-4o</strong> when quality is insufficient. Use <strong>o3/o4-mini</strong> only for tasks requiring deep, multi-step reasoning.
+      <strong>Picking a default:</strong> For new code, start with <strong>gpt-4.1-mini</strong> (great balance of cost, quality, 1M context) or <strong>gpt-5-mini</strong> (when you want reasoning). Step up to <strong>gpt-5</strong> only for the hardest tasks. <strong>gpt-4o-mini</strong> remains a solid pick for high-volume non-reasoning workloads.<br><br>
+      <strong>Reasoning vs non-reasoning:</strong> GPT-5 and o-series spend hidden "reasoning tokens" before answering. They <em>do not accept</em> <code>temperature</code> or <code>top_p</code>. Use <code>reasoning_effort</code> and <code>verbosity</code> instead. Use <code>max_completion_tokens</code> (not <code>max_tokens</code>) — and budget for reasoning tokens within it.
     </div>
   </section>
 
@@ -222,24 +272,81 @@
     </div>
   </section>
 
+  <!-- Section 2b: Two Text APIs -->
+  <section>
+    <h2 class="section-title">Two Text APIs — Chat Completions vs Responses</h2>
+    <p class="section-sub">OpenAI now offers two first-class text-generation endpoints. Both are supported. They differ in shape, state management, and tool support.</p>
+
+    <div style="overflow-x:auto;background:#1e293b;border:1px solid #334155;border-radius:12px;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.83rem;">
+        <thead>
+          <tr style="background:rgba(6,182,212,0.06);">
+            <th style="padding:12px 14px;text-align:left;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;border-bottom:1px solid #334155;">Dimension</th>
+            <th style="padding:12px 14px;text-align:left;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#22d3ee;border-bottom:1px solid #334155;">Chat Completions</th>
+            <th style="padding:12px 14px;text-align:left;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#a78bfa;border-bottom:1px solid #334155;">Responses</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">Endpoint</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">/chat/completions</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">/responses</td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">Released</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">March 2023</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">March 2025</td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">State</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">Stateless — resend history</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">Stateful via <code style="color:#22d3ee;font-size:0.78rem;">previous_response_id</code></td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">Input shape</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">messages=[...]</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">input="..." or input=[...]</td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">Persona</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">first system message</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">instructions="..."</td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">Output accessor</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">choices[0].message.content</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;border-bottom:1px solid #0f172a;">output_text  ·  output[]</td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">Built-in tools</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">none (BYO functions)</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">web_search · file_search · code_interpreter · image_generation · computer_use</td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;border-bottom:1px solid #0f172a;">Reasoning models multi-turn</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">Reasoning lost between turns</td><td style="padding:10px 14px;color:#cbd5e1;border-bottom:1px solid #0f172a;">Reasoning preserved</td></tr>
+          <tr><td style="padding:10px 14px;color:#94a3b8;">Structured output</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;">response_format=</td><td style="padding:10px 14px;color:#cbd5e1;font-family:Consolas,monospace;font-size:0.78rem;">text={"format": ...}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box" style="margin-top:20px;">
+      <strong>Rule of thumb:</strong> For new code — start with <strong>Responses</strong>, especially for agents, reasoning models, or multi-turn. For wire compatibility with non-OpenAI providers or existing apps — <strong>Chat Completions</strong> remains the standard.
+    </div>
+  </section>
+
   <!-- Section 3: Request Builder -->
   <section>
     <h2 class="section-title">Interactive Request Builder</h2>
-    <p class="section-sub">Adjust the parameters on the left. The Python code preview updates in real time.</p>
+    <p class="section-sub">Pick an API and model. The Python code preview updates in real time so you can see how the same intent maps to each shape.</p>
 
     <div class="req-layout">
       <div class="req-controls">
         <div class="field-group">
-          <label class="field-label">Model</label>
-          <select id="reqModel" onchange="updatePreview()">
-            <option value="gpt-4o-mini">gpt-4o-mini</option>
-            <option value="gpt-4o">gpt-4o</option>
-            <option value="o3-mini">o3-mini</option>
+          <label class="field-label">API</label>
+          <select id="reqApi" onchange="updatePreview()">
+            <option value="chat">Chat Completions</option>
+            <option value="responses">Responses (new)</option>
           </select>
         </div>
 
         <div class="field-group">
-          <label class="field-label">System Message</label>
+          <label class="field-label">Model</label>
+          <select id="reqModel" onchange="updatePreview()">
+            <optgroup label="GPT-5 (reasoning)">
+              <option value="gpt-5">gpt-5</option>
+              <option value="gpt-5-mini" selected>gpt-5-mini</option>
+              <option value="gpt-5-nano">gpt-5-nano</option>
+              <option value="gpt-5-chat-latest">gpt-5-chat-latest</option>
+            </optgroup>
+            <optgroup label="GPT-4.1 (1M context)">
+              <option value="gpt-4.1">gpt-4.1</option>
+              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+              <option value="gpt-4.1-nano">gpt-4.1-nano</option>
+            </optgroup>
+            <optgroup label="GPT-4o (multimodal)">
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+            </optgroup>
+            <optgroup label="o-series (reasoning)">
+              <option value="o3">o3</option>
+              <option value="o4-mini">o4-mini</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">System / Instructions</label>
           <textarea id="reqSystem" rows="2" onchange="updatePreview()" oninput="updatePreview()">You are a helpful assistant.</textarea>
         </div>
 
@@ -248,7 +355,7 @@
           <textarea id="reqUser" rows="2" onchange="updatePreview()" oninput="updatePreview()">Explain what an API is in one sentence.</textarea>
         </div>
 
-        <div class="field-group">
+        <div class="field-group" id="tempGroup">
           <label class="field-label">Temperature &nbsp;<span id="tempLabel" style="color:#22d3ee;font-weight:700;">0.7</span></label>
           <div class="slider-row">
             <input type="range" id="reqTemp" min="0" max="2" step="0.1" value="0.7" oninput="updatePreview(); document.getElementById('tempLabel').textContent=this.value;">
@@ -256,10 +363,21 @@
           <div class="field-sub">0 = deterministic &nbsp;·&nbsp; 1 = balanced &nbsp;·&nbsp; 2 = very creative</div>
         </div>
 
+        <div class="field-group" id="reasoningGroup" style="display:none;">
+          <label class="field-label">Reasoning Effort (GPT-5 / o-series)</label>
+          <select id="reqEffort" onchange="updatePreview()">
+            <option value="minimal">minimal</option>
+            <option value="low">low</option>
+            <option value="medium" selected>medium</option>
+            <option value="high">high</option>
+          </select>
+          <div class="field-sub">Higher = more hidden reasoning tokens → better quality, slower, costlier</div>
+        </div>
+
         <div class="field-group">
-          <label class="field-label">Max Tokens &nbsp;<span id="tokLabel" style="color:#22d3ee;font-weight:700;">256</span></label>
+          <label class="field-label"><span id="tokFieldLabel">Max Completion Tokens</span> &nbsp;<span id="tokLabel" style="color:#22d3ee;font-weight:700;">512</span></label>
           <div class="slider-row">
-            <input type="range" id="reqTok" min="64" max="4096" step="64" value="256" oninput="updatePreview(); document.getElementById('tokLabel').textContent=this.value;">
+            <input type="range" id="reqTok" min="64" max="8192" step="64" value="512" oninput="updatePreview(); document.getElementById('tokLabel').textContent=this.value;">
           </div>
         </div>
 
@@ -281,7 +399,7 @@
 
   <!-- Section 4: Response Anatomy -->
   <section>
-    <h2 class="section-title">Response Anatomy</h2>
+    <h2 class="section-title">Response Anatomy — Chat Completions</h2>
     <p class="section-sub">Click any field to see what it means and how to use it in your code.</p>
 
     <div class="response-box">
@@ -293,8 +411,8 @@
       </div>
       <div class="response-field" onclick="toggleField(this)">
         <span class="rf-key">"model"</span>
-        <span class="rf-val">"gpt-4o-mini-2024-07-18"</span>
-        <span class="rf-explain">The specific model version used. OpenAI may return a pinned version (e.g., <code style="color:#22d3ee">-2024-07-18</code>) rather than the alias. Use for reproducibility logging.</span>
+        <span class="rf-val">"gpt-4.1-mini-2025-04-14"</span>
+        <span class="rf-explain">The specific model version used. OpenAI returns a date-pinned version rather than the alias. Use for reproducibility logging.</span>
         <span class="rf-tag tag-meta">metadata</span>
       </div>
       <div class="response-field" onclick="toggleField(this)">
@@ -306,31 +424,37 @@
       <div class="response-field" onclick="toggleField(this)">
         <span class="rf-key">"choices[0].finish_reason"</span>
         <span class="rf-val">"stop"</span>
-        <span class="rf-explain">Why generation stopped. <code style="color:#22d3ee">stop</code> = normal completion. <code style="color:#22d3ee">length</code> = hit max_tokens (response was truncated — increase max_tokens). <code style="color:#22d3ee">tool_calls</code> = model called a tool. Always check this in production.</span>
+        <span class="rf-explain">Why generation stopped. <code style="color:#22d3ee">stop</code> = normal completion. <code style="color:#22d3ee">length</code> = hit max_completion_tokens (truncated — increase the cap). <code style="color:#22d3ee">tool_calls</code> = model called a tool. Always check in production.</span>
         <span class="rf-tag tag-imp">important</span>
       </div>
       <div class="response-field" onclick="toggleField(this)">
         <span class="rf-key">"usage.prompt_tokens"</span>
         <span class="rf-val">42</span>
-        <span class="rf-explain">Number of tokens in your input (system + user messages combined). Used for cost calculation. Billed at the "input tokens" rate.</span>
+        <span class="rf-explain">Number of tokens in your input (system + user messages combined). Billed at the "input tokens" rate. Prompt-caching can discount this ~50–90% for repeated prefixes.</span>
         <span class="rf-tag tag-imp">cost</span>
       </div>
       <div class="response-field" onclick="toggleField(this)">
         <span class="rf-key">"usage.completion_tokens"</span>
         <span class="rf-val">87</span>
-        <span class="rf-explain">Number of tokens in the model's response. Billed at the "output tokens" rate (usually 3–4× more expensive per token than input). <code style="color:#22d3ee">max_tokens</code> caps this value.</span>
+        <span class="rf-explain">Number of tokens in the model's response. Billed at the "output tokens" rate (usually 4–10× more expensive per token than input). <code style="color:#22d3ee">max_completion_tokens</code> caps this value.</span>
+        <span class="rf-tag tag-imp">cost</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"usage.completion_tokens_details.reasoning_tokens"</span>
+        <span class="rf-val">128</span>
+        <span class="rf-explain">Only on GPT-5 / o-series. Hidden reasoning tokens — billed at the output rate but NOT returned to you. Add these to your <code style="color:#22d3ee">max_completion_tokens</code> budget.</span>
         <span class="rf-tag tag-imp">cost</span>
       </div>
       <div class="response-field" onclick="toggleField(this)">
         <span class="rf-key">"usage.total_tokens"</span>
         <span class="rf-val">129</span>
-        <span class="rf-explain">prompt_tokens + completion_tokens. Total token consumption for this request. Track this across requests to estimate monthly costs.</span>
+        <span class="rf-explain">prompt_tokens + completion_tokens (including reasoning_tokens). Track across requests to estimate monthly costs.</span>
         <span class="rf-tag tag-imp">cost</span>
       </div>
       <div class="response-field" onclick="toggleField(this)">
         <span class="rf-key">"created"</span>
         <span class="rf-val">1720000000</span>
-        <span class="rf-explain">Unix timestamp (seconds since epoch) when the request was processed. Useful for logging and auditing. Convert with <code style="color:#22d3ee">datetime.fromtimestamp(response.created)</code>.</span>
+        <span class="rf-explain">Unix timestamp (seconds since epoch) when the request was processed. Convert with <code style="color:#22d3ee">datetime.fromtimestamp(response.created)</code>.</span>
         <span class="rf-tag tag-meta">metadata</span>
       </div>
     </div>
@@ -340,6 +464,77 @@
       <code style="color:#34d399;">text = response.choices[0].message.content</code><br>
       <code style="color:#34d399;">tokens_used = response.usage.total_tokens</code><br>
       <code style="color:#34d399;">finish = response.choices[0].finish_reason  # check for "length"!</code>
+    </div>
+  </section>
+
+  <!-- Section 4b: Responses API Anatomy -->
+  <section>
+    <h2 class="section-title">Response Anatomy — Responses API</h2>
+    <p class="section-sub">Different shape: <code style="color:#22d3ee;background:#1e293b;padding:1px 6px;border-radius:4px;font-size:0.82rem;">output_text</code> for plain text, or iterate over typed items in <code style="color:#22d3ee;background:#1e293b;padding:1px 6px;border-radius:4px;font-size:0.82rem;">output[]</code> for tool calls, reasoning, etc.</p>
+
+    <div class="response-box">
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"id"</span>
+        <span class="rf-val">"resp_abc123..."</span>
+        <span class="rf-explain">Pass this as <code style="color:#22d3ee">previous_response_id</code> on the next call to maintain server-side conversation state.</span>
+        <span class="rf-tag tag-imp">important</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"output_text"</span>
+        <span class="rf-val">"An API is a..."</span>
+        <span class="rf-explain">Convenience: the concatenated text of all message items. The primary accessor for simple text responses. Equivalent to walking <code style="color:#22d3ee">output[].content[]</code>.</span>
+        <span class="rf-tag tag-imp">important</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"output"</span>
+        <span class="rf-val">[ {type: "message", ...}, {type: "function_call", ...} ]</span>
+        <span class="rf-explain">Ordered list of typed items the model produced this turn: <code style="color:#22d3ee">message</code>, <code style="color:#22d3ee">function_call</code>, <code style="color:#22d3ee">reasoning</code>, <code style="color:#22d3ee">web_search_call</code>, <code style="color:#22d3ee">image_generation_call</code>, etc.</span>
+        <span class="rf-tag tag-imp">important</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"status"</span>
+        <span class="rf-val">"completed"</span>
+        <span class="rf-explain">Lifecycle state: <code style="color:#22d3ee">completed</code>, <code style="color:#22d3ee">incomplete</code> (cap hit), <code style="color:#22d3ee">failed</code>, or <code style="color:#22d3ee">in_progress</code> (background mode).</span>
+        <span class="rf-tag tag-imp">important</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"incomplete_details.reason"</span>
+        <span class="rf-val">"max_output_tokens"</span>
+        <span class="rf-explain">When <code style="color:#22d3ee">status="incomplete"</code>, this tells you why — e.g. <code style="color:#22d3ee">max_output_tokens</code> or <code style="color:#22d3ee">content_filter</code>. Equivalent to <code style="color:#22d3ee">finish_reason</code> on Chat Completions.</span>
+        <span class="rf-tag tag-imp">important</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"usage.input_tokens"</span>
+        <span class="rf-val">42</span>
+        <span class="rf-explain">Equivalent to <code style="color:#22d3ee">prompt_tokens</code> on Chat Completions. Note the renamed field.</span>
+        <span class="rf-tag tag-imp">cost</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"usage.output_tokens"</span>
+        <span class="rf-val">87</span>
+        <span class="rf-explain">Equivalent to <code style="color:#22d3ee">completion_tokens</code>. Includes reasoning tokens when present.</span>
+        <span class="rf-tag tag-imp">cost</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"usage.output_tokens_details.reasoning_tokens"</span>
+        <span class="rf-val">128</span>
+        <span class="rf-explain">Hidden reasoning tokens for GPT-5 / o-series. Billed at the output rate but not returned to you.</span>
+        <span class="rf-tag tag-imp">cost</span>
+      </div>
+      <div class="response-field" onclick="toggleField(this)">
+        <span class="rf-key">"previous_response_id"</span>
+        <span class="rf-val">"resp_prev_xyz789"</span>
+        <span class="rf-explain">If this response was a follow-up, this field echoes the ID of the prior response in the conversation chain.</span>
+        <span class="rf-tag tag-meta">metadata</span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>Accessing the Responses response in Python:</strong><br>
+      <code style="color:#34d399;">text = response.output_text</code><br>
+      <code style="color:#34d399;">tokens_used = response.usage.total_tokens</code><br>
+      <code style="color:#34d399;">if response.status == "incomplete": print(response.incomplete_details.reason)</code><br>
+      <code style="color:#34d399;">next_id = response.id  # pass as previous_response_id on the next call</code>
     </div>
   </section>
 
@@ -360,7 +555,7 @@
     </div>
 
     <div class="quiz-card" id="q2">
-      <div class="question">2. You set max_tokens=100 and the response's finish_reason is "length". What does this mean?</div>
+      <div class="question">2. You set max_completion_tokens=100 and the response's finish_reason is "length". What does this mean?</div>
       <div class="options">
         <button class="opt-btn" onclick="answer(this,'q2',false)">A. The model responded successfully within the token budget</button>
         <button class="opt-btn" onclick="answer(this,'q2',false)">B. The model refused to answer because the question was too long</button>
@@ -371,34 +566,34 @@
     </div>
 
     <div class="quiz-card" id="q3">
-      <div class="question">3. Which model is the best starting point for most production use cases that balance quality and cost?</div>
+      <div class="question">3. You're building a new multi-turn assistant on gpt-5-mini. Which API should you reach for first, and why?</div>
       <div class="options">
-        <button class="opt-btn" onclick="answer(this,'q3',false)">A. gpt-3.5-turbo — it's the cheapest option available</button>
-        <button class="opt-btn" onclick="answer(this,'q3',true)">B. gpt-4o-mini — best cost-performance ratio for most tasks</button>
-        <button class="opt-btn" onclick="answer(this,'q3',false)">C. gpt-4o — the most capable model should always be used</button>
-        <button class="opt-btn" onclick="answer(this,'q3',false)">D. o3 — reasoning models are always superior</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">A. Chat Completions — it's the older, more stable API</button>
+        <button class="opt-btn" onclick="answer(this,'q3',true)">B. Responses — it preserves reasoning state across turns via previous_response_id, which Chat Completions discards</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">C. Either works identically — they're just different names for the same endpoint</button>
+        <button class="opt-btn" onclick="answer(this,'q3',false)">D. Neither — use the legacy /completions endpoint</button>
       </div>
       <div class="feedback" id="fb_q3"></div>
     </div>
 
     <div class="quiz-card" id="q4">
-      <div class="question">4. Output tokens cost more per token than input tokens. How does this affect prompt design?</div>
+      <div class="question">4. You set temperature=0.2 on a gpt-5-mini call. What happens?</div>
       <div class="options">
-        <button class="opt-btn" onclick="answer(this,'q4',false)">A. Write longer system prompts to save on output costs</button>
-        <button class="opt-btn" onclick="answer(this,'q4',false)">B. Use higher temperature to get longer, more valuable responses</button>
-        <button class="opt-btn" onclick="answer(this,'q4',true)">C. Use max_tokens and specific output format instructions to control response length</button>
-        <button class="opt-btn" onclick="answer(this,'q4',false)">D. Output tokens are always free — only input tokens are billed</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. The model returns very deterministic output as expected</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">B. Temperature is ignored — reasoning models use fixed sampling internally; use reasoning_effort instead</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">C. The API returns an error and refuses the request</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. The temperature value is doubled internally</button>
       </div>
       <div class="feedback" id="fb_q4"></div>
     </div>
 
     <div class="quiz-card" id="q5">
-      <div class="question">5. What is the correct Python code to extract the text from an OpenAI chat completion response?</div>
+      <div class="question">5. What is the correct Python code to extract the text from a Responses API response?</div>
       <div class="options">
-        <button class="opt-btn" onclick="answer(this,'q5',false)">A. response.text</button>
-        <button class="opt-btn" onclick="answer(this,'q5',false)">B. response.message.content</button>
-        <button class="opt-btn" onclick="answer(this,'q5',true)">C. response.choices[0].message.content</button>
-        <button class="opt-btn" onclick="answer(this,'q5',false)">D. response.output[0]</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. response.choices[0].message.content</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">B. response.text</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">C. response.output_text  (or iterate response.output for typed items)</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. response.message.content</button>
       </div>
       <div class="feedback" id="fb_q5"></div>
     </div>
@@ -423,20 +618,48 @@ function toggleField(el) {
   el.classList.toggle('active');
 }
 
+// Models that do NOT accept temperature / top_p (reasoning models)
+const REASONING_MODELS = new Set([
+  'gpt-5', 'gpt-5-mini', 'gpt-5-nano',
+  'o3', 'o4-mini'
+]);
+// gpt-5-chat-latest is GPT-5 quality without the reasoning step → accepts temperature
+
+function isReasoning(model) {
+  return REASONING_MODELS.has(model);
+}
+
 // Request builder
 function updatePreview() {
+  const api = document.getElementById('reqApi').value;
   const model = document.getElementById('reqModel').value;
   const system = document.getElementById('reqSystem').value.replace(/"/g, '\\"');
   const user = document.getElementById('reqUser').value.replace(/"/g, '\\"');
   const temp = document.getElementById('reqTemp').value;
   const maxTok = document.getElementById('reqTok').value;
   const fmt = document.getElementById('reqFmt').value;
+  const effort = document.getElementById('reqEffort').value;
 
-  const fmtLine = fmt === 'json_object'
-    ? `\n    <span class="key">response_format</span>=<span class="str">{"type": "json_object"}</span>,`
-    : '';
+  const reasoning = isReasoning(model);
 
-  document.getElementById('codePreview').innerHTML =
+  // Show/hide temperature vs reasoning_effort fields
+  document.getElementById('tempGroup').style.display = reasoning ? 'none' : 'block';
+  document.getElementById('reasoningGroup').style.display = reasoning ? 'block' : 'none';
+  document.getElementById('tokFieldLabel').textContent = 'Max ' + (api === 'responses' ? 'Output' : 'Completion') + ' Tokens';
+
+  let code;
+  if (api === 'chat') {
+    const tempLine = reasoning
+      ? ''
+      : `\n    <span class="key">temperature</span>=<span class="num">${temp}</span>,`;
+    const effortLine = reasoning
+      ? `\n    <span class="key">reasoning_effort</span>=<span class="str">"${effort}"</span>,`
+      : '';
+    const fmtLine = fmt === 'json_object'
+      ? `\n    <span class="key">response_format</span>=<span class="str">{"type": "json_object"}</span>,`
+      : '';
+
+    code =
 `<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
 
 <span class="cm"># Client reads OPENAI_API_KEY from environment</span>
@@ -453,9 +676,8 @@ response = client.chat.completions.<span class="fn">create</span>(
             <span class="str">"role"</span>: <span class="str">"user"</span>,
             <span class="str">"content"</span>: <span class="str">"${user}"</span>
         }
-    ],
-    <span class="key">temperature</span>=<span class="num">${temp}</span>,
-    <span class="key">max_tokens</span>=<span class="num">${maxTok}</span>,${fmtLine}
+    ],${tempLine}${effortLine}
+    <span class="key">max_completion_tokens</span>=<span class="num">${maxTok}</span>,${fmtLine}
 )
 
 <span class="cm"># Extract the response text</span>
@@ -466,6 +688,44 @@ finish = response.choices[<span class="num">0</span>].finish_reason
 <span class="fn">print</span>(<span class="str">f"Response: {text}"</span>)
 <span class="fn">print</span>(<span class="str">f"Tokens used: {tokens}"</span>)
 <span class="fn">print</span>(<span class="str">f"Finish reason: {finish}"</span>)`;
+  } else {
+    // Responses API
+    const tempLine = reasoning
+      ? ''
+      : `\n    <span class="key">temperature</span>=<span class="num">${temp}</span>,`;
+    const effortLine = reasoning
+      ? `\n    <span class="key">reasoning</span>=<span class="str">{"effort": "${effort}"}</span>,`
+      : '';
+    const fmtLine = fmt === 'json_object'
+      ? `\n    <span class="key">text</span>=<span class="str">{"format": {"type": "json_object"}}</span>,`
+      : '';
+
+    code =
+`<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+
+<span class="cm"># Client reads OPENAI_API_KEY from environment</span>
+client = <span class="fn">OpenAI</span>()
+
+response = client.responses.<span class="fn">create</span>(
+    <span class="key">model</span>=<span class="str">"${model}"</span>,
+    <span class="key">instructions</span>=<span class="str">"${system}"</span>,
+    <span class="key">input</span>=<span class="str">"${user}"</span>,${tempLine}${effortLine}
+    <span class="key">max_output_tokens</span>=<span class="num">${maxTok}</span>,${fmtLine}
+)
+
+<span class="cm"># Convenience accessor — concatenated text from all message items</span>
+text = response.output_text
+tokens = response.usage.total_tokens
+status = response.status   <span class="cm"># "completed", "incomplete", "failed"</span>
+
+<span class="fn">print</span>(<span class="str">f"Response: {text}"</span>)
+<span class="fn">print</span>(<span class="str">f"Tokens used: {tokens}"</span>)
+<span class="fn">print</span>(<span class="str">f"Status: {status}"</span>)
+
+<span class="cm"># For follow-up turns, pass previous_response_id=response.id</span>`;
+  }
+
+  document.getElementById('codePreview').innerHTML = code;
 }
 
 updatePreview();
@@ -473,10 +733,10 @@ updatePreview();
 // Quiz
 const feedbacks = {
   q1: { ok: "Correct! API keys are credentials — treat them like passwords. Use environment variables or a secrets manager. Never commit them to git.", bad: "API keys must never appear in source code. Use environment variables (os.environ) or a .env file excluded from version control." },
-  q2: { ok: "Correct! finish_reason='length' means the response was cut short. Increase max_tokens if you need the full response.", bad: "finish_reason='length' means the response was truncated at your max_tokens limit. The model had more to say but was cut off." },
-  q3: { ok: "Correct! gpt-4o-mini is the recommended default — 60× cheaper than gpt-4o while handling most tasks well. Upgrade only if quality is insufficient.", bad: "gpt-4o-mini offers the best cost-performance for most tasks. Start there and upgrade only if results are unsatisfactory." },
-  q4: { ok: "Correct! Since output tokens are more expensive, use max_tokens and precise format instructions to prevent unnecessarily long responses.", bad: "Output tokens are billed at a higher rate. Controlling response length with max_tokens and explicit format instructions saves cost." },
-  q5: { ok: "Correct! The response is a list of choices (usually just one). Access it with response.choices[0].message.content.", bad: "The correct accessor is response.choices[0].message.content — choices is a list (index 0 for the first/only result), then message.content." }
+  q2: { ok: "Correct! finish_reason='length' means the response was cut short at max_completion_tokens. Increase the cap if you need the full response.", bad: "finish_reason='length' means the response was truncated at your max_completion_tokens limit. The model had more to say but was cut off." },
+  q3: { ok: "Correct! The Responses API can chain turns with previous_response_id, preserving reasoning items across calls. On Chat Completions, reasoning is re-derived every turn — slower and more expensive on GPT-5/o-series.", bad: "Use the Responses API for new multi-turn code on reasoning models. previous_response_id preserves the internal reasoning state, which Chat Completions discards between calls." },
+  q4: { ok: "Correct! GPT-5 and o-series ignore temperature/top_p. Use reasoning_effort (minimal/low/medium/high) and verbosity (GPT-5 only) to tune behavior.", bad: "Reasoning models use fixed internal sampling. temperature is silently ignored. Tune reasoning_effort and verbosity instead." },
+  q5: { ok: "Correct! response.output_text is the convenience accessor. For tool calls or reasoning steps, walk response.output[] — each item has a typed 'type' field.", bad: "On the Responses API, use response.output_text for plain text, or iterate response.output[] for typed items (message, function_call, reasoning, etc.)." }
 };
 
 let answers = {};

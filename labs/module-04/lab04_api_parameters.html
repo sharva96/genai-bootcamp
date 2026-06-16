@@ -120,7 +120,7 @@
   <!-- Section 1: Temperature Visualizer -->
   <section>
     <h2 class="section-title">Temperature &amp; Output Randomness</h2>
-    <p class="section-sub">Temperature controls how the model samples from its probability distribution over tokens. Drag the slider to see how it shifts the distribution.</p>
+    <p class="section-sub">Temperature controls how the model samples from its probability distribution over tokens. Drag the slider to see how it shifts the distribution. <strong style="color:#fbbf24;">Note:</strong> GPT-5 and o-series reasoning models ignore temperature — they sample with fixed internal settings. Tune <code style="background:#1e293b;color:#22d3ee;padding:1px 6px;border-radius:4px;font-size:0.82rem;">reasoning_effort</code> for those.</p>
 
     <div class="temp-layout">
       <div class="temp-controls">
@@ -166,31 +166,43 @@
             <td><span class="param-name">temperature</span></td>
             <td><span class="param-type">float</span></td>
             <td><span class="param-default">1.0</span></td>
-            <td><span class="param-desc">Sampling randomness. 0=deterministic, 2=max creative.</span><div class="param-tip">Set 0.0 for extraction/classification. 0.7 for chat. 1.0+ for creative writing.</div></td>
+            <td><span class="param-desc">Sampling randomness. 0=deterministic, 2=max creative.</span><div class="param-tip">Set 0.0 for extraction/classification. 0.7 for chat. <strong>Ignored on GPT-5 / o-series reasoning models</strong> — use reasoning_effort instead.</div></td>
           </tr>
           <tr>
-            <td><span class="param-name">max_tokens</span></td>
+            <td><span class="param-name">max_completion_tokens</span></td>
             <td><span class="param-type">int</span></td>
             <td><span class="param-default">∞</span></td>
-            <td><span class="param-desc">Maximum tokens in the response. Does NOT control quality — only length. finish_reason='length' means it was cut off.</span><div class="param-tip">Always set this in production to control costs and prevent runaway outputs.</div></td>
+            <td><span class="param-desc">Maximum tokens in the response (renamed from <code>max_tokens</code>). On reasoning models, this caps reasoning + visible output combined.</span><div class="param-tip">On GPT-5/o-series, budget for reasoning tokens too — a "high" effort task may eat 1000s before any visible output appears. Equivalent: max_output_tokens on the Responses API.</div></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">reasoning_effort</span></td>
+            <td><span class="param-type">str</span></td>
+            <td><span class="param-default">"medium"</span></td>
+            <td><span class="param-desc">GPT-5 / o-series only. How much hidden reasoning the model does before answering: <code>"minimal"</code> · <code>"low"</code> · <code>"medium"</code> · <code>"high"</code>.</span><div class="param-tip">"minimal" for classification / simple lookups. "high" for math proofs, agent planning. Each step up roughly 2–5× the latency and reasoning-token cost.</div></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">verbosity</span></td>
+            <td><span class="param-type">str</span></td>
+            <td><span class="param-default">"medium"</span></td>
+            <td><span class="param-desc">GPT-5 only. Controls the length of the visible answer: <code>"low"</code> · <code>"medium"</code> · <code>"high"</code>. Independent of reasoning_effort.</span><div class="param-tip">"low" for terse production output. Pair with reasoning_effort="high" when you want deep thinking but short answers.</div></td>
           </tr>
           <tr>
             <td><span class="param-name">top_p</span></td>
             <td><span class="param-type">float</span></td>
             <td><span class="param-default">1.0</span></td>
-            <td><span class="param-desc">Nucleus sampling — limits token selection to the smallest set whose cumulative probability exceeds top_p. Alternative to temperature.</span><div class="param-tip">Don't change both temperature AND top_p at once. OpenAI recommends changing only one.</div></td>
+            <td><span class="param-desc">Nucleus sampling — limits token selection to the smallest set whose cumulative probability exceeds top_p. Alternative to temperature.</span><div class="param-tip">Don't change both temperature AND top_p at once. Also ignored on reasoning models.</div></td>
           </tr>
           <tr>
             <td><span class="param-name">frequency_penalty</span></td>
             <td><span class="param-type">float</span></td>
             <td><span class="param-default">0.0</span></td>
-            <td><span class="param-desc">Penalizes tokens that appear frequently in the response so far (-2.0 to 2.0). Reduces repetition of the same words.</span><div class="param-tip">Use 0.1–0.5 when responses repeat the same phrases unnecessarily.</div></td>
+            <td><span class="param-desc">Penalizes tokens that appear frequently in the response so far (-2.0 to 2.0). Reduces repetition of the same words.</span><div class="param-tip">Use 0.1–0.5 when responses repeat the same phrases. Not supported on reasoning models.</div></td>
           </tr>
           <tr>
             <td><span class="param-name">presence_penalty</span></td>
             <td><span class="param-type">float</span></td>
             <td><span class="param-default">0.0</span></td>
-            <td><span class="param-desc">Penalizes tokens that have appeared at all in the response (-2.0 to 2.0). Encourages introducing new topics.</span><div class="param-tip">Use 0.1–0.5 to encourage more diverse, wide-ranging responses.</div></td>
+            <td><span class="param-desc">Penalizes tokens that have appeared at all in the response (-2.0 to 2.0). Encourages introducing new topics.</span><div class="param-tip">Use 0.1–0.5 to encourage more diverse, wide-ranging responses. Not supported on reasoning models.</div></td>
           </tr>
           <tr>
             <td><span class="param-name">stop</span></td>
@@ -208,7 +220,19 @@
             <td><span class="param-name">stream</span></td>
             <td><span class="param-type">bool</span></td>
             <td><span class="param-default">false</span></td>
-            <td><span class="param-desc">Stream tokens as they're generated (SSE). Reduces perceived latency for users. Same total cost as non-streaming.</span><div class="param-tip">Enable for chat UIs. Handle chunks with: for chunk in response: text += chunk.choices[0].delta.content or ""</div></td>
+            <td><span class="param-desc">Stream tokens as they're generated. Reduces perceived latency for users. Same total cost as non-streaming.</span><div class="param-tip">Enable for chat UIs. Chat Completions yields token deltas (<code>chunk.choices[0].delta.content</code>); Responses yields typed events (<code>response.output_text.delta</code>, etc).</div></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">previous_response_id</span></td>
+            <td><span class="param-type">str</span></td>
+            <td><span class="param-default">null</span></td>
+            <td><span class="param-desc">Responses API only. Pass the .id from the prior response to chain conversation turns server-side.</span><div class="param-tip">Use for multi-turn assistants on GPT-5/o-series so reasoning items are preserved across turns.</div></td>
+          </tr>
+          <tr>
+            <td><span class="param-name">store</span></td>
+            <td><span class="param-type">bool</span></td>
+            <td><span class="param-default">true</span></td>
+            <td><span class="param-desc">Responses API only. Whether OpenAI stores the request/response on the server (30-day retention).</span><div class="param-tip">Set <code>store=False</code> for data-residency-sensitive flows. You'll then need to resend history yourself.</div></td>
           </tr>
         </tbody>
       </table>
@@ -225,10 +249,29 @@
         <div class="calc-field">
           <label class="calc-label">Model</label>
           <select id="calcModel" onchange="calcCost()">
-            <option value="gpt-4o-mini">gpt-4o-mini ($0.15 / $0.60 per 1M tokens)</option>
-            <option value="gpt-4o">gpt-4o ($2.50 / $10.00 per 1M tokens)</option>
-            <option value="gpt-4o-audio">gpt-4o-audio ($2.50 / $10.00 per 1M tokens)</option>
+            <optgroup label="GPT-5 (reasoning)">
+              <option value="gpt-5">gpt-5 ($1.25 / $10.00 per 1M)</option>
+              <option value="gpt-5-mini" selected>gpt-5-mini ($0.25 / $2.00 per 1M)</option>
+              <option value="gpt-5-nano">gpt-5-nano ($0.05 / $0.40 per 1M)</option>
+            </optgroup>
+            <optgroup label="GPT-4.1 (1M context)">
+              <option value="gpt-4.1">gpt-4.1 ($2.00 / $8.00 per 1M)</option>
+              <option value="gpt-4.1-mini">gpt-4.1-mini ($0.40 / $1.60 per 1M)</option>
+              <option value="gpt-4.1-nano">gpt-4.1-nano ($0.10 / $0.40 per 1M)</option>
+            </optgroup>
+            <optgroup label="GPT-4o (multimodal)">
+              <option value="gpt-4o">gpt-4o ($2.50 / $10.00 per 1M)</option>
+              <option value="gpt-4o-mini">gpt-4o-mini ($0.15 / $0.60 per 1M)</option>
+            </optgroup>
+            <optgroup label="o-series (reasoning)">
+              <option value="o3">o3 ($2.00 / $8.00 per 1M)</option>
+              <option value="o4-mini">o4-mini ($1.10 / $4.40 per 1M)</option>
+            </optgroup>
           </select>
+        </div>
+        <div class="calc-field">
+          <label class="calc-label">Reasoning tokens per request &nbsp;<span style="color:#64748b;font-size:0.7rem;">(GPT-5 / o-series only)</span></label>
+          <input type="number" id="calcReason" value="0" min="0" oninput="calcCost()">
         </div>
         <div class="calc-field">
           <label class="calc-label">Avg. Input Tokens per Request</label>
@@ -275,7 +318,12 @@
     </div>
 
     <div class="info-box" style="margin-top:20px;">
-      <strong>Cost reduction tips:</strong> (1) Use gpt-4o-mini by default — 17× cheaper than gpt-4o for similar quality on most tasks. (2) Set max_tokens to limit output length. (3) Cache repeated prompts — identical inputs produce cached responses at 50% cost. (4) Compress context: remove boilerplate, use shorter system prompts.
+      <strong>Cost reduction tips:</strong>
+      <br>• Default to a <strong>mini</strong> or <strong>nano</strong> tier — escalate only if quality is insufficient.
+      <br>• On GPT-5/o-series, drop <code style="color:#22d3ee;font-size:0.78rem;">reasoning_effort</code> to <code>"low"</code> or <code>"minimal"</code> for simple tasks — slashes hidden reasoning-token cost.
+      <br>• Set <code style="color:#22d3ee;font-size:0.78rem;">max_completion_tokens</code> to limit output length.
+      <br>• <strong>Prompt caching</strong> is automatic — identical input prefixes get ~50–90% off on cached input tokens. Put stable instructions <em>first</em>.
+      <br>• Use the <strong>Batch API</strong> (<code style="color:#22d3ee;font-size:0.78rem;">/v1/batches</code>) for non-interactive jobs: 50% off, 24-hour SLA.
     </div>
   </section>
 
@@ -301,11 +349,17 @@
     </div>
 
     <div class="info-box" style="margin-top:20px;">
-      <strong>Streaming code pattern:</strong><br>
-      <code style="color:#34d399;">stream = client.chat.completions.create(model="gpt-4o-mini", messages=[...], stream=True)</code><br>
+      <strong>Streaming — Chat Completions:</strong><br>
+      <code style="color:#34d399;">stream = client.chat.completions.create(model="gpt-4.1-mini", messages=[...], stream=True)</code><br>
       <code style="color:#34d399;">for chunk in stream:</code><br>
       <code style="color:#34d399;">&nbsp;&nbsp;text = chunk.choices[0].delta.content or ""</code><br>
-      <code style="color:#34d399;">&nbsp;&nbsp;print(text, end="", flush=True)</code>
+      <code style="color:#34d399;">&nbsp;&nbsp;print(text, end="", flush=True)</code><br><br>
+      <strong>Streaming — Responses API (typed events):</strong><br>
+      <code style="color:#34d399;">with client.responses.stream(model="gpt-4.1-mini", input="...") as stream:</code><br>
+      <code style="color:#34d399;">&nbsp;&nbsp;for event in stream:</code><br>
+      <code style="color:#34d399;">&nbsp;&nbsp;&nbsp;&nbsp;if event.type == "response.output_text.delta":</code><br>
+      <code style="color:#34d399;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;print(event.delta, end="", flush=True)</code><br>
+      <code style="color:#34d399;">&nbsp;&nbsp;final = stream.get_final_response()</code>
     </div>
   </section>
 
@@ -315,10 +369,10 @@
     <p class="section-sub">5 questions · Select an answer to see immediate feedback</p>
 
     <div class="quiz-card" id="q1">
-      <div class="question">1. You set max_tokens=50 and finish_reason returns "length". What happened and what should you do?</div>
+      <div class="question">1. You set max_completion_tokens=50 and finish_reason returns "length". What happened and what should you do?</div>
       <div class="options">
         <button class="opt-btn" onclick="answer(this,'q1',false)">A. The model ran out of knowledge — retry with a smarter model</button>
-        <button class="opt-btn" onclick="answer(this,'q1',true)">B. The response was truncated at 50 tokens — increase max_tokens to get the complete response</button>
+        <button class="opt-btn" onclick="answer(this,'q1',true)">B. The response was truncated at 50 tokens — increase max_completion_tokens to get the complete response</button>
         <button class="opt-btn" onclick="answer(this,'q1',false)">C. The model found a 50-token response that perfectly answered the question</button>
         <button class="opt-btn" onclick="answer(this,'q1',false)">D. The context window was exceeded — shorten your input</button>
       </div>
@@ -359,12 +413,12 @@
     </div>
 
     <div class="quiz-card" id="q5">
-      <div class="question">5. You're building a code completion tool where the same input must always produce the same output. Which two parameters help achieve this?</div>
+      <div class="question">5. You're building a code-explanation feature on gpt-5-mini and want the model to spend more thinking time on hard problems. Which parameter helps?</div>
       <div class="options">
-        <button class="opt-btn" onclick="answer(this,'q5',false)">A. temperature=1.0 and presence_penalty=2.0</button>
-        <button class="opt-btn" onclick="answer(this,'q5',false)">B. max_tokens=1 and top_p=0.1</button>
-        <button class="opt-btn" onclick="answer(this,'q5',true)">C. temperature=0.0 and seed=42 — deterministic sampling with fixed random seed</button>
-        <button class="opt-btn" onclick="answer(this,'q5',false)">D. frequency_penalty=2.0 and stop=["end"]</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. temperature — bump it to 1.5 to make the model "try harder"</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">B. reasoning_effort — set it to "high" to allocate more hidden reasoning tokens</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">C. max_completion_tokens — raising it forces the model to think more</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. seed — using seed=0 enables deep-reasoning mode</button>
       </div>
       <div class="feedback" id="fb_q5"></div>
     </div>
@@ -450,25 +504,34 @@ function setTemp(val) {
 
 updateTemp(0.7);
 
-// --- Cost Calculator ---
+// --- Cost Calculator ---  (USD per 1M tokens)
 const pricing = {
-  'gpt-4o-mini': { in: 0.15, out: 0.60 },
-  'gpt-4o':      { in: 2.50, out: 10.00 },
-  'gpt-4o-audio':{ in: 2.50, out: 10.00 },
+  'gpt-5':         { in: 1.25, out: 10.00 },
+  'gpt-5-mini':    { in: 0.25, out:  2.00 },
+  'gpt-5-nano':    { in: 0.05, out:  0.40 },
+  'gpt-4.1':       { in: 2.00, out:  8.00 },
+  'gpt-4.1-mini':  { in: 0.40, out:  1.60 },
+  'gpt-4.1-nano':  { in: 0.10, out:  0.40 },
+  'gpt-4o':        { in: 2.50, out: 10.00 },
+  'gpt-4o-mini':   { in: 0.15, out:  0.60 },
+  'o3':            { in: 2.00, out:  8.00 },
+  'o4-mini':       { in: 1.10, out:  4.40 },
 };
 
 function calcCost() {
   const model = document.getElementById('calcModel').value;
   const inTok = parseInt(document.getElementById('calcIn').value) || 0;
   const outTok = parseInt(document.getElementById('calcOut').value) || 0;
+  const reasonTok = parseInt(document.getElementById('calcReason').value) || 0;
   const reqs = parseInt(document.getElementById('calcReqs').value) || 0;
   const p = pricing[model];
-  const perReq = (inTok * p.in + outTok * p.out) / 1_000_000;
+  // Reasoning tokens are billed at the output rate
+  const perReq = (inTok * p.in + (outTok + reasonTok) * p.out) / 1_000_000;
   const daily = perReq * reqs;
   const monthly = daily * 30;
   const annual = daily * 365;
 
-  document.getElementById('rTok').textContent = (inTok + outTok).toLocaleString();
+  document.getElementById('rTok').textContent = (inTok + outTok + reasonTok).toLocaleString();
   document.getElementById('rReq').textContent = '$' + perReq.toFixed(6);
   document.getElementById('rDay').textContent = '$' + daily.toFixed(4);
   document.getElementById('rMonth').textContent = '$' + monthly.toFixed(2);
@@ -517,11 +580,11 @@ function runStreamDemo() {
 
 // --- Quiz ---
 const feedbacks = {
-  q1: { ok: "Correct! finish_reason='length' means the response hit the max_tokens cap and was cut off. Increase max_tokens to get the full response.", bad: "finish_reason='length' means truncation at max_tokens. The model had more to say. Increase max_tokens." },
+  q1: { ok: "Correct! finish_reason='length' means the response hit the max_completion_tokens cap and was cut off. Increase the cap to get the full response.", bad: "finish_reason='length' means truncation at max_completion_tokens. The model had more to say. Increase the cap." },
   q2: { ok: "Correct! Both temperature and top_p control sampling randomness through different mechanisms. Adjusting both simultaneously makes it impossible to predict or reason about the combined effect.", bad: "Both parameters control how tokens are sampled. Using both creates compounded, unpredictable behavior. Change only one at a time." },
   q3: { ok: "Correct! frequency_penalty penalizes tokens that have appeared frequently so far, directly reducing repetitive phrases.", bad: "frequency_penalty penalizes tokens based on how often they've already appeared — perfect for reducing repetitive words and phrases." },
   q4: { ok: "Correct! Streaming doesn't reduce cost — it's the same number of tokens, same billing. Streaming only improves the user experience by showing tokens as they arrive.", bad: "Streaming does NOT reduce cost. It sends the same number of tokens. The benefit is purely UX: lower perceived latency." },
-  q5: { ok: "Correct! temperature=0.0 makes sampling deterministic. seed=42 provides additional determinism for the random number generator. Together, they maximize reproducibility.", bad: "temperature=0.0 makes sampling deterministic. seed=42 adds additional RNG determinism. Together they give the most reproducible outputs." }
+  q5: { ok: "Correct! reasoning_effort controls how many hidden reasoning tokens GPT-5/o-series models spend before answering. \"high\" means deeper thinking, longer latency, and more output-rate tokens billed.", bad: "On GPT-5 and o-series, the parameter you want is reasoning_effort (minimal/low/medium/high). temperature is ignored on these models, and raising max_completion_tokens just allows more output — it doesn't make the model reason more." }
 };
 
 let answers = {};

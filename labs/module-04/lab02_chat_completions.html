@@ -109,8 +109,8 @@
 
 <div class="header">
   <div class="badge">Module 4 · Lab 2</div>
-  <h1>Chat Completions API</h1>
-  <p>Master message roles, multi-turn conversations, and context window management</p>
+  <h1>Chat Completions &amp; Responses API</h1>
+  <p>Master message roles, multi-turn conversations, and the two ways OpenAI handles state — stateless (Chat Completions) and stateful (Responses)</p>
 </div>
 
 <div class="main">
@@ -159,7 +159,88 @@
     </div>
 
     <div class="info-box">
-      <strong>Key insight:</strong> The model has no memory between API calls. To maintain conversation history, you must include all previous messages (user + assistant turns) in each request. This means context grows with every turn — and so does the cost.
+      <strong>Key insight (Chat Completions):</strong> The Chat Completions API has no memory between calls. To maintain conversation history, you must include all previous messages (user + assistant turns) in each request. This means context grows with every turn — and so does the cost.<br><br>
+      <strong>Alternative (Responses API):</strong> The newer Responses API can store turns server-side. Pass <code style="color:#22d3ee">previous_response_id=&lt;prior&gt;</code> and OpenAI threads the conversation for you — no need to resend history. See the <em>Stateful Chaining</em> section below.
+    </div>
+  </section>
+
+  <!-- Section 1b: Responses API stateful chaining -->
+  <section>
+    <h2 class="section-title">Stateful Chaining — the Responses API Alternative</h2>
+    <p class="section-sub">Same three-turn dialog, two very different code paths. Toggle to compare.</p>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button id="apiTabChat" class="btn btn-primary" onclick="showApi('chat')" style="background:#22d3ee;">Chat Completions (stateless)</button>
+      <button id="apiTabResp" class="btn btn-secondary" onclick="showApi('responses')">Responses (stateful)</button>
+    </div>
+
+    <div id="apiPanelChat" class="code-preview" style="min-height:auto;">
+<span class="cm"># Chat Completions — you maintain history client-side</span>
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+client = <span class="fn">OpenAI</span>()
+
+history = [{<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"You are a Python tutor."</span>}]
+
+<span class="kw">def</span> <span class="fn">chat</span>(user_msg: <span class="fn">str</span>) -> <span class="fn">str</span>:
+    history.<span class="fn">append</span>({<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: user_msg})
+    response = client.chat.completions.<span class="fn">create</span>(
+        <span class="key">model</span>=<span class="str">"gpt-4.1-mini"</span>,
+        <span class="key">messages</span>=history,            <span class="cm"># resend EVERY prior message every call</span>
+    )
+    reply = response.choices[<span class="str">0</span>].message.content
+    history.<span class="fn">append</span>({<span class="str">"role"</span>: <span class="str">"assistant"</span>, <span class="str">"content"</span>: reply})
+    <span class="kw">return</span> reply
+
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"What is a list comprehension?"</span>))
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"Show me an example with squares."</span>))
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"How does that differ from a generator?"</span>))
+
+<span class="cm"># Cost: turn 3 sends turns 1+2+3 in the payload — grows linearly</span>
+    </div>
+
+    <div id="apiPanelResp" class="code-preview" style="min-height:auto;display:none;">
+<span class="cm"># Responses API — OpenAI stores history server-side</span>
+<span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+client = <span class="fn">OpenAI</span>()
+
+last_id: <span class="fn">str</span> | <span class="kw">None</span> = <span class="kw">None</span>
+
+<span class="kw">def</span> <span class="fn">chat</span>(user_msg: <span class="fn">str</span>) -> <span class="fn">str</span>:
+    <span class="kw">global</span> last_id
+    response = client.responses.<span class="fn">create</span>(
+        <span class="key">model</span>=<span class="str">"gpt-4.1-mini"</span>,
+        <span class="key">instructions</span>=<span class="str">"You are a Python tutor."</span>,
+        <span class="key">input</span>=user_msg,             <span class="cm"># just the NEW message — no history!</span>
+        <span class="key">previous_response_id</span>=last_id, <span class="cm"># chain to the previous turn</span>
+    )
+    last_id = response.id           <span class="cm"># remember for the next call</span>
+    <span class="kw">return</span> response.output_text
+
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"What is a list comprehension?"</span>))
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"Show me an example with squares."</span>))
+<span class="fn">print</span>(<span class="fn">chat</span>(<span class="str">"How does that differ from a generator?"</span>))
+
+<span class="cm"># Cost: each call sends only the new user message — payload stays small</span>
+<span class="cm"># Bonus: reasoning items from GPT-5/o-series are preserved across turns</span>
+    </div>
+
+    <div class="strat-grid" style="margin-top:20px;">
+      <div class="strat-card">
+        <div class="strat-title"><div class="strat-dot" style="background:#22d3ee;"></div>Chat Completions wins when</div>
+        <div class="strat-desc">You need full client-side control of history (compress, redact, branch). You're targeting non-OpenAI providers that follow the chat-completions shape. You want a simple stateless model where any call can be retried in isolation.</div>
+      </div>
+      <div class="strat-card">
+        <div class="strat-title"><div class="strat-dot" style="background:#a78bfa;"></div>Responses wins when</div>
+        <div class="strat-desc">You're building an agent or multi-turn assistant. You use GPT-5 / o-series and need reasoning items preserved across turns. You want built-in tools (web_search, file_search, code_interpreter) without writing executors.</div>
+      </div>
+      <div class="strat-card">
+        <div class="strat-title"><div class="strat-dot" style="background:#34d399;"></div>Hybrid is fine</div>
+        <div class="strat-desc">You can use both in the same app. Some teams use Responses for end-user chat and Chat Completions for batch/back-office workflows. Migrate gradually — the APIs are not wire-compatible but they're not exclusive either.</div>
+      </div>
+      <div class="strat-card">
+        <div class="strat-title"><div class="strat-dot" style="background:#fbbf24;"></div>Storage caveat</div>
+        <div class="strat-desc">Responses persistence defaults to <code style="color:#22d3ee;font-size:0.78rem;">store=True</code> with ~30-day retention on OpenAI's servers. Pass <code style="color:#22d3ee;font-size:0.78rem;">store=False</code> for data-residency-sensitive flows — but then you must resend history yourself, just like Chat Completions.</div>
+      </div>
     </div>
   </section>
 
@@ -188,7 +269,7 @@
 
         <!-- Context window meter -->
         <div style="margin-top:20px;">
-          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:10px;">Estimated Context Usage (gpt-4o-mini, 128K limit)</div>
+          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:10px;">Estimated Context Usage (gpt-4.1-mini, 1M limit shown)</div>
           <div class="cw-container">
             <div class="cw-bar-wrap">
               <div class="cw-seg" id="cwSystem" style="background:#818cf8;width:1%;"></div>
@@ -238,11 +319,21 @@
         <div class="strat-title"><div class="strat-dot" style="background:#fbbf24;"></div>Stateless per Turn</div>
         <div class="strat-desc">For task-based apps (not chat), don't maintain history at all. Each API call is independent. Use RAG to inject relevant context instead of raw history.</div>
       </div>
+      <div class="strat-card">
+        <div class="strat-title"><div class="strat-dot" style="background:#a78bfa;"></div>Responses Chaining</div>
+        <div class="strat-desc">Switch to the Responses API and pass <code style="color:#22d3ee;font-size:0.78rem;">previous_response_id</code>. OpenAI stores history server-side; per-call payload stays small. Best for agents and reasoning models.</div>
+      </div>
+      <div class="strat-card">
+        <div class="strat-title"><div class="strat-dot" style="background:#ef4444;"></div>Prompt Caching</div>
+        <div class="strat-desc">Long system prompt or instructions? OpenAI auto-caches identical input prefixes — repeated calls get ~50–90% input-token discount. No code change; works on both APIs.</div>
+      </div>
     </div>
 
     <div class="info-box" style="margin-top:20px;">
       <strong>Counting tokens:</strong> Use the <code style="color:#22d3ee">tiktoken</code> library (<code style="color:#22d3ee">uv add tiktoken</code>) to count tokens before making API calls.
-      <br><code style="color:#34d399;">import tiktoken; enc = tiktoken.encoding_for_model("gpt-4o"); tokens = len(enc.encode(text))</code>
+      <br><code style="color:#34d399;">import tiktoken; enc = tiktoken.encoding_for_model("gpt-4.1-mini"); tokens = len(enc.encode(text))</code>
+      <br><br>
+      Newer models (GPT-5, o-series) use the <code style="color:#22d3ee">o200k_base</code> encoding — fall back to <code style="color:#34d399;">tiktoken.get_encoding("o200k_base")</code> if the model name isn't recognized.
     </div>
   </section>
 
@@ -285,23 +376,23 @@
     </div>
 
     <div class="quiz-card" id="q4">
-      <div class="question">4. Your chatbot has been running for 50 turns. Token costs are climbing. Which is the BEST strategy to reduce costs while preserving conversational coherence?</div>
+      <div class="question">4. You're building a multi-turn assistant on gpt-5-mini and want to skip the per-call history bookkeeping. Which Responses API parameter chains turns together?</div>
       <div class="options">
-        <button class="opt-btn" onclick="answer(this,'q4',false)">A. Delete the system prompt — it's no longer needed after setup</button>
-        <button class="opt-btn" onclick="answer(this,'q4',true)">B. Summarize older turns into a condensed history message and drop the raw older turns</button>
-        <button class="opt-btn" onclick="answer(this,'q4',false)">C. Switch to a larger model with more context window capacity</button>
-        <button class="opt-btn" onclick="answer(this,'q4',false)">D. Ask the user to repeat context in every message</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">A. session_id — pass the same string on every call</button>
+        <button class="opt-btn" onclick="answer(this,'q4',true)">B. previous_response_id — pass the .id of the prior response</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">C. messages — include the full conversation history</button>
+        <button class="opt-btn" onclick="answer(this,'q4',false)">D. thread_id — references a saved conversation thread</button>
       </div>
       <div class="feedback" id="fb_q4"></div>
     </div>
 
     <div class="quiz-card" id="q5">
-      <div class="question">5. What does including an "assistant" role message in your API call achieve?</div>
+      <div class="question">5. On the Responses API, what replaces the system message used by Chat Completions?</div>
       <div class="options">
-        <button class="opt-btn" onclick="answer(this,'q5',false)">A. It tells the model what to say next in its response</button>
-        <button class="opt-btn" onclick="answer(this,'q5',true)">B. It provides the model's previous response as history context for the current request</button>
-        <button class="opt-btn" onclick="answer(this,'q5',false)">C. It activates a special reasoning mode in the model</button>
-        <button class="opt-btn" onclick="answer(this,'q5',false)">D. It is not valid — only system and user roles are accepted</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">A. A system_prompt parameter at the top level</button>
+        <button class="opt-btn" onclick="answer(this,'q5',true)">B. The instructions parameter</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">C. The first item of the input list must always have role="system"</button>
+        <button class="opt-btn" onclick="answer(this,'q5',false)">D. There is no equivalent — set the persona on every user message</button>
       </div>
       <div class="feedback" id="fb_q5"></div>
     </div>
@@ -383,10 +474,10 @@ ${msgJson}
 ]
 
 response = client.chat.completions.<span class="fn">create</span>(
-    <span class="key">model</span>=<span class="str">"gpt-4o-mini"</span>,
+    <span class="key">model</span>=<span class="str">"gpt-4.1-mini"</span>,
     <span class="key">messages</span>=messages,
     <span class="key">temperature</span>=<span class="str">0.7</span>,
-    <span class="key">max_tokens</span>=<span class="str">512</span>
+    <span class="key">max_completion_tokens</span>=<span class="str">512</span>
 )
 
 <span class="cm"># Get the assistant's reply</span>
@@ -398,8 +489,24 @@ messages.<span class="fn">append</span>({<span class="str">"role"</span>: <span 
 <span class="fn">print</span>(reply)`;
 }
 
+function showApi(which) {
+  const chat = document.getElementById('apiPanelChat');
+  const resp = document.getElementById('apiPanelResp');
+  const btnC = document.getElementById('apiTabChat');
+  const btnR = document.getElementById('apiTabResp');
+  if (which === 'chat') {
+    chat.style.display = ''; resp.style.display = 'none';
+    btnC.className = 'btn btn-primary'; btnC.style.background = '#22d3ee';
+    btnR.className = 'btn btn-secondary'; btnR.style.background = '';
+  } else {
+    chat.style.display = 'none'; resp.style.display = '';
+    btnR.className = 'btn btn-primary'; btnR.style.background = '#a78bfa';
+    btnC.className = 'btn btn-secondary'; btnC.style.background = '';
+  }
+}
+
 function renderContextMeter() {
-  const limit = 128000;
+  const limit = 1047576;   // gpt-4.1 family — 1M tokens
   let sysTokens = 0, convTokens = 0;
   let turns = 0;
   messages.forEach(m => {
@@ -431,8 +538,8 @@ const feedbacks = {
   q1: { ok: "Correct! The OpenAI API is stateless. Each call starts fresh unless you include conversation history in the messages array.", bad: "The OpenAI API is stateless — it has no memory between calls. You must explicitly include prior messages to maintain conversation context." },
   q2: { ok: "Correct! The system role sets persistent instructions for the entire conversation without needing to repeat them in every user message.", bad: "The system role is the right place for persistent instructions. It applies to all turns automatically without consuming user message space." },
   q3: { ok: "Correct! To maintain context, every API call must include the full conversation history (all user and assistant messages) in the messages array.", bad: "OpenAI has no memory — you must include all previous user and assistant messages so the model can understand back-references." },
-  q4: { ok: "Correct! Summarizing older turns keeps the model aware of conversation history while dramatically reducing token consumption.", bad: "Summarization is the best balance — it preserves key context while reducing tokens. Deleting the system prompt or switching models doesn't solve the root issue." },
-  q5: { ok: "Correct! Assistant role messages represent what the model said in previous turns — they are conversation history, not instructions.", bad: "Assistant role messages are historical responses. Including them lets the model know what it said before, enabling coherent multi-turn conversations." }
+  q4: { ok: "Correct! Pass the .id of the prior response as previous_response_id and OpenAI threads the conversation server-side. No more resending the full message list.", bad: "On the Responses API, previous_response_id chains turns. Pass response.id from one call as previous_response_id on the next." },
+  q5: { ok: "Correct! The Responses API uses a top-level instructions= parameter instead of a system message inside messages[]. It plays the same persona-setting role.", bad: "Responses uses instructions= at the top level. There is no system role in the simple input form. (You can still send roles in the list form, but instructions is the canonical persona slot.)" }
 };
 
 let answers = {};
