@@ -39,6 +39,22 @@ client = OpenAI()
 import os
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 
+
+def _completion_kwargs(model: str, max_tokens: int, temperature: float | None = None) -> dict:
+    # GPT-5 family uses `max_completion_tokens` and rejects custom `temperature`.
+    # It also spends reasoning tokens out of that same budget, so a small cap can
+    # be fully consumed by reasoning, leaving zero visible output. Keep reasoning
+    # minimal and give the budget headroom so the reply actually streams.
+    if model.startswith("gpt-5"):
+        return {
+            "max_completion_tokens": max(max_tokens, 2000),
+            "reasoning_effort": "minimal",
+        }
+    kwargs: dict = {"max_tokens": max_tokens}
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+    return kwargs
+
 app = FastAPI(title="Module 5 Chatbot")
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
@@ -139,9 +155,8 @@ def chat(sid: str, req: ChatReq) -> StreamingResponse:
             stream = client.chat.completions.create(
                 model=CHAT_MODEL,
                 messages=prompt_messages,
-                temperature=0.6,
-                max_tokens=400,
                 stream=True,
+                **_completion_kwargs(CHAT_MODEL, max_tokens=400, temperature=0.6),
             )
         except Exception as exc:
             yield _sse({"event": "error", "error": str(exc)})
@@ -224,7 +239,7 @@ def _rotate_summary(sess) -> None:
                 "This summary will replace the verbatim turns."},
             {"role": "user", "content": body},
         ],
-        max_tokens=240,
+        **_completion_kwargs(CHAT_MODEL, max_tokens=240),
     )
     summary = resp.choices[0].message.content or ""
 
