@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>01 · Embeddings &amp; Vector Space</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 28px 20px; }
+      .wrap { max-width: 920px; margin: 0 auto; }
+      a.back { color: #22d3ee; text-decoration: none; font-size: 0.82rem; }
+      h1 { font-size: 1.5rem; margin: 8px 0 4px; color: #f1f5f9; }
+      p.lede { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; margin-bottom: 18px; max-width: 70ch; }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; }
+      .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; font-size: 0.78rem; color: #cbd5e1; }
+      .legend span { display: inline-flex; align-items: center; gap: 6px; }
+      .dot { width: 11px; height: 11px; border-radius: 50%; }
+      svg { width: 100%; height: auto; display: block; background: #0b1220; border-radius: 10px; border: 1px solid #1e293b; }
+      .hint { font-size: 0.8rem; color: #64748b; margin-top: 10px; }
+      .label { font-size: 11px; fill: #cbd5e1; pointer-events: none; }
+      .node { cursor: pointer; transition: r 0.12s; }
+      .out { background: #0b1220; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-family: "Consolas", monospace; font-size: 0.82rem; color: #67e8f9; min-height: 1.4em; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="index.html">← All visualizations</a>
+      <h1>01 · Embeddings &amp; Vector Space</h1>
+      <p class="lede">
+        An embedding turns each word into a point in space where <strong>similar meanings land close together</strong>.
+        These 20 words are positioned by meaning, not spelling. <strong>Click any word</strong> to light up its
+        nearest neighbors — notice they're semantic cousins, even with no shared letters.
+      </p>
+
+      <div class="panel">
+        <div class="legend" id="legend"></div>
+        <svg id="plot" viewBox="0 0 900 480" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="out" id="out">Click a word to find its nearest neighbors…</div>
+        <div class="hint">Lines connect the clicked word to its 3 nearest neighbors by distance (cosine-like closeness in this 2-D projection).</div>
+      </div>
+    </div>
+
+    <script>
+      // Each word: x,y are a 2-D "projection" of where its real embedding would sit.
+      // Grouped by meaning so clusters are visible.
+      const CATS = {
+        animals:  { color: "#34d399", label: "animals" },
+        finance:  { color: "#f59e0b", label: "finance" },
+        weather:  { color: "#60a5fa", label: "weather" },
+        food:     { color: "#f472b6", label: "food" },
+      };
+      const WORDS = [
+        { t: "cat",       c: "animals", x: 120, y: 110 },
+        { t: "dog",       c: "animals", x: 165, y: 150 },
+        { t: "kitten",    c: "animals", x: 95,  y: 160 },
+        { t: "puppy",     c: "animals", x: 200, y: 120 },
+        { t: "feline",    c: "animals", x: 140, y: 70  },
+        { t: "revenue",   c: "finance", x: 690, y: 110 },
+        { t: "profit",    c: "finance", x: 740, y: 150 },
+        { t: "earnings",  c: "finance", x: 720, y: 80  },
+        { t: "invoice",   c: "finance", x: 660, y: 165 },
+        { t: "budget",    c: "finance", x: 780, y: 110 },
+        { t: "rain",      c: "weather", x: 150, y: 380 },
+        { t: "storm",     c: "weather", x: 110, y: 330 },
+        { t: "sunshine",  c: "weather", x: 200, y: 350 },
+        { t: "snow",      c: "weather", x: 95,  y: 410 },
+        { t: "cloud",     c: "weather", x: 175, y: 415 },
+        { t: "pasta",     c: "food",    x: 700, y: 370 },
+        { t: "pizza",     c: "food",    x: 745, y: 330 },
+        { t: "salad",     c: "food",    x: 660, y: 345 },
+        { t: "dessert",   c: "food",    x: 780, y: 385 },
+        { t: "noodles",   c: "food",    x: 705, y: 420 },
+      ];
+
+      const svg = document.getElementById("plot");
+      const SVGNS = "http://www.w3.org/2000/svg";
+      const out = document.getElementById("out");
+
+      // Legend
+      const legend = document.getElementById("legend");
+      for (const k in CATS) {
+        const s = document.createElement("span");
+        s.innerHTML = `<span class="dot" style="background:${CATS[k].color}"></span>${CATS[k].label}`;
+        legend.appendChild(s);
+      }
+
+      let lineLayer = mk("g");
+      svg.appendChild(lineLayer);
+      const nodeEls = [];
+
+      WORDS.forEach((w, i) => {
+        const circle = mk("circle", { cx: w.x, cy: w.y, r: 7, fill: CATS[w.c].color, class: "node", "fill-opacity": 0.9 });
+        const text = mk("text", { x: w.x + 11, y: w.y + 4, class: "label" });
+        text.textContent = w.t;
+        circle.addEventListener("click", () => select(i));
+        svg.appendChild(circle);
+        svg.appendChild(text);
+        nodeEls.push({ circle, text });
+      });
+
+      function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+      function select(i) {
+        // reset
+        nodeEls.forEach((n, j) => {
+          n.circle.setAttribute("r", 7);
+          n.circle.setAttribute("fill-opacity", j === i ? 1 : 0.35);
+        });
+        while (lineLayer.firstChild) lineLayer.removeChild(lineLayer.firstChild);
+
+        const me = WORDS[i];
+        const ranked = WORDS.map((w, j) => ({ j, d: dist(me, w) }))
+          .filter(o => o.j !== i).sort((a, b) => a.d - b.d);
+        const near = ranked.slice(0, 3);
+
+        near.forEach(({ j }) => {
+          const w = WORDS[j];
+          const line = mk("line", { x1: me.x, y1: me.y, x2: w.x, y2: w.y, stroke: "#22d3ee", "stroke-width": 1.5, "stroke-opacity": 0.6 });
+          lineLayer.appendChild(line);
+          nodeEls[j].circle.setAttribute("fill-opacity", 0.95);
+          nodeEls[j].circle.setAttribute("r", 8);
+        });
+        nodeEls[i].circle.setAttribute("r", 10);
+
+        out.textContent = `"${me.t}" → nearest: ` + near.map(n => `"${WORDS[n.j].t}"`).join(", ");
+      }
+
+      function mk(name, attrs = {}) {
+        const el = document.createElementNS(SVGNS, name);
+        for (const k in attrs) el.setAttribute(k, attrs[k]);
+        return el;
+      }
+    </script>
+  </body>
+</html>

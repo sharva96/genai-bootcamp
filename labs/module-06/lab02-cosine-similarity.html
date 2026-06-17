@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>02 · Cosine Similarity</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 28px 20px; }
+      .wrap { max-width: 920px; margin: 0 auto; }
+      a.back { color: #22d3ee; text-decoration: none; font-size: 0.82rem; }
+      h1 { font-size: 1.5rem; margin: 8px 0 4px; color: #f1f5f9; }
+      p.lede { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; margin-bottom: 18px; max-width: 70ch; }
+      .layout { display: grid; grid-template-columns: 1fr 260px; gap: 16px; }
+      @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; }
+      svg { width: 100%; height: auto; display: block; background: #0b1220; border-radius: 10px; touch-action: none; }
+      .metric { background: #0b1220; border: 1px solid #334155; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+      .metric .k { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+      .metric .v { font-size: 1.35rem; font-weight: 700; color: #22d3ee; font-family: "Consolas", monospace; margin-top: 2px; }
+      .metric.sec .v { color: #f59e0b; }
+      .interp { font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; }
+      .hint { font-size: 0.8rem; color: #64748b; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="index.html">← All visualizations</a>
+      <h1>02 · Cosine Similarity</h1>
+      <p class="lede">
+        Similarity search asks "how close are two vectors?" <strong>Cosine</strong> measures the <em>angle</em>
+        between them (ignores length); <strong>Euclidean</strong> measures straight-line <em>distance</em>.
+        Drag the tip of either arrow and watch every metric update.
+      </p>
+
+      <div class="layout">
+        <div class="panel">
+          <svg id="plot" viewBox="0 0 460 460" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="hint">Drag the cyan ● and amber ● dots. Origin is the center of the grid.</div>
+        </div>
+        <div>
+          <div class="metric"><div class="k">Cosine similarity</div><div class="v" id="m-cos">—</div></div>
+          <div class="metric"><div class="k">Angle between</div><div class="v" id="m-ang">—</div></div>
+          <div class="metric sec"><div class="k">Dot product</div><div class="v" id="m-dot">—</div></div>
+          <div class="metric sec"><div class="k">Euclidean dist.</div><div class="v" id="m-euc">—</div></div>
+          <div class="panel" style="background:#0b1220;"><div class="interp" id="interp"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const SVGNS = "http://www.w3.org/2000/svg";
+      const svg = document.getElementById("plot");
+      const SIZE = 460, O = SIZE / 2, SCALE = 28; // px per unit
+
+      // grid
+      for (let g = 0; g <= SIZE; g += SCALE) {
+        svg.appendChild(mk("line", { x1: g, y1: 0, x2: g, y2: SIZE, stroke: "#1e293b", "stroke-width": 1 }));
+        svg.appendChild(mk("line", { x1: 0, y1: g, x2: SIZE, y2: g, stroke: "#1e293b", "stroke-width": 1 }));
+      }
+      svg.appendChild(mk("line", { x1: 0, y1: O, x2: SIZE, y2: O, stroke: "#334155", "stroke-width": 1.5 }));
+      svg.appendChild(mk("line", { x1: O, y1: 0, x2: O, y2: SIZE, stroke: "#334155", "stroke-width": 1.5 }));
+
+      // vectors in math coords (units); start values
+      let A = { x: 4, y: 3 }, B = { x: -2, y: 4 };
+
+      const arcEl = mk("path", { fill: "#22d3ee", "fill-opacity": 0.12, stroke: "none" });
+      svg.appendChild(arcEl);
+      const lineA = mk("line", { stroke: "#06b6d4", "stroke-width": 3 });
+      const lineB = mk("line", { stroke: "#f59e0b", "stroke-width": 3 });
+      svg.appendChild(lineA); svg.appendChild(lineB);
+      const dotA = mk("circle", { r: 9, fill: "#22d3ee", cursor: "grab" });
+      const dotB = mk("circle", { r: 9, fill: "#fbbf24", cursor: "grab" });
+      svg.appendChild(dotA); svg.appendChild(dotB);
+
+      // math -> screen
+      function sx(u) { return O + u * SCALE; }
+      function sy(u) { return O - u * SCALE; }
+
+      function render() {
+        lineA.setAttribute("x1", O); lineA.setAttribute("y1", O);
+        lineA.setAttribute("x2", sx(A.x)); lineA.setAttribute("y2", sy(A.y));
+        lineB.setAttribute("x1", O); lineB.setAttribute("y1", O);
+        lineB.setAttribute("x2", sx(B.x)); lineB.setAttribute("y2", sy(B.y));
+        dotA.setAttribute("cx", sx(A.x)); dotA.setAttribute("cy", sy(A.y));
+        dotB.setAttribute("cx", sx(B.x)); dotB.setAttribute("cy", sy(B.y));
+
+        const dot = A.x * B.x + A.y * B.y;
+        const magA = Math.hypot(A.x, A.y), magB = Math.hypot(B.x, B.y);
+        const cos = magA && magB ? dot / (magA * magB) : 0;
+        const ang = Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
+        const euc = Math.hypot(A.x - B.x, A.y - B.y);
+
+        document.getElementById("m-cos").textContent = cos.toFixed(3);
+        document.getElementById("m-ang").textContent = ang.toFixed(1) + "°";
+        document.getElementById("m-dot").textContent = dot.toFixed(2);
+        document.getElementById("m-euc").textContent = euc.toFixed(2);
+
+        let msg;
+        if (cos > 0.85) msg = "Nearly the same direction → <b>very similar</b> meaning.";
+        else if (cos > 0.3) msg = "Somewhat aligned → <b>related</b>.";
+        else if (cos > -0.3) msg = "Roughly perpendicular → <b>unrelated</b>.";
+        else msg = "Pointing apart → <b>opposite / contrasting</b>.";
+        document.getElementById("interp").innerHTML =
+          msg + "<br><br>Cosine ignores arrow <i>length</i> — only the angle matters. " +
+          "That's why a short query and a long document can still match.";
+
+        // angle arc
+        const r = 34;
+        const a0 = Math.atan2(A.y, A.x), a1 = Math.atan2(B.y, B.x);
+        const x0 = O + r * Math.cos(a0), y0 = O - r * Math.sin(a0);
+        const x1 = O + r * Math.cos(a1), y1 = O - r * Math.sin(a1);
+        let diff = a1 - a0;
+        while (diff <= -Math.PI) diff += 2 * Math.PI;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        const large = Math.abs(diff) > Math.PI ? 1 : 0;
+        const sweep = diff > 0 ? 0 : 1;
+        arcEl.setAttribute("d", `M ${O} ${O} L ${x0} ${y0} A ${r} ${r} 0 ${large} ${sweep} ${x1} ${y1} Z`);
+      }
+
+      // dragging
+      let drag = null;
+      function pt(e) {
+        const r = svg.getBoundingClientRect();
+        const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+        const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+        const scaleX = SIZE / r.width;
+        return { x: ((cx * scaleX) - O) / SCALE, y: (O - (cy * scaleX)) / SCALE };
+      }
+      function start(which) { return (e) => { drag = which; e.preventDefault(); }; }
+      dotA.addEventListener("mousedown", start("A")); dotA.addEventListener("touchstart", start("A"));
+      dotB.addEventListener("mousedown", start("B")); dotB.addEventListener("touchstart", start("B"));
+      function move(e) {
+        if (!drag) return;
+        const p = pt(e);
+        const v = { x: Math.max(-8, Math.min(8, p.x)), y: Math.max(-8, Math.min(8, p.y)) };
+        if (drag === "A") A = v; else B = v;
+        render();
+      }
+      window.addEventListener("mousemove", move); window.addEventListener("touchmove", move, { passive: false });
+      window.addEventListener("mouseup", () => drag = null); window.addEventListener("touchend", () => drag = null);
+
+      function mk(name, attrs = {}) {
+        const el = document.createElementNS(SVGNS, name);
+        for (const k in attrs) el.setAttribute(k, attrs[k]);
+        return el;
+      }
+      render();
+    </script>
+  </body>
+</html>

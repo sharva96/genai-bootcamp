@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>05 · Vector DB &amp; ANN Search</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 28px 20px; }
+      .wrap { max-width: 920px; margin: 0 auto; }
+      a.back { color: #22d3ee; text-decoration: none; font-size: 0.82rem; }
+      h1 { font-size: 1.5rem; margin: 8px 0 4px; color: #f1f5f9; }
+      p.lede { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; margin-bottom: 18px; max-width: 70ch; }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; }
+      svg { width: 100%; height: auto; display: block; background: #0b1220; border-radius: 10px; }
+      .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+      button { background: #06b6d4; color: #0f172a; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 0.86rem; }
+      button.alt { background: #334155; color: #e2e8f0; }
+      button:hover { filter: brightness(1.1); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .counts { display: flex; gap: 10px; margin-top: 12px; }
+      .count { flex: 1; background: #0b1220; border: 1px solid #334155; border-radius: 8px; padding: 10px; text-align: center; }
+      .count .k { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+      .count .v { font-size: 1.3rem; font-weight: 700; font-family: "Consolas", monospace; margin-top: 2px; }
+      .count.bf .v { color: #f59e0b; } .count.ann .v { color: #34d399; }
+      .note { font-size: 0.8rem; color: #64748b; margin-top: 10px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="index.html">← All visualizations</a>
+      <h1>05 · Vector DB &amp; ANN Search</h1>
+      <p class="lede">
+        A vector database finds nearest neighbors <em>fast</em>. <strong>Brute force</strong> compares the query
+        (cyan ✦) to every point — accurate but slow. <strong>ANN</strong> (e.g. HNSW) walks a navigation graph,
+        hopping greedily toward the query and touching only a handful of points. Watch the comparison counts.
+      </p>
+
+      <div class="panel">
+        <div class="bar">
+          <button id="bf">🐌 Brute-force scan</button>
+          <button id="ann">🕸️ ANN graph walk</button>
+          <button id="reset" class="alt">↻ New points</button>
+        </div>
+        <svg id="plot" viewBox="0 0 700 420" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="counts">
+          <div class="count bf"><div class="k">Brute-force comparisons</div><div class="v" id="cBf">—</div></div>
+          <div class="count ann"><div class="k">ANN comparisons</div><div class="v" id="cAnn">—</div></div>
+        </div>
+        <div class="note" id="note">Both methods find the true nearest neighbor here — ANN just does far less work. At a million vectors that gap is the whole ballgame.</div>
+      </div>
+    </div>
+
+    <script>
+      const SVGNS = "http://www.w3.org/2000/svg";
+      const svg = document.getElementById("plot");
+      const W = 700, Hh = 420, K = 4;
+      let points = [], edges = [], query = { x: 350, y: 210 }, els = [], qEl, layerLines, layerActive;
+      let busy = false;
+
+      function rnd(min, max) { return min + Math.random() * (max - min); }
+
+      function build() {
+        svg.innerHTML = "";
+        points = []; edges = []; els = [];
+        const n = 60;
+        for (let i = 0; i < n; i++) points.push({ x: rnd(30, W - 30), y: rnd(30, Hh - 30) });
+        query = { x: rnd(120, W - 120), y: rnd(80, Hh - 80) };
+
+        // build kNN graph (navigable small world-ish)
+        for (let i = 0; i < n; i++) {
+          const near = points.map((p, j) => ({ j, d: dist(points[i], p) }))
+            .filter(o => o.j !== i).sort((a, b) => a.d - b.d).slice(0, K);
+          for (const { j } of near) if (i < j) edges.push([i, j]);
+        }
+
+        layerLines = mk("g"); svg.appendChild(layerLines);
+        layerActive = mk("g"); svg.appendChild(layerActive);
+        for (const [a, b] of edges)
+          layerLines.appendChild(mk("line", { x1: points[a].x, y1: points[a].y, x2: points[b].x, y2: points[b].y, stroke: "#1e293b", "stroke-width": 1 }));
+
+        points.forEach(p => {
+          const c = mk("circle", { cx: p.x, cy: p.y, r: 6, fill: "#475569" });
+          svg.appendChild(c); els.push(c);
+        });
+        // true nearest (for reference)
+        qEl = mk("path", { d: star(query.x, query.y, 10, 4), fill: "#22d3ee" });
+        svg.appendChild(qEl);
+
+        document.getElementById("cBf").textContent = "—";
+        document.getElementById("cAnn").textContent = "—";
+      }
+
+      function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+      function trueNearest() {
+        let best = 0, bd = Infinity;
+        points.forEach((p, i) => { const d = dist(query, p); if (d < bd) { bd = d; best = i; } });
+        return best;
+      }
+      function reset() { els.forEach(c => { c.setAttribute("fill", "#475569"); c.setAttribute("r", 6); });
+        while (layerActive.firstChild) layerActive.removeChild(layerActive.firstChild); }
+      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+      function setBusy(v) { busy = v; ["bf","ann","reset"].forEach(id => document.getElementById(id).disabled = v); }
+
+      async function bruteForce() {
+        if (busy) return; setBusy(true); reset();
+        let best = -1, bd = Infinity, count = 0;
+        for (let i = 0; i < points.length; i++) {
+          count++;
+          els[i].setAttribute("fill", "#f59e0b"); els[i].setAttribute("r", 7);
+          const d = dist(query, points[i]);
+          if (d < bd) { bd = d; best = i; }
+          document.getElementById("cBf").textContent = count;
+          await sleep(45);
+          if (i !== best) els[i].setAttribute("fill", "#475569");
+          if (i !== best) els[i].setAttribute("r", 6);
+        }
+        els[best].setAttribute("fill", "#34d399"); els[best].setAttribute("r", 10);
+        document.getElementById("note").textContent =
+          `Brute force compared the query to ALL ${count} points to be sure of the nearest.`;
+        setBusy(false);
+      }
+
+      async function annWalk() {
+        if (busy) return; setBusy(true); reset();
+        // adjacency
+        const adj = points.map(() => []);
+        for (const [a, b] of edges) { adj[a].push(b); adj[b].push(a); }
+        let cur = Math.floor(Math.random() * points.length); // entry point
+        let count = 0; const visited = new Set();
+        els[cur].setAttribute("fill", "#22d3ee"); els[cur].setAttribute("r", 8);
+        await sleep(350);
+        while (true) {
+          visited.add(cur);
+          let best = cur, bd = dist(query, points[cur]);
+          for (const nb of adj[cur]) {
+            count++;
+            const ln = mk("line", { x1: points[cur].x, y1: points[cur].y, x2: points[nb].x, y2: points[nb].y, stroke: "#06b6d4", "stroke-width": 1.5, "stroke-opacity": 0.5 });
+            layerActive.appendChild(ln);
+            els[nb].setAttribute("fill", "#7dd3fc");
+            const d = dist(query, points[nb]);
+            if (d < bd) { bd = d; best = nb; }
+          }
+          document.getElementById("cAnn").textContent = count;
+          await sleep(420);
+          if (best === cur) break;            // local minimum reached
+          els[cur].setAttribute("fill", "#1e3a5f");
+          cur = best;
+          els[cur].setAttribute("fill", "#22d3ee"); els[cur].setAttribute("r", 8);
+        }
+        els[cur].setAttribute("fill", "#34d399"); els[cur].setAttribute("r", 10);
+        const correct = cur === trueNearest();
+        document.getElementById("note").textContent =
+          `ANN reached the answer in ${count} comparisons by hopping along the graph` +
+          (correct ? " — and it's the true nearest neighbor." : " (an approximate result — occasionally it misses by a hair, which is the tradeoff).");
+        setBusy(false);
+      }
+
+      function star(cx, cy, r, n) {
+        let d = "";
+        for (let i = 0; i < n * 2; i++) {
+          const ang = (Math.PI * i) / n - Math.PI / 2;
+          const rad = i % 2 ? r * 0.45 : r;
+          d += (i ? "L" : "M") + (cx + rad * Math.cos(ang)) + " " + (cy + rad * Math.sin(ang)) + " ";
+        }
+        return d + "Z";
+      }
+      function mk(name, attrs = {}) {
+        const el = document.createElementNS(SVGNS, name);
+        for (const k in attrs) el.setAttribute(k, attrs[k]);
+        return el;
+      }
+
+      document.getElementById("bf").addEventListener("click", bruteForce);
+      document.getElementById("ann").addEventListener("click", annWalk);
+      document.getElementById("reset").addEventListener("click", () => { if (!busy) build(); });
+      build();
+    </script>
+  </body>
+</html>

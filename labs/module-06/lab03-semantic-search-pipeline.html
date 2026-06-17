@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>03 · Semantic Search Pipeline</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 28px 20px; }
+      .wrap { max-width: 920px; margin: 0 auto; }
+      a.back { color: #22d3ee; text-decoration: none; font-size: 0.82rem; }
+      h1 { font-size: 1.5rem; margin: 8px 0 4px; color: #f1f5f9; }
+      p.lede { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; margin-bottom: 18px; max-width: 70ch; }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+      label { font-size: 0.78rem; color: #94a3b8; display: block; margin-bottom: 6px; }
+      select, button { font-family: inherit; }
+      select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 8px; padding: 9px 12px; font-size: 0.9rem; width: 100%; }
+      .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+      .row > div { flex: 1; min-width: 200px; }
+      button { background: #06b6d4; color: #0f172a; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer; font-size: 0.88rem; }
+      button:hover { background: #22d3ee; }
+      .stages { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+      .stage { flex: 1; min-width: 110px; text-align: center; padding: 10px 6px; border-radius: 10px; border: 1px solid #334155; background: #0b1220; font-size: 0.76rem; color: #64748b; transition: all 0.3s; }
+      .stage.active { border-color: #06b6d4; color: #22d3ee; background: rgba(6,182,212,0.1); box-shadow: 0 0 0 1px #06b6d4; }
+      .stage .ic { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+      .results { display: flex; flex-direction: column; gap: 8px; }
+      .doc { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; background: #0b1220; border: 1px solid #1e293b; transition: all 0.3s; opacity: 0.5; }
+      .doc.shown { opacity: 1; }
+      .doc.top { border-color: #34d399; background: rgba(52,211,153,0.08); }
+      .bar { height: 8px; border-radius: 99px; background: #06b6d4; min-width: 2px; transition: width 0.5s; }
+      .doc .txt { flex: 1; font-size: 0.84rem; color: #cbd5e1; }
+      .doc .sc { font-family: "Consolas", monospace; font-size: 0.8rem; color: #22d3ee; width: 48px; text-align: right; }
+      .rank { width: 20px; color: #475569; font-size: 0.8rem; font-family: monospace; }
+      .note { font-size: 0.8rem; color: #64748b; margin-top: 10px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="index.html">← All visualizations</a>
+      <h1>03 · Semantic Search Pipeline</h1>
+      <p class="lede">
+        Pick a question and watch it flow through the real pipeline: the query is <strong>embedded</strong>
+        with the same model as the documents, scored by similarity, then <strong>reranked</strong> so the
+        best passage rises to the top. (Similarities here are precomputed so it runs offline.)
+      </p>
+
+      <div class="panel">
+        <div class="row">
+          <div>
+            <label>Query</label>
+            <select id="q"></select>
+          </div>
+          <button id="run">▶ Run search</button>
+        </div>
+
+        <div class="stages">
+          <div class="stage" data-s="0"><span class="ic">📄</span>Query in</div>
+          <div class="stage" data-s="1"><span class="ic">🔢</span>Embed</div>
+          <div class="stage" data-s="2"><span class="ic">📏</span>Score all</div>
+          <div class="stage" data-s="3"><span class="ic">🏆</span>Rerank top-k</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="results" id="results"></div>
+        <div class="note" id="note">Choose a query and press Run.</div>
+      </div>
+    </div>
+
+    <script>
+      const DOCS = [
+        "Standard shipping takes 3-5 business days.",
+        "The headphones last 20 hours on a full charge.",
+        "Refunds are available within 30 days with a receipt.",
+        "Reset your password from the login screen.",
+        "Premium members get free shipping on all orders.",
+        "Customer support is available 24/7 via live chat.",
+      ];
+      // Precomputed cosine-like similarity of each query to each doc above.
+      const QUERIES = {
+        "How long does the battery last?":      [0.10, 0.82, 0.08, 0.05, 0.12, 0.09],
+        "Can I get my money back?":             [0.12, 0.07, 0.79, 0.06, 0.14, 0.18],
+        "When will my order arrive?":           [0.74, 0.10, 0.15, 0.04, 0.41, 0.12],
+        "I forgot my login details":            [0.06, 0.05, 0.09, 0.81, 0.07, 0.22],
+      };
+
+      const qSel = document.getElementById("q");
+      Object.keys(QUERIES).forEach(q => {
+        const o = document.createElement("option"); o.value = q; o.textContent = q; qSel.appendChild(o);
+      });
+      const resultsEl = document.getElementById("results");
+      const note = document.getElementById("note");
+      const stages = [...document.querySelectorAll(".stage")];
+
+      function buildRows() {
+        resultsEl.innerHTML = "";
+        return DOCS.map((d, i) => {
+          const row = document.createElement("div");
+          row.className = "doc";
+          row.innerHTML = `<span class="rank"></span><span class="txt">${d}</span>
+            <div style="flex:0 0 120px"><div class="bar" style="width:2px"></div></div>
+            <span class="sc"></span>`;
+          resultsEl.appendChild(row);
+          return row;
+        });
+      }
+
+      let rows = buildRows();
+      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+      function setStage(n) { stages.forEach(s => s.classList.toggle("active", +s.dataset.s === n)); }
+
+      async function run() {
+        const q = qSel.value;
+        const sims = QUERIES[q];
+        rows = buildRows();
+
+        setStage(0); note.textContent = `Query received: "${q}"`; await sleep(550);
+        setStage(1); note.textContent = "Embedding the query with the SAME model used for the documents…"; await sleep(750);
+
+        setStage(2); note.textContent = "Scoring the query against every document (cosine similarity)…";
+        for (let i = 0; i < DOCS.length; i++) {
+          rows[i].classList.add("shown");
+          rows[i].querySelector(".bar").style.width = (sims[i] * 110) + "px";
+          rows[i].querySelector(".sc").textContent = sims[i].toFixed(2);
+          await sleep(260);
+        }
+        await sleep(300);
+
+        setStage(3); note.textContent = "Reranking: sort by score, keep the top results.";
+        const order = sims.map((s, i) => ({ s, i })).sort((a, b) => b.s - a.s);
+        // reorder DOM
+        order.forEach((o, rank) => {
+          const row = rows[o.i];
+          row.querySelector(".rank").textContent = "#" + (rank + 1);
+          row.classList.toggle("top", rank < 2);
+          resultsEl.appendChild(row); // append in sorted order
+        });
+        await sleep(400);
+        const best = order[0];
+        note.innerHTML = `Top match (score ${best.s.toFixed(2)}): <b style="color:#34d399">"${DOCS[best.i]}"</b>. ` +
+          `These top chunks become the context for a RAG answer.`;
+        setStage(-1);
+      }
+
+      document.getElementById("run").addEventListener("click", run);
+    </script>
+  </body>
+</html>
