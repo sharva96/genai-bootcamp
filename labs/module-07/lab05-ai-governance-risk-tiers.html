@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>05 · AI Governance — Risk Tiers</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 28px 20px; }
+      .wrap { max-width: 960px; margin: 0 auto; }
+      a.back { color: #22d3ee; text-decoration: none; font-size: 0.82rem; }
+      h1 { font-size: 1.5rem; margin: 8px 0 4px; color: #f1f5f9; }
+      p.lede { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; margin-bottom: 18px; max-width: 74ch; }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+      h2 { font-size: 0.92rem; color: #f1f5f9; margin-bottom: 10px; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+      button { background: #0b1220; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; cursor: pointer; transition: all .12s; }
+      button:hover { border-color: #22d3ee; color: #e2e8f0; }
+      .pyramid { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 10px 0 4px; }
+      .tier { width: 100%; max-width: 640px; border-radius: 10px; padding: 12px 16px; cursor: pointer; transition: all .15s; border: 2px solid transparent; opacity: 0.55; }
+      .tier:hover { opacity: 0.85; }
+      .tier.sel { opacity: 1; border-color: #f1f5f9; transform: scale(1.01); }
+      .tier .th { display: flex; justify-content: space-between; align-items: center; }
+      .tier .tname { font-weight: 700; font-size: 0.95rem; }
+      .tier .tband { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.3); }
+      .tier .tdesc { font-size: 0.78rem; margin-top: 4px; opacity: 0.92; }
+      .t0 { background: linear-gradient(135deg,#7f1d1d,#991b1b); max-width: 360px; }
+      .t1 { background: linear-gradient(135deg,#9a3412,#c2410c); max-width: 460px; }
+      .t2 { background: linear-gradient(135deg,#854d0e,#a16207); max-width: 560px; }
+      .t3 { background: linear-gradient(135deg,#065f46,#047857); max-width: 640px; }
+      .detail { background: #0b1220; border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; min-height: 2em; }
+      .detail h3 { font-size: 0.9rem; color: #f1f5f9; margin-bottom: 6px; }
+      .detail ul { margin: 6px 0 0 18px; }
+      .detail li { font-size: 0.82rem; color: #cbd5e1; line-height: 1.6; }
+      .detail .ex { font-size: 0.8rem; color: #94a3b8; margin-bottom: 8px; }
+      .result { font-size: 0.86rem; line-height: 1.6; }
+      .badge { display: inline-block; font-size: 0.74rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin-left: 6px; }
+      .hint { font-size: 0.8rem; color: #64748b; margin-top: 12px; }
+      .small { font-size: 0.78rem; color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="index.html">← All visualizations</a>
+      <h1>05 · AI Governance — EU AI Act Risk Tiers</h1>
+      <p class="lede">
+        The EU AI Act classifies systems by <strong>risk</strong>, and obligations scale with the tier. Pick a system
+        on the left to see where it lands and what you'd owe — or click a tier in the pyramid to read its rules. Most
+        chatbots are <strong>limited risk</strong>: the binding duty is <em>disclosure</em>. See Guide 07 §10.
+      </p>
+
+      <div class="panel">
+        <h2>🏷️ Classify a system</h2>
+        <div class="controls" id="examples"></div>
+        <div class="detail result" id="result"><span class="small">Pick a system above, or click a tier below.</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>⛰️ The risk pyramid (click a tier)</h2>
+        <div class="pyramid" id="pyramid"></div>
+        <div class="detail" id="tierDetail" style="margin-top:12px"><span class="small">Click a tier to see its obligations.</span></div>
+        <div class="hint">Tiers also exist in spirit elsewhere: the <strong>NIST AI RMF</strong> (Govern · Map · Measure · Manage) and <strong>ISO/IEC 42001</strong> give you the management system to satisfy them.</div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      const TIERS = {
+        unacceptable: { cls: "t0", name: "Unacceptable", band: "Banned", color: "#fca5a5",
+          desc: "Prohibited outright.",
+          obligations: ["May not be placed on the EU market at all", "No mitigation makes it lawful"],
+          examples: "Social scoring by governments, manipulative subliminal AI, most real-time public biometric ID." },
+        high: { cls: "t1", name: "High risk", band: "Heavy duties", color: "#fdba74",
+          desc: "Allowed, but tightly regulated.",
+          obligations: ["Risk-management system + conformity assessment", "Data governance & quality controls", "Human oversight built in", "Logging / traceability (audit trail)", "Transparency + accuracy/robustness documentation", "Registration in the EU database"],
+          examples: "AI in hiring, credit scoring, medical devices, education grading, critical infrastructure." },
+        limited: { cls: "t2", name: "Limited risk", band: "Transparency", color: "#fcd34d",
+          desc: "Allowed with disclosure duties.",
+          obligations: ["Tell users they're interacting with an AI", "Label AI-generated / manipulated content (deepfakes)", "Disclose emotion-recognition / biometric categorization"],
+          examples: "Customer-support chatbots, generative content tools, deepfakes, emotion recognition." },
+        minimal: { cls: "t3", name: "Minimal risk", band: "No extra duties", color: "#6ee7b7",
+          desc: "The vast majority of AI.",
+          obligations: ["No specific legal obligation under the Act", "Voluntary codes of conduct encouraged"],
+          examples: "Spam filters, AI in video games, inventory optimization, recommendation of low-stakes content." },
+      };
+
+      const EXAMPLES = [
+        { label: "🛟 Device-support chatbot", tier: "limited", note: "A conversational assistant → users must be told it's an AI. This module's capstone lands here." },
+        { label: "🧑‍💼 Résumé screening AI", tier: "high", note: "Employment decisions are explicitly high-risk: needs human oversight, logging, and a conformity assessment." },
+        { label: "💳 Credit-scoring model", tier: "high", note: "Access to essential financial services → high-risk; bias testing and appeal paths are mandatory." },
+        { label: "🎮 Game NPC dialogue", tier: "minimal", note: "Low-stakes entertainment → no specific obligations." },
+        { label: "🕵️ Real-time face ID in public", tier: "unacceptable", note: "Live remote biometric identification in public spaces is prohibited (narrow exceptions only)." },
+        { label: "🎭 Deepfake video generator", tier: "limited", note: "Allowed, but the AI-generated content must be clearly labeled." },
+      ];
+
+      function renderPyramid() {
+        const order = ["unacceptable", "high", "limited", "minimal"];
+        $("pyramid").innerHTML = order.map((k) => {
+          const t = TIERS[k];
+          return `<div class="tier ${t.cls}" data-tier="${k}">
+            <div class="th"><span class="tname">${t.name}</span><span class="tband">${t.band}</span></div>
+            <div class="tdesc">${t.desc}</div></div>`;
+        }).join("");
+        document.querySelectorAll(".tier").forEach((el) =>
+          el.addEventListener("click", () => showTier(el.dataset.tier))
+        );
+      }
+
+      function showTier(key, fromExample) {
+        const t = TIERS[key];
+        document.querySelectorAll(".tier").forEach((el) =>
+          el.classList.toggle("sel", el.dataset.tier === key)
+        );
+        $("tierDetail").innerHTML = `<h3 style="color:${t.color}">${t.name} <span class="badge" style="background:${t.color}22;color:${t.color}">${t.band}</span></h3>
+          <div class="ex">Examples: ${t.examples}</div>
+          <strong class="small">Obligations:</strong>
+          <ul>${t.obligations.map((o) => `<li>${o}</li>`).join("")}</ul>`;
+        if (!fromExample) $("tierDetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      function renderExamples() {
+        $("examples").innerHTML = EXAMPLES.map((e, i) => `<button data-i="${i}">${e.label}</button>`).join("");
+        document.querySelectorAll("#examples button").forEach((b) =>
+          b.addEventListener("click", () => {
+            const e = EXAMPLES[parseInt(b.dataset.i, 10)];
+            const t = TIERS[e.tier];
+            $("result").innerHTML = `<strong>${e.label}</strong> →
+              <span class="badge" style="background:${t.color}22;color:${t.color}">${t.name} · ${t.band}</span><br/>
+              <span class="small">${e.note}</span>`;
+            showTier(e.tier, true);
+          })
+        );
+      }
+
+      renderPyramid();
+      renderExamples();
+    </script>
+  </body>
+</html>

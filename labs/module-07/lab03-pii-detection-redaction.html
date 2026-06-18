@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>03 · PII Detection &amp; Redaction</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 28px 20px; }
+      .wrap { max-width: 960px; margin: 0 auto; }
+      a.back { color: #22d3ee; text-decoration: none; font-size: 0.82rem; }
+      h1 { font-size: 1.5rem; margin: 8px 0 4px; color: #f1f5f9; }
+      p.lede { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; margin-bottom: 18px; max-width: 74ch; }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+      textarea { width: 100%; background: #0b1220; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; padding: 12px; font-size: 0.88rem; resize: vertical; min-height: 120px; font-family: inherit; line-height: 1.5; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+      button { background: #0b1220; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; cursor: pointer; transition: all .12s; }
+      button:hover { border-color: #22d3ee; color: #e2e8f0; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 720px){ .grid { grid-template-columns: 1fr; } }
+      h2 { font-size: 0.92rem; color: #f1f5f9; margin-bottom: 8px; }
+      .render { background: #0b1220; border: 1px solid #334155; border-radius: 8px; padding: 12px 14px; font-size: 0.88rem; line-height: 1.7; min-height: 120px; white-space: pre-wrap; word-break: break-word; }
+      mark { border-radius: 4px; padding: 1px 4px; font-weight: 600; }
+      .redacted { background: #1e293b; color: #fcd34d; font-family: "Consolas", monospace; font-size: 0.82em; border-radius: 4px; padding: 1px 5px; }
+      .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.76rem; color: #cbd5e1; margin-top: 14px; }
+      .legend span { display: inline-flex; align-items: center; gap: 6px; }
+      .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+      .counts { font-size: 0.8rem; color: #94a3b8; margin-top: 10px; }
+      .counts b { color: #f1f5f9; }
+      .hint { font-size: 0.8rem; color: #64748b; margin-top: 14px; }
+      code { background: #0b1220; padding: 1px 5px; border-radius: 4px; color: #fcd34d; font-size: 0.82em; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="index.html">← All visualizations</a>
+      <h1>03 · PII Detection &amp; Redaction</h1>
+      <p class="lede">
+        Personal data — emails, phone numbers, card numbers, SSNs, API keys — should be <strong>stripped before it
+        reaches the model or your logs</strong>. Type (or paste) below and watch entities get detected on the left and
+        redacted on the right, in real time. This regex pass is the cheap first layer; production adds an NER model
+        (Presidio, Comprehend) for names and addresses — see Guide 07 §5.2.
+      </p>
+
+      <div class="panel">
+        <textarea id="input">Hi, I'm Jane Doe. Email me at jane.doe@example.com or call 415-555-0132.
+My card is 4539 8612 0384 7211 and my SSN is 123-45-6789.
+Here's my key: sk-proj-AB12cd34EF56gh78IJ90kl12MN34op56 — please don't store it!</textarea>
+        <div class="controls">
+          <button data-fill="Hi, I'm Jane Doe. Email me at jane.doe@example.com or call 415-555-0132.&#10;My card is 4539 8612 0384 7211 and my SSN is 123-45-6789.&#10;Here's my key: sk-proj-AB12cd34EF56gh78IJ90kl12MN34op56 — please don't store it!">↺ Reset sample</button>
+          <button data-fill="Contact: bob@acme.io, +1 (202) 555-0188. IP 192.168.1.42. Order #A1029.">Mixed contacts</button>
+          <button data-fill="The TimeFlow X1 battery lasts 7 days and is water resistant to 50m.">No PII (clean)</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>🔎 Detected (highlighted in place)</h2>
+          <div class="render" id="detected"></div>
+        </div>
+        <div class="panel">
+          <h2>🔒 Redacted (safe to send / log)</h2>
+          <div class="render" id="redactedOut"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="counts" id="counts"></div>
+        <div class="legend" id="legend"></div>
+        <div class="hint">Redaction is reversible only if you keep a secure map outside the prompt. For most chatbots you redact one-way: the model answers about <code>[REDACTED-CARD]</code> without ever seeing the digits.</div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      // Order matters: match the most specific patterns first.
+      const RULES = [
+        { type: "API key",  token: "[REDACTED-KEY]",   color: "#f472b6", re: /sk-(?:proj-)?[A-Za-z0-9_-]{20,}/g },
+        { type: "Card",     token: "[REDACTED-CARD]",  color: "#f59e0b", re: /\b(?:\d[ -]?){12,15}\d\b/g },
+        { type: "SSN",      token: "[REDACTED-SSN]",   color: "#fb7185", re: /\b\d{3}-\d{2}-\d{4}\b/g },
+        { type: "Email",    token: "[REDACTED-EMAIL]", color: "#34d399", re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
+        { type: "Phone",    token: "[REDACTED-PHONE]", color: "#60a5fa", re: /(?:\+?\d{1,2}[ .-]?)?(?:\(\d{3}\)|\d{3})[ .-]?\d{3}[ .-]?\d{4}\b/g },
+        { type: "IP",       token: "[REDACTED-IP]",    color: "#a78bfa", re: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
+      ];
+
+      function escapeHtml(s) {
+        return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      }
+
+      function process(text) {
+        // Collect non-overlapping matches across all rules.
+        const spans = [];
+        RULES.forEach((rule) => {
+          let m;
+          rule.re.lastIndex = 0;
+          while ((m = rule.re.exec(text)) !== null) {
+            spans.push({ start: m.index, end: m.index + m[0].length, text: m[0], rule });
+          }
+        });
+        spans.sort((a, b) => a.start - b.start || b.end - a.end);
+
+        // Resolve overlaps (keep the earliest / longest, drop the rest).
+        const kept = [];
+        let cursor = -1;
+        for (const s of spans) {
+          if (s.start >= cursor) { kept.push(s); cursor = s.end; }
+        }
+
+        let detected = "", redacted = "", pos = 0;
+        const counts = {};
+        for (const s of kept) {
+          detected += escapeHtml(text.slice(pos, s.start));
+          redacted += escapeHtml(text.slice(pos, s.start));
+          detected += `<mark style="background:${s.rule.color}33;color:${s.rule.color};border:1px solid ${s.rule.color}">${escapeHtml(s.text)}</mark>`;
+          redacted += `<span class="redacted">${s.rule.token}</span>`;
+          counts[s.rule.type] = (counts[s.rule.type] || 0) + 1;
+          pos = s.end;
+        }
+        detected += escapeHtml(text.slice(pos));
+        redacted += escapeHtml(text.slice(pos));
+        return { detected, redacted, counts, total: kept.length };
+      }
+
+      function update() {
+        const { detected, redacted, counts, total } = process($("input").value);
+        $("detected").innerHTML = detected || "<span style='color:#64748b'>—</span>";
+        $("redactedOut").innerHTML = redacted || "<span style='color:#64748b'>—</span>";
+        const breakdown = Object.entries(counts).map(([k, v]) => `${v}× ${k}`).join(", ");
+        $("counts").innerHTML = total
+          ? `Found <b>${total}</b> PII ${total === 1 ? "entity" : "entities"}: ${breakdown}.`
+          : "No PII detected — this text is safe to send and log as-is. ✅";
+      }
+
+      // Legend
+      $("legend").innerHTML = RULES.map((r) =>
+        `<span><span class="swatch" style="background:${r.color}"></span>${r.type} → <code>${r.token}</code></span>`
+      ).join("");
+
+      $("input").addEventListener("input", update);
+      document.querySelectorAll("button[data-fill]").forEach((b) =>
+        b.addEventListener("click", () => { $("input").value = b.dataset.fill; update(); })
+      );
+      update();
+    </script>
+  </body>
+</html>

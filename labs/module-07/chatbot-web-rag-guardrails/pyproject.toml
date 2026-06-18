@@ -1,0 +1,22 @@
+[project]
+name = "rag-chatbot-guardrails"
+version = "0.1.0"
+description = "Module 7 capstone: the upload-RAG chatbot hardened with layered guardrails (moderation, PII redaction, injection scan, groundedness) + an AI-governance audit log."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.40.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "chromadb>=0.5.0",
+    "pypdf>=4.0.0",
+    "python-multipart>=0.0.9",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]

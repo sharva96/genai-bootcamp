@@ -1,0 +1,10 @@
+[project]
+name = "prompt-injection-defense"
+version = "0.1.0"
+description = "Heuristic + LLM detection of prompt-injection / jailbreak attempts (Module 7 demo)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=2.2.0",
+    "python-dotenv>=1.0.0",
+]

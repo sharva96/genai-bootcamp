@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>04 · Content Moderation Scores</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: "Segoe UI", system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 28px 20px; }
+      .wrap { max-width: 920px; margin: 0 auto; }
+      a.back { color: #22d3ee; text-decoration: none; font-size: 0.82rem; }
+      h1 { font-size: 1.5rem; margin: 8px 0 4px; color: #f1f5f9; }
+      p.lede { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; margin-bottom: 18px; max-width: 74ch; }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+      button { background: #0b1220; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; cursor: pointer; transition: all .12s; }
+      button:hover { border-color: #22d3ee; color: #e2e8f0; }
+      .row { display: flex; gap: 8px; }
+      input.msg { flex: 1; background: #0b1220; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; padding: 9px 12px; font-size: 0.85rem; }
+      .verdict { padding: 12px 14px; border-radius: 8px; font-size: 0.9rem; margin: 14px 0; border-left: 4px solid #334155; font-weight: 600; }
+      .verdict.flagged { background: #2a0f12; border-left-color: #f87171; color: #fca5a5; }
+      .verdict.clean { background: #052e2b; border-left-color: #34d399; color: #6ee7b7; }
+      .cat { margin: 10px 0; }
+      .cat .top { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px; }
+      .cat .name { color: #cbd5e1; }
+      .cat .val { font-family: "Consolas", monospace; color: #94a3b8; }
+      .bar { position: relative; height: 14px; background: #0b1220; border: 1px solid #1e293b; border-radius: 999px; overflow: hidden; }
+      .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; transition: width .35s ease; }
+      .threshline { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #f1f5f9; z-index: 2; }
+      .thresh-ctl { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+      .thresh-ctl input[type=range] { flex: 1; accent-color: #22d3ee; }
+      .thresh-ctl .tv { font-family: "Consolas", monospace; color: #f1f5f9; font-size: 0.82rem; min-width: 3ch; }
+      .hint { font-size: 0.8rem; color: #64748b; margin-top: 12px; }
+      .small { font-size: 0.76rem; color: #64748b; }
+      code { background: #0b1220; padding: 1px 5px; border-radius: 4px; color: #fcd34d; font-size: 0.82em; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="index.html">← All visualizations</a>
+      <h1>04 · Content Moderation Scores</h1>
+      <p class="lede">
+        A moderation model (like OpenAI's <code>omni-moderation-latest</code>) returns a <strong>score per harm
+        category</strong>, not just a yes/no. The right move is to set <em>your own</em> threshold per your risk
+        tolerance — a kids' app blocks far lower than a creative-writing tool. Pick a sample, then drag the threshold
+        and watch what flips from clean to flagged.
+      </p>
+
+      <div class="panel">
+        <div class="controls">
+          <button data-k="benign">😊 Benign</button>
+          <button data-k="harass">😠 Harassment</button>
+          <button data-k="hate">🚫 Hate</button>
+          <button data-k="selfharm">🆘 Self-harm</button>
+          <button data-k="violence">⚔️ Violence</button>
+          <button data-k="borderline">😐 Borderline</button>
+        </div>
+        <div class="row">
+          <input class="msg" id="msg" value="How long does the battery last on this watch?" readonly />
+        </div>
+
+        <div class="thresh-ctl">
+          <span class="small">Decision threshold</span>
+          <input type="range" id="thresh" min="0" max="100" value="50" />
+          <span class="tv" id="tv">0.50</span>
+        </div>
+
+        <div class="verdict clean" id="verdict">Pick a sample to score it.</div>
+        <div id="cats"></div>
+        <div class="hint">The white line is your threshold. A category is <strong>flagged</strong> when its score crosses the line. Lower it for a stricter policy; raise it to allow more. This is exactly the tuning you do with real moderation scores — see Guide 07 §6.</div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const CATS = ["harassment", "hate", "self-harm", "sexual", "violence", "illicit"];
+
+      // Pre-baked score profiles standing in for a real moderation API response.
+      const SAMPLES = {
+        benign:     { text: "How long does the battery last on this watch?", s: [0.01, 0.00, 0.00, 0.01, 0.02, 0.01] },
+        harass:     { text: "You're an idiot and everyone here hates working with you.", s: [0.88, 0.21, 0.02, 0.01, 0.14, 0.03] },
+        hate:       { text: "People from that group don't deserve any rights at all.", s: [0.42, 0.93, 0.03, 0.01, 0.31, 0.10] },
+        selfharm:   { text: "I don't want to be here anymore and I'm thinking of ending it.", s: [0.05, 0.02, 0.96, 0.00, 0.08, 0.02] },
+        violence:   { text: "I'm going to find him and make him pay, violently.", s: [0.33, 0.12, 0.04, 0.01, 0.91, 0.27] },
+        borderline: { text: "This product is so bad it makes me want to scream.", s: [0.46, 0.05, 0.08, 0.02, 0.22, 0.03] },
+      };
+
+      let current = SAMPLES.benign;
+
+      function colorFor(score, thr) {
+        if (score >= thr) return "#f87171";
+        if (score >= thr * 0.6) return "#f59e0b";
+        return "#34d399";
+      }
+
+      function render() {
+        const thr = parseInt($("thresh").value, 10) / 100;
+        $("tv").textContent = thr.toFixed(2);
+        $("msg").value = current.text;
+
+        let anyFlagged = false;
+        const html = CATS.map((name, i) => {
+          const score = current.s[i];
+          const flagged = score >= thr;
+          if (flagged) anyFlagged = true;
+          const col = colorFor(score, thr);
+          return `<div class="cat">
+            <div class="top"><span class="name">${name}${flagged ? " ⚑" : ""}</span><span class="val">${score.toFixed(2)}</span></div>
+            <div class="bar">
+              <div class="fill" style="width:${(score * 100).toFixed(0)}%;background:${col}"></div>
+              <div class="threshline" style="left:${(thr * 100).toFixed(0)}%"></div>
+            </div>
+          </div>`;
+        }).join("");
+        $("cats").innerHTML = html;
+
+        const v = $("verdict");
+        if (anyFlagged) {
+          const hit = CATS.filter((_, i) => current.s[i] >= thr);
+          v.className = "verdict flagged";
+          v.innerHTML = `🚫 FLAGGED — exceeds threshold in: <strong>${hit.join(", ")}</strong>. Block + safe decline.`;
+        } else {
+          v.className = "verdict clean";
+          v.innerHTML = "✅ CLEAN — no category crosses your threshold. Allow.";
+        }
+      }
+
+      document.querySelectorAll("button[data-k]").forEach((b) =>
+        b.addEventListener("click", () => { current = SAMPLES[b.dataset.k]; render(); })
+      );
+      $("thresh").addEventListener("input", render);
+      render();
+    </script>
+  </body>
+</html>

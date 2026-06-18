@@ -1,0 +1,10 @@
+[project]
+name = "moderation-api"
+version = "0.1.0"
+description = "Screen text with the OpenAI Moderation API + custom thresholds (Module 7 demo)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=2.2.0",
+    "python-dotenv>=1.0.0",
+]
